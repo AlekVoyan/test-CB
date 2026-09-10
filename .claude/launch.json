@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5173", "--strictPort"],
       "port": 5173
+    },
+    {
+      "name": "app-nvidia",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["LLM_PROVIDER=nvidia", "npm", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
     }
   ]
 }

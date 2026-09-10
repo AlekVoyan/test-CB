@@ -56,6 +56,15 @@ const argValue = (name: string) => {
 const onlySession = argValue("--session");
 const runs = Number(argValue("--runs") ?? process.env.EVAL_RUNS ?? 3);
 const mode = (process.env.RETRIEVAL_MODE as RetrievalMode | undefined) ?? config.retrievalMode;
+// Record the code version at the start: the report is written minutes later and HEAD may have moved.
+let commit = "unknown";
+try {
+  commit = execSync("git rev-parse --short HEAD", { cwd: root }).toString().trim();
+  if (execSync("git status --porcelain -- src eval/run-eval.ts", { cwd: root }).toString().trim()) commit += " + uncommitted changes";
+} catch {
+  // not a git checkout
+}
+
 const created = createLlmFromEnv(process.env);
 if ("error" in created) {
   console.error(`${created.error} Copy .env.example to .env and add the key.`);
@@ -253,13 +262,6 @@ const ms = (x: number) => `${Math.round(x)} ms`;
 const usd = (x: number) => `$${x.toFixed(5)}`;
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
-
-let commit = "unknown";
-try {
-  commit = execSync("git rev-parse --short HEAD", { cwd: root }).toString().trim();
-} catch {
-  // not a git checkout
-}
 
 const testIds = [...new Set(records.map((r) => r.testId))];
 const byTest = (id: string) => records.filter((r) => r.testId === id);

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+
+# review tooling and private planning docs (not part of the submission)
+.lavish/
+ТЗ_*

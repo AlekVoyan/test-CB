@@ -1,0 +1,54 @@
+Kestrel Dosing System — User Manual v1
+
+1. Introduction
+This manual covers two models of the Kestrel Dosing System: Model A and Model B.
+Both models use the same 12 V power adapter, but they have different setup procedures and different load limits.
+Read the section for your model before first use.
+
+2. Setup: Model A
+Step 1. Connect the power adapter.
+Step 2. Press and hold the SETUP button for 3 seconds until the status light blinks green.
+Step 3. Select channel 1 on the CHANNEL dial.
+Do not select channel 2 during setup. Channel 2 is reserved for service mode.
+
+3. Setup: Model B
+Step 1. Connect the power adapter.
+Step 2. Open the front cover.
+Step 3. Set the MODE switch to position B.
+Step 4. Press START.
+Model B has no SETUP button. Holding START for more than 10 seconds resets Model B to factory settings.
+
+Page 1 of 3
+=== PAGE ===
+Kestrel Dosing System — User Manual v1
+
+4. Load Limits
+Model A: the maximum load is 20 units.
+Model B: the maximum load is 12 units under normal conditions.
+If the load exceeds the maximum, the unit stops automatically and the status light blinks red.
+The minimum load for both models is 2 units.
+For continuous operation, keep the load at or below 75% of the maximum.
+
+5. Capacity and Environment
+Model A reservoir capacity: 5 liters.
+Model B reservoir capacity: 8 liters.
+Operating temperature for both models: 5°C to 35°C.
+
+Page 2 of 3
+=== PAGE ===
+Kestrel Dosing System — User Manual v1
+
+6. Exceptions
+Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C.
+There is no exception for Model A. Its maximum load must never be exceeded.
+
+7. Maintenance
+Clean the dosing nozzle of Model A every 15 days.
+Clean the dosing nozzle of Model B every 30 days.
+Replace the filter cartridge of either model every 6 months.
+
+8. Troubleshooting
+Status light blinks red: reduce the load, then press SETUP (Model A) or START (Model B).
+Status light is off: check the power adapter connection.
+
+Page 3 of 3

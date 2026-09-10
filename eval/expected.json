@@ -350,6 +350,24 @@
           }
         }
       ]
+    },
+    {
+      "id": "S18",
+      "note": "Added after the first eval run: a user's own document showed that 'what is this document about' got not_found.",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is this document about?",
+          "testId": "A9", "type": "document overview", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "It is the user manual for the Kestrel Dosing System, covering Model A and Model B.",
+            "mustInclude": [["Kestrel"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 1 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 2 }, { "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
     }
   ]
 }

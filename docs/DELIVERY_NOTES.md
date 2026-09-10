@@ -64,7 +64,19 @@ Assumptions and sources: `docs/pricing.md`. **TBD after eval:** tokens per quest
 
 ## 12. One concrete check of AI output
 
-**TBD after eval.**
+**Automated, on every answer.** The validator rejects an answer whose cited ids don't exist, whose status breaks the rules, or that contains a number no cited line (and not the question) contains; the browser and the eval re-check that each quote is an exact substring of its page.
+
+**Worked example (2026-09-10, runtime model NVIDIA Nemotron 3 Super).**
+
+1. Asked "Is Model B ever allowed to exceed its normal limit?". Answer: "Model B may exceed its normal limit up to 15 units for no more than 5 minutes when ambient temperature is below 20°C.", citing `manual-v1.pdf` p.3, line `d1:p3:s3`.
+2. The quote "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C." is an exact substring of the text pdf.js extracted from page 3, and the same line is on page 3 of `fixtures/source/manual-v1.txt`.
+3. Every number in the answer — 15, 5, 20 — appears in the quote.
+4. Rephrased as "Can Model B ever go above its usual maximum load?": same answer, same line, same page.
+5. 👤 Opened `fixtures/manual-v1.pdf` in a PDF viewer and compared the sentence on page 3 by eye.
+
+Reproduce with `npm run verify-example` (uses whichever provider `LLM_PROVIDER` selects).
+
+**The check that mattered most.** In the first rerun after the A6/A7 fixes, the model answered "12 units" for Model B twice but cited a different line both times. The validator rejected it because 12 was not in the cited line, so the app said "I couldn't verify an answer" instead of showing a correct-sounding answer with a wrong citation — exactly the failure the brief warns about. The retry message now lists the lines that do contain the number; a targeted rerun then passed R1b and A7 3/3.
 
 ## 13. What failed / known limitations
 
@@ -75,7 +87,12 @@ Known before the eval:
 - Wrapped-line joining and the "not found must say so" check are heuristics tuned on clean PDFs.
 - The client bundle is ~594 KB (mostly pdf.js); not code-split.
 
-**TBD after eval:** failed tests.
+Found by the eval (NVIDIA Nemotron 3 Super):
+- **A6 fails 3/3** — "Can Model B run at 15 units when it's 25°C?" gets "The uploaded documents do not specify…" instead of "No, the exception applies only below 20°C". A safe failure (declines, invents nothing, 0 citations), not fixed by two general prompt changes. Not tuned further to avoid fitting the prompt to one test. **TBD:** result on Claude Haiku 4.5.
+- **Mis-cited numbers** — the model sometimes cites a neighbouring line for a correct number. The validator catches it; since the retry hint (commit `e41c065`) the retry fixes it.
+- **One garbled answer** — "answerModelA: the maximum load is 20 units." (fact and quote correct, so it scored as a pass). The validator checks facts and quotes, not fluency.
+- **Free endpoint** — returns 503 "temporarily overloaded" at times (handled by retries; one unscored provider error in the first run) and its latency varies.
+- **A7 before the fix** — "model bee" was answered with a clarification question; fixed in code by restoring spoken letters after "model".
 
 ## 14. Unfinished parts
 

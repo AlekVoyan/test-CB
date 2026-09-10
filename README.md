@@ -22,6 +22,7 @@ Upload `fixtures/manual-v1.pdf`, press the microphone and ask "What is the maxim
 | `npm run build` | Type-check and production build to `dist/` |
 | `npm test` | Unit tests — ingestion, limits, retriever, validator, answerer (no API key needed) |
 | `npm run eval` | Runs every session in `eval/expected.json` against the real PDFs and the LLM; writes `eval/results/` (needs the key). Options: `-- --session S5`, `-- --runs 1` |
+| `npm run verify-example` | Re-runs the worked AI-output check from the delivery notes (quote, page, numbers, paraphrase) |
 | `npm run fixtures` | Regenerates the fixture PDFs from `fixtures/source/*.txt` |
 
 ## Environment

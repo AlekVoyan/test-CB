@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "eval": "tsx eval/run-eval.ts",
+    "verify-example": "tsx eval/verify-example.ts",
     "fixtures": "tsx scripts/make-fixtures.ts",
     "typecheck": "tsc --noEmit"
   },

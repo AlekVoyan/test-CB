@@ -31,7 +31,7 @@ Own code: everything under `src/` (ingestion, wrapped-line joining, indexer, tok
 
 - **Development:** Claude Code (desktop app) running Claude Opus 5 (`claude-opus-5`) — wrote the spec review, code, tests and docs under my direction. Lavish Editor (`lavish-axi`) was used to review the implementation plan visually. **👤 add:** any other AI tools used to draft the first version of the spec.
 - **Runtime:** Claude Haiku 4.5 via the Anthropic API (`claude-haiku-4-5`), temperature 0, JSON schema output. During development, before the Anthropic balance was topped up: NVIDIA Nemotron 3 Super 120B A12B (`nvidia/nemotron-3-super-120b-a12b`) on NVIDIA's hosted API, temperature 0, JSON schema, reasoning off. Models tried and rejected in a probe with the real prompt: Mistral Large 2 and Llama 3.1 Nemotron 70B (not available to the account), Nemotron 3.5 Lightning (ignored the schema, 92 s), gpt-oss-20b (timed out).
-- **Speech:** Web Speech API recognition in Chrome (Google speech service); `speechSynthesis` with OS voice **TBD (voice name from the measurements panel)**.
+- **Speech:** Web Speech API recognition in Chrome (Google speech service); `speechSynthesis` with the macOS voice "Aaron" in the Chrome test.
 
 ## 5. How to run
 
@@ -41,7 +41,7 @@ See `README.md` (install, `.env`, `npm run dev`, `npm test`, `npm run eval`, dep
 
 - macOS 15 (Darwin 24.6), Node 22.19.
 - Text flow (upload, ask, answer card, quotes, replace, limits, measurements) checked in the Chromium-based browser embedded in the Claude desktop app, desktop and 375 px widths.
-- **👤 TBD:** voice flow in Google Chrome (version), microphone, network.
+- Voice flow: Google Chrome 152 on macOS, local voice "Aaron" (en-US), tested by me with my own 7-page PDF (not in the repo).
 
 ## 7. Test files and questions
 
@@ -82,7 +82,7 @@ How the numbers moved (full runs, 3 runs each):
 | After A6/A7 fixes | `016ee32` | 96.7% (R1b mis-cite, caught) | 83.3% | 100% | 0 |
 | After retry hint + permission rule | `e41c065` | 100% | 87.5% (A6 fails) | 100% | 0 |
 
-`expected.json` was not changed after the first run.
+`expected.json` was not changed after the first run except for one added test, in its own commit: **A9, "What is this document about?"** (session S18). Asking my own 7-page PDF "about what is document" by voice returned `not_found`: the prompt handled specific facts but not questions about the document as a whole. The prompt now answers those from the title, headings and introduction, and A9 checks it on the fixture manual.
 
 ## 9. Factual accuracy and citation accuracy
 
@@ -118,7 +118,9 @@ The two scores are equal in this run because the only failure (A6) declined to a
 | Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
 | Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
 | Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 69 questions | median 2151 ms, p90 7322 ms, max 33437 ms (the max includes provider retries on the free endpoint) |
-| Speech end → transcript (STT), speech end → first audio | Chrome | **👤 TBD** (Measurements panel → Copy measurements JSON) |
+| Ingestion, my own 7-page PDF | Chrome 152 | 157 ms (extract 153 ms, index 1 ms) |
+| Voice question → first audio, same PDF | Chrome 152, NVIDIA | speech end → first audio 1172 ms; submit → first audio 1172 ms (LLM 1053 ms); one sample |
+| End of speech → final transcript (STT) | Chrome 152 | read 0 ms in that test — a measurement bug: Chrome fired `speechend` after the final result, so the code used the final result as the end of speech. Now the end is `speechend` or the last interim result, whichever comes first. **👤 re-measure** |
 | Cold start of the deployed function | Vercel | **TBD** |
 
 Almost all of the question latency is the model call; retrieval and validation are ~1 ms. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.

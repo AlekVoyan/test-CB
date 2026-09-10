@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "recordedAt": "2026-09-10",
+  "note": "Expected outcomes recorded BEFORE the first eval run. Do not edit after the first run without a separate commit and an explanation in docs/DELIVERY_NOTES.md.",
+  "matching": "Case-insensitive, whole-word/number boundaries, degree-sign variants normalized. mustInclude is a list of groups; every group must match; any alternative inside a group satisfies it. Any mustNotInclude match fails the answer. Sources refer to the file name as uploaded.",
+  "sessions": [
+    {
+      "id": "S1",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is the maximum for Model A?",
+          "testId": "M1", "type": "direct fact", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "The maximum load for Model A is 20 units.",
+            "mustInclude": [["20"]], "mustNotInclude": ["24"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "And what about the other model?",
+          "testId": "M3", "type": "follow-up", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "Model B's maximum load is 12 units under normal conditions.",
+            "mustInclude": [["12"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How do I set up Model A versus Model B?",
+          "testId": "M2", "type": "comparison", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "Model A: connect power, hold SETUP for 3 seconds, select channel 1. Model B: connect power, open the front cover, set MODE to B, press START.",
+            "mustInclude": [["SETUP"], ["3 seconds", "3-second", "three seconds", "3 sec"], ["channel 1"], ["cover"], ["MODE"], ["START"]],
+            "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 1 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Is Model B ever allowed to exceed its normal limit?",
+          "testId": "M4", "type": "exception", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "Yes. Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C.",
+            "mustInclude": [["yes"], ["15"], ["5 minutes", "five minutes"], ["20"]],
+            "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 3 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 2 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is the battery life of Model A?",
+          "testId": "M5", "type": "absent fact", "priority": "P0",
+          "expected": {
+            "status": "not_found",
+            "answer": "The manual does not specify battery life.",
+            "mustInclude": [], "mustNotInclude": ["hours", "mAh"],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is the maximum for Model A?",
+          "testId": "M6-baseline", "type": "replacement baseline", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "The maximum load for Model A is 20 units.",
+            "mustInclude": [["20"]], "mustNotInclude": ["24"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        },
+        { "remove": ["manual-v1.pdf"] },
+        { "upload": ["manual-v2.pdf"] },
+        {
+          "ask": "What is the maximum for Model A?",
+          "testId": "M6", "type": "replacement", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "The maximum load for Model A is 24 units.",
+            "mustInclude": [["24"]], "mustNotInclude": ["20 units"],
+            "sources": [{ "file": "manual-v2.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is the limit?",
+          "testId": "R1", "type": "ambiguity", "priority": "P0",
+          "expected": {
+            "status": "needs_clarification",
+            "answer": "Which model do you mean — Model A or Model B?",
+            "mustInclude": [["Model A"], ["Model B"]], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "Model B.",
+          "testId": "R1b", "type": "clarification answer", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "Model B's maximum load is 12 units under normal conditions.",
+            "mustInclude": [["12"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S7",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        { "ask": "What is the maximum for Model A?" },
+        {
+          "ask": "I meant Model B.",
+          "testId": "R2", "type": "correction", "priority": "P0",
+          "expected": {
+            "status": "answered",
+            "answer": "Model B's maximum load is 12 units.",
+            "mustInclude": [["12"]], "mustNotInclude": ["20 units"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S8",
+      "steps": [
+        { "upload": ["manual-v1.pdf", "manual-v2.pdf"] },
+        {
+          "ask": "What is the maximum for Model A?",
+          "testId": "A1", "type": "conflicting documents", "priority": "P1",
+          "expected": {
+            "status": "conflict",
+            "answer": "manual-v1.pdf says 20 units; manual-v2.pdf says 24 units.",
+            "mustInclude": [["20"], ["24"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }, { "file": "manual-v2.pdf", "page": 2 }],
+            "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S9",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How many units can A handle?",
+          "testId": "A2", "type": "paraphrase", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "Model A can handle a maximum load of 20 units.",
+            "mustInclude": [["20"]], "mustNotInclude": ["12 units"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How often should I clean the nozzle on Model B?",
+          "testId": "A3", "type": "distractor", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "Clean the dosing nozzle of Model B every 30 days.",
+            "mustInclude": [["30"]], "mustNotInclude": ["15 days"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 3 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What is the maximum load for Model C?",
+          "testId": "A4", "type": "unknown entity", "priority": "P1",
+          "expected": {
+            "status": "not_found",
+            "answer": "The manual only covers Model A and Model B.",
+            "mustInclude": [], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "steps": [
+        { "upload": [{ "file": "manual-v2.pdf", "as": "manual-v1.pdf" }] },
+        {
+          "ask": "What is the maximum for Model A?",
+          "testId": "A5", "type": "rename (anti-hardcode)", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "The maximum load for Model A is 24 units.",
+            "mustInclude": [["24"]], "mustNotInclude": ["20 units"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Can Model B run at 15 units when it's 25°C?",
+          "testId": "A6", "type": "exception reasoning", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+            "mustInclude": [["no", "not", "cannot", "can't"], ["20"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 3 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 2 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "steps": [
+        { "upload": ["holdout-nimbus.pdf"] },
+        {
+          "ask": "What room size is the Pro designed for?",
+          "testId": "H1", "type": "holdout direct", "priority": "holdout",
+          "expected": {
+            "status": "answered",
+            "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+            "mustInclude": [["60"]], "mustNotInclude": [],
+            "sources": [{ "file": "holdout-nimbus.pdf", "page": 1 }], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "How often should I replace the filter on the Compact?",
+          "testId": "H2", "type": "holdout direct", "priority": "holdout",
+          "expected": {
+            "status": "answered",
+            "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+            "mustInclude": [["6 months", "six months"]], "mustNotInclude": ["12 months"],
+            "sources": [{ "file": "holdout-nimbus.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "And the other one?",
+          "testId": "H3", "type": "holdout follow-up", "priority": "holdout",
+          "expected": {
+            "status": "answered",
+            "answer": "Nimbus Pro: replace the HEPA filter every 12 months.",
+            "mustInclude": [["12 months", "twelve months"]], "mustNotInclude": [],
+            "sources": [{ "file": "holdout-nimbus.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S15",
+      "steps": [
+        { "upload": ["holdout-nimbus.pdf"] },
+        {
+          "ask": "Does the Compact have night mode?",
+          "testId": "H4", "type": "holdout inference", "priority": "holdout",
+          "expected": {
+            "status": "answered",
+            "answer": "No. Night mode is available only on Nimbus Pro.",
+            "mustInclude": [["no", "not", "only"]], "mustNotInclude": ["yes"],
+            "sources": [{ "file": "holdout-nimbus.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "How much does the Pro cost?",
+          "testId": "H5", "type": "holdout absent", "priority": "holdout",
+          "expected": {
+            "status": "not_found",
+            "answer": "The guide does not state a price.",
+            "mustInclude": [], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S16",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What's the max load for model bee?",
+          "testId": "A7", "type": "STT error", "priority": "P1",
+          "expected": {
+            "status": "answered",
+            "answer": "Model B's maximum load is 12 units.",
+            "mustInclude": [["12"]], "mustNotInclude": ["20 units"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S17",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        { "ask": "What is the maximum for Model A?" },
+        { "remove": ["manual-v1.pdf"] },
+        { "upload": ["manual-v2.pdf"] },
+        {
+          "ask": "And what about the other model?",
+          "testId": "A8", "type": "history reset", "priority": "P1",
+          "expected": {
+            "status": "needs_clarification",
+            "answer": "Which model do you mean?",
+            "mustInclude": [], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
+    }
+  ]
+}

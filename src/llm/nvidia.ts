@@ -6,7 +6,7 @@ import { LLM_ANSWER_JSON_SCHEMA, parseLlmAnswer } from "../core/contract.js";
 const BASE_URL = "https://integrate.api.nvidia.com/v1";
 // The free endpoint returns 503 "temporarily overloaded" now and then; retry like the Anthropic SDK does.
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
-const MAX_TRANSPORT_ATTEMPTS = 3;
+const MAX_TRANSPORT_ATTEMPTS = 4; // waits 1.5 s, 3 s, 6 s between attempts
 
 interface ChatCompletion {
   model?: string;
@@ -58,7 +58,7 @@ export function createNvidiaLlm(options: {
         } catch (error) {
           lastError = `NVIDIA API request failed: ${error instanceof Error ? error.message : String(error)}`;
         }
-        if (attempt < MAX_TRANSPORT_ATTEMPTS) await sleep(1000 * 2 ** (attempt - 1));
+        if (attempt < MAX_TRANSPORT_ATTEMPTS) await sleep(1500 * 2 ** (attempt - 1));
       }
       const latencyMs = performance.now() - started;
 

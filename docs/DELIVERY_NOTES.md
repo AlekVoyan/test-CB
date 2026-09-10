@@ -20,6 +20,7 @@ A browser prototype: upload up to two text-based PDFs (≤ 10 pages total), ask 
 | Auto-submit the final transcript | Faster; the transcript stays visible and a spoken correction ("I meant Model B") works. | A misrecognised question is sent before the user can fix it. |
 | No embeddings, no OCR | Not needed for ≤ 10 text pages; the brief excludes scans. | Scanned PDFs are rejected with a message. |
 | Claude Haiku 4.5 | Fastest and cheapest current Claude model; the task is extraction from a short text. | Weaker on subtle reasoning than larger models. |
+| Second provider: NVIDIA-hosted Nemotron 3 Super (`LLM_PROVIDER=nvidia`) | The Anthropic balance was empty during development; the pipeline sits behind an `LlmClient` interface, so a second adapter was cheap. Reasoning is turned off: with it on, the model's JSON degenerated into whitespace. | The free endpoint is slower and returns 503 at times (handled with retries). Its results are reported separately and priced at a paid provider's list price. |
 
 ## 3. Reused components and own work
 
@@ -29,7 +30,7 @@ Own code: everything under `src/` (ingestion, wrapped-line joining, indexer, tok
 ## 4. AI tools and models
 
 - **Development:** Claude Code (desktop app) running Claude Opus 5 (`claude-opus-5`) — wrote the spec review, code, tests and docs under my direction. Lavish Editor (`lavish-axi`) was used to review the implementation plan visually. **👤 add:** any other AI tools used to draft the first version of the spec.
-- **Runtime:** Claude Haiku 4.5 via the Anthropic API (`claude-haiku-4-5`), temperature 0, JSON schema output.
+- **Runtime:** Claude Haiku 4.5 via the Anthropic API (`claude-haiku-4-5`), temperature 0, JSON schema output. During development, before the Anthropic balance was topped up: NVIDIA Nemotron 3 Super 120B A12B (`nvidia/nemotron-3-super-120b-a12b`) on NVIDIA's hosted API, temperature 0, JSON schema, reasoning off. Models tried and rejected in a probe with the real prompt: Mistral Large 2 and Llama 3.1 Nemotron 70B (not available to the account), Nemotron 3.5 Lightning (ignored the schema, 92 s), gpt-oss-20b (timed out).
 - **Speech:** Web Speech API recognition in Chrome (Google speech service); `speechSynthesis` with OS voice **TBD (voice name from the measurements panel)**.
 
 ## 5. How to run

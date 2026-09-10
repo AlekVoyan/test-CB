@@ -9,13 +9,13 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { answerQuestion } from "../src/core/answerer.js";
 import { config, type RetrievalMode } from "../src/core/config.js";
 import { appendTurn } from "../src/core/conversation.js";
-import { llmCostUsd } from "../src/core/cost.js";
+import { llmCostUsd, priceFor } from "../src/core/cost.js";
 import { ingestPdf } from "../src/core/ingest.js";
 import { normalizeText } from "../src/core/normalize.js";
 import { selectEvidence } from "../src/core/retriever.js";
 import type { AnswerResult, AnswerStatus, IndexedDocument, Turn } from "../src/core/types.js";
 import { verifyCitations } from "../src/core/validator.js";
-import { createAnthropicLlm } from "../src/llm/anthropic.js";
+import { createLlmFromEnv } from "../src/llm/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 try {
@@ -56,13 +56,12 @@ const argValue = (name: string) => {
 const onlySession = argValue("--session");
 const runs = Number(argValue("--runs") ?? process.env.EVAL_RUNS ?? 3);
 const mode = (process.env.RETRIEVAL_MODE as RetrievalMode | undefined) ?? config.retrievalMode;
-const model = process.env.LLM_MODEL || config.llm.model;
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add the key.");
+const created = createLlmFromEnv(process.env);
+if ("error" in created) {
+  console.error(`${created.error} Copy .env.example to .env and add the key.`);
   process.exit(1);
 }
-const llm = createAnthropicLlm({ apiKey: process.env.ANTHROPIC_API_KEY, model });
+const { llm, provider, model } = created;
 
 const expectedFile = JSON.parse(readFileSync(path.join(root, "eval", "expected.json"), "utf8")) as { sessions: Session[] };
 const sessions = expectedFile.sessions.filter((s) => !onlySession || s.id === onlySession);
@@ -264,7 +263,7 @@ const groups = [
 const lines: string[] = [];
 lines.push(`# Eval report`, ``);
 lines.push(`- Date: ${new Date().toISOString()}`);
-lines.push(`- Commit: \`${commit}\` · model: \`${model}\` · retrieval: \`${mode}\` · runs per session: ${runs}`);
+lines.push(`- Commit: \`${commit}\` · provider: \`${provider}\` · model: \`${model}\` · retrieval: \`${mode}\` · runs per session: ${runs}`);
 lines.push(`- Expected outcomes: \`eval/expected.json\` (committed before the first run)`);
 lines.push(`- Latency here is the text pipeline in Node (retrieval + LLM + validation). Voice latency is measured in the browser.`, ``);
 
@@ -337,7 +336,11 @@ const retried = records.filter((r) => r.actual.validation.attempts > 1).length;
 const p0PerRun = mean(
   Array.from({ length: runs }, (_, i) => sum(records.filter((r) => r.run === i + 1 && r.priority === "P0").map((r) => r.costUsd))),
 );
-lines.push(``, `## Cost (LLM only, $${config.pricing.inputUsdPerMTok}/MTok in, $${config.pricing.outputUsdPerMTok}/MTok out)`, ``);
+const price = priceFor(model);
+const costBasis = price
+  ? `$${price.inputUsdPerMTok}/MTok in, $${price.outputUsdPerMTok}/MTok out — ${price.note}`
+  : `no price assumption for ${model} yet`;
+lines.push(``, `## Cost (LLM only, ${costBasis})`, ``);
 lines.push(`| Measure | Value |`, `|---|---|`);
 lines.push(`| Input tokens per question (mean) | ${Math.round(mean(records.map((r) => r.usage.inputTokens)))} |`);
 lines.push(`| Output tokens per question (mean) | ${Math.round(mean(records.map((r) => r.usage.outputTokens)))} |`);

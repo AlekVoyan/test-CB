@@ -13,6 +13,35 @@ export const LlmAnswerSchema = z.object({
 });
 export type LlmAnswer = z.infer<typeof LlmAnswerSchema>;
 
+/** The same contract as a plain JSON Schema, for providers that take a raw schema. */
+export const LLM_ANSWER_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: [...STATUSES] },
+    answer: { type: "string" },
+    citations: { type: "array", items: { type: "string" } },
+    resolvedQuery: { type: "string" },
+    activeEntities: { type: "array", items: { type: "string" } },
+  },
+  required: ["status", "answer", "citations", "resolvedQuery", "activeEntities"],
+  additionalProperties: false,
+};
+
+/** Parses model output into the contract. Tolerates code fences or text around the JSON object. */
+export function parseLlmAnswer(rawText: string): LlmAnswer | null {
+  const start = rawText.indexOf("{");
+  const end = rawText.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const result = LlmAnswerSchema.safeParse(JSON.parse(rawText.slice(start, end + 1)));
+    if (!result.success) return null;
+    // Some models copy the brackets around ids from the evidence ("[d1:p2:s3]").
+    return { ...result.data, citations: result.data.citations.map((id) => id.trim().replace(/^\[(.*)\]$/, "$1")) };
+  } catch {
+    return null;
+  }
+}
+
 const EvidenceUnitSchema = z.object({
   id: z.string().max(40),
   documentId: z.string().max(80),

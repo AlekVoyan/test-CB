@@ -42,7 +42,7 @@ export async function answerQuestion(input: {
   let validationMs = 0;
   let inputTokens = 0;
   let outputTokens = 0;
-  let model: string = config.llm.model;
+  let model = "";
   let errors: string[] = [];
   let warnings: string[] = [];
 

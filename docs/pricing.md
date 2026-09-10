@@ -7,6 +7,7 @@ All prices checked on **2026-09-10** on the vendors' public pages. Free credits 
 | Component | What the prototype uses | Price used in the cost model | Source |
 |---|---|---|---|
 | Reasoning (LLM) | Claude Haiku 4.5, `claude-haiku-4-5`, direct Anthropic API | $1.00 per 1M input tokens, $5.00 per 1M output tokens | [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview), [claude.com/pricing](https://claude.com/pricing) |
+| Reasoning (development fallback) | NVIDIA Nemotron 3 Super 120B A12B, `nvidia/nemotron-3-super-120b-a12b`, called on NVIDIA's free hosted API while the Anthropic balance was empty | $0.085 per 1M input tokens, $0.40 per 1M output tokens — OpenRouter's paid list price for the same model (free access is not zero cost) | [openrouter.ai/api/v1/models](https://openrouter.ai/api/v1/models) |
 | Speech recognition (prototype) | Web Speech API in Chrome/Edge | $0 direct cost. The browser sends audio to its vendor's speech service; there is no SLA and no guarantee it stays free or available for production traffic. | — |
 | Speech synthesis (prototype) | `speechSynthesis` with local OS voices | $0 | — |
 | Speech recognition (production alternative) | Deepgram Nova-3 streaming, pay-as-you-go | $0.0077 per audio minute (list price; a $0.0048 promotional price was shown on the check date) | [deepgram.com/pricing](https://deepgram.com/pricing) |

@@ -3,7 +3,7 @@ import path from "node:path";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
 import { answerQuestion, UNVERIFIED_ANSWER, type LlmClient, type LlmCompletion } from "./answerer.js";
-import type { LlmAnswer } from "./contract.js";
+import { parseLlmAnswer, type LlmAnswer } from "./contract.js";
 import { appendTurn, documentSetKey } from "./conversation.js";
 import { ingestPdf } from "./ingest.js";
 import { SCANNED_MESSAGE } from "./limits.js";
@@ -202,5 +202,18 @@ describe("answerer", () => {
     const result = await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm });
     expect(result).toMatchObject({ status: "not_found", answer: UNVERIFIED_ANSWER, citations: [] });
     expect(result.validation.passed).toBe(false);
+  });
+});
+
+describe("parseLlmAnswer", () => {
+  const valid = { status: "answered", answer: "20 units.", citations: ["d1:p2:s2"], resolvedQuery: "q", activeEntities: ["Model A"] };
+  it("accepts plain JSON and JSON wrapped in a code fence", () => {
+    expect(parseLlmAnswer(JSON.stringify(valid))).toEqual(valid);
+    expect(parseLlmAnswer("```json\n" + JSON.stringify(valid) + "\n```")).toEqual(valid);
+    expect(parseLlmAnswer(JSON.stringify({ ...valid, citations: [" [d1:p2:s2] "] }))?.citations).toEqual(["d1:p2:s2"]);
+  });
+  it("rejects text and objects that break the contract", () => {
+    expect(parseLlmAnswer("The answer is 20 units.")).toBeNull();
+    expect(parseLlmAnswer(JSON.stringify({ ...valid, status: "maybe" }))).toBeNull();
   });
 });

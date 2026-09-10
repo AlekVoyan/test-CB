@@ -3,7 +3,7 @@ import { answerQuestion } from "../core/answerer.js";
 import { config } from "../core/config.js";
 import { AnswerRequestSchema } from "../core/contract.js";
 import { estimateTokens } from "../core/retriever.js";
-import { createAnthropicLlm } from "../llm/anthropic.js";
+import { createLlmFromEnv } from "../llm/index.js";
 
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 30;
@@ -36,14 +36,11 @@ export async function handleAnswerRequest(req: { method: string; body: unknown; 
   if (estimateTokens(parsed.data.evidence) > config.evidenceTokenBudget * 1.25)
     return { status: 413, json: { error: "Too much document text for one question." } };
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { status: 500, json: { error: "ANTHROPIC_API_KEY is not set on the server." } };
+  const created = createLlmFromEnv(process.env);
+  if ("error" in created) return { status: 500, json: { error: created.error } };
 
   try {
-    const result = await answerQuestion({
-      ...parsed.data,
-      llm: createAnthropicLlm({ apiKey, model: process.env.LLM_MODEL || undefined }),
-    });
+    const result = await answerQuestion({ ...parsed.data, llm: created.llm });
     return { status: 200, json: result };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

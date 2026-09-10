@@ -7,6 +7,7 @@ import { parseLlmAnswer, type LlmAnswer } from "./contract.js";
 import { appendTurn, documentSetKey } from "./conversation.js";
 import { ingestPdf } from "./ingest.js";
 import { SCANNED_MESSAGE } from "./limits.js";
+import { normalizeSpokenQuestion } from "./normalize.js";
 import { selectEvidence, tokenize } from "./retriever.js";
 import type { EvidenceUnit, IndexedDocument, Turn } from "./types.js";
 import { validateLlmAnswer, verifyCitations } from "./validator.js";
@@ -89,6 +90,12 @@ describe("tokenizer", () => {
     expect(tokenize("How many units can A handle?")).toContain("model_a");
     expect(tokenize("What's the max load for model bee?")).toContain("model_b");
     expect(tokenize("A filter must be replaced.")).not.toContain("model_a");
+  });
+
+  it("restores spoken letters after 'model' without touching ordinary words", () => {
+    expect(normalizeSpokenQuestion("What's the max load for model bee?")).toBe("What's the max load for model B?");
+    expect(normalizeSpokenQuestion("And Model see?")).toBe("And Model C?");
+    expect(normalizeSpokenQuestion("Should the model be reset?")).toBe("Should the model be reset?");
   });
 });
 

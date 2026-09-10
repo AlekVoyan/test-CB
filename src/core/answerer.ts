@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import type { LlmAnswer } from "./contract.js";
+import { normalizeSpokenQuestion } from "./normalize.js";
 import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt.js";
 import type { AnswerResult, EvidenceUnit, Turn } from "./types.js";
 import { buildCitations, validateLlmAnswer } from "./validator.js";
@@ -36,7 +37,8 @@ export async function answerQuestion(input: {
   const started = performance.now();
   const maxAttempts = input.maxAttempts ?? config.maxAttempts;
   const evidenceById = new Map(input.evidence.map((u) => [u.id, u]));
-  const messages: LlmMessage[] = [{ role: "user", content: buildUserPrompt(input.question, input.history, input.evidence) }];
+  const question = normalizeSpokenQuestion(input.question);
+  const messages: LlmMessage[] = [{ role: "user", content: buildUserPrompt(question, input.history, input.evidence) }];
 
   const llmMs: number[] = [];
   let validationMs = 0;
@@ -56,7 +58,7 @@ export async function answerQuestion(input: {
     const t0 = performance.now();
     if (completion.parsed) {
       ({ errors, warnings } = validateLlmAnswer(completion.parsed, {
-        question: input.question,
+        question,
         evidenceById,
         maxWords: config.answerMaxWords,
         maxCitations: config.maxCitations,

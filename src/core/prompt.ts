@@ -12,6 +12,8 @@ Choose exactly one status:
 
 Questions about whether something is allowed, possible or required under given conditions are decided by the rules the evidence states: compare the question's conditions with the stated ones and answer yes or no with the reason, citing the rule. Use "not_found" only when nothing in the evidence decides the question.
 
+Questions about the document itself (what it is, what it covers, its title or sections) are answered from its title, headings and introduction; cite those lines.
+
 Follow-ups and corrections ("the other model", "the other one", "I meant ...") refer to the conversation: carry over what was being asked and switch to the new subject. If the conversation does not make the reference clear, use "needs_clarification".
 
 Questions come from speech recognition and may contain misheard words, for example a letter or number written as a similar-sounding word. Interpret them when the intended meaning is clear from the documents.

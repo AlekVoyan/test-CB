@@ -257,16 +257,22 @@ export function App() {
     setError(null);
     setInterim("");
     let speechEndAt: number | undefined;
+    let lastInterimAt: number | undefined;
     recognizer.current = startRecognition({
       lang: config.speechLang,
-      onInterim: setInterim,
+      onInterim: (text) => {
+        lastInterimAt = performance.now();
+        setInterim(text);
+      },
       onSpeechEnd: () => {
-        speechEndAt = performance.now(); // speech_end
+        speechEndAt ??= performance.now(); // speech_end
       },
       onFinal: (text) => {
         const sttFinalAt = performance.now(); // stt_final = submit
         setInterim(text);
-        void ask(text, "voice", { speechEndAt: speechEndAt ?? sttFinalAt, sttFinalAt });
+        // Chrome often fires speechend only after the final result; the last interim result then marks the end of speech.
+        const endOfSpeech = speechEndAt ?? lastInterimAt ?? sttFinalAt;
+        void ask(text, "voice", { speechEndAt: endOfSpeech, sttFinalAt });
       },
       onError: (message) => {
         setError(message);
@@ -488,7 +494,7 @@ export function App() {
               {last && (
                 <>
                   <tr>
-                    <th>Speech end → transcript (STT)</th>
+                    <th>End of speech → final transcript (STT; end = speechend or last interim result)</th>
                     <td>{fmtMs(last.sttMs)}</td>
                   </tr>
                   <tr>

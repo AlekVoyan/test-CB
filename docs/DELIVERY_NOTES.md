@@ -39,7 +39,9 @@ See `README.md` (install, `.env`, `npm run dev`, `npm test`, `npm run eval`, dep
 
 ## 6. Browser and device tested
 
-**TBD** (browser, version, OS, machine, network).
+- macOS 15 (Darwin 24.6), Node 22.19.
+- Text flow (upload, ask, answer card, quotes, replace, limits, measurements) checked in the Chromium-based browser embedded in the Claude desktop app, desktop and 375 px widths.
+- **👤 TBD:** voice flow in Google Chrome (version), microphone, network.
 
 ## 7. Test files and questions
 
@@ -48,19 +50,100 @@ Questions and expected outcomes: `eval/expected.json`, committed in `f699eb9` be
 
 ## 8. Expected vs actual results
 
-**TBD after eval.**
+Final run: commit `e41c065`, NVIDIA Nemotron 3 Super, 3 runs per session. Verbatim answers and quotes for every run are in `eval/results/report.md`; raw records in `eval/results/actual-results.json`.
+
+| ID | Type | Question | Expected (status · fact · source) | Passed |
+|---|---|---|---|---|
+| M1 | direct fact | What is the maximum for Model A? | answered · 20 units · v1 p.2 | 3/3 |
+| M3 | follow-up (after M1) | And what about the other model? | answered · Model B 12 units · v1 p.2 | 3/3 |
+| M2 | comparison | How do I set up Model A versus Model B? | answered · both setup sequences · v1 p.1 | 3/3 |
+| M4 | exception | Is Model B ever allowed to exceed its normal limit? | answered · 15 units, ≤ 5 min, below 20°C · v1 p.3 | 3/3 |
+| M5 | absent fact | What is the battery life of Model A? | not_found · 0 citations | 3/3 |
+| M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 3/3) |
+| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 3/3 |
+| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | 3/3 |
+| R2 | correction | I meant Model B. | answered · 12 units, not "20 units" · v1 p.2 | 3/3 |
+| A1 | conflicting documents | What is the maximum for Model A? (v1 + v2 loaded) | conflict · 20 and 24, both documents cited | 3/3 |
+| A2 | paraphrase | How many units can A handle? | answered · 20 units · v1 p.2 | 3/3 |
+| A3 | distractor | How often should I clean the nozzle on Model B? | answered · 30 days, not 15 · v1 p.3 | 3/3 |
+| A4 | unknown entity | What is the maximum load for Model C? | not_found | 3/3 |
+| A5 | rename (v2 uploaded as manual-v1.pdf) | What is the maximum for Model A? | answered · 24 units | 3/3 |
+| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | **0/3** |
+| A7 | speech-recognition error | What's the max load for model bee? | answered · 12 units · v1 p.2 | 3/3 |
+| A8 | history reset (D4) | And what about the other model? (after v1 → v2) | needs_clarification | 3/3 |
+| H1–H5 | holdout document | room size, filter intervals, follow-up, night mode, price | see `eval/expected.json` | 15/15 |
+| I1–I3 | input limits | 3 files, 11 pages, PDF without text | rejected with a message | pass (`npm test`) |
+
+How the numbers moved (full runs, 3 runs each):
+
+| Run | Code | P0 | P1 | Holdout | Critical |
+|---|---|---|---|---|---|
+| First full run | `20bdd17` | 100% | 75.0% (A6, A7 fail) | 100% | 0 |
+| After A6/A7 fixes | `016ee32` | 96.7% (R1b mis-cite, caught) | 83.3% | 100% | 0 |
+| After retry hint + permission rule | `e41c065` | 100% | 87.5% (A6 fails) | 100% | 0 |
+
+`expected.json` was not changed after the first run.
 
 ## 9. Factual accuracy and citation accuracy
 
-**TBD after eval** — two separate tables plus the aggregate and critical failures.
+Scored separately for every test and run (rules in `eval/expected.json` and ТЗ §8). Final run, commit `e41c065`:
+
+**Factual accuracy**
+
+| Group | Tests | Scored runs | Factual accuracy |
+|---|---|---|---|
+| P0 | 10 | 30 | 100.0% |
+| P1 | 8 | 24 | 87.5% |
+| Holdout | 5 | 15 | 100.0% |
+| All | 23 | 69 | 95.7% |
+
+**Citation accuracy**
+
+| Group | Tests | Scored runs | Citation accuracy |
+|---|---|---|---|
+| P0 | 10 | 30 | 100.0% |
+| P1 | 8 | 24 | 87.5% |
+| Holdout | 5 | 15 | 100.0% |
+| All | 23 | 69 | 95.7% |
+
+**Critical failures** (a plausible answer without support, or an answer where the documents have none): **0**.
+
+The two scores are equal in this run because the only failure (A6) declined to answer and cited nothing, which fails both. The case they are meant to separate — right fact, wrong citation — did occur (R1b and A7 in the `016ee32` run), but the validator rejected those answers before they could be shown or scored as correct.
 
 ## 10. Latency
 
-**TBD** — ingestion; question to first audio (submit → utterance start, a proxy); speech end → first audio; breakdown STT / retrieval / LLM / validation / TTS; cold start.
+| Measure | Where | Result |
+|---|---|---|
+| Ingestion, `manual-v1.pdf` (3 pages), file selected → ready | embedded Chromium, local dev | 274 ms and 447 ms (two loads; pdf.js extraction is almost all of it, indexing 1 ms) |
+| Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
+| Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
+| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 69 questions | median 2151 ms, p90 7322 ms, max 33437 ms (the max includes provider retries on the free endpoint) |
+| Speech end → transcript (STT), speech end → first audio | Chrome | **👤 TBD** (Measurements panel → Copy measurements JSON) |
+| Cold start of the deployed function | Vercel | **TBD** |
+
+Almost all of the question latency is the model call; retrieval and validation are ~1 ms. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
 
 ## 11. Cost
 
-Assumptions and sources: `docs/pricing.md`. **TBD after eval:** tokens per question, cost per question (mean/max), retry rate, cost per P0 run, production-voice cost, hosting.
+Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free access is priced at list price).
+
+| Item | Value | Basis |
+|---|---|---|
+| Ingestion | $0 | parsing and indexing run in the browser, no API call |
+| Tokens per question | 1452 in / 87 out (mean, retries included) | measured, final eval, 69 questions |
+| Retries | 5 of 69 questions (7.2%) | measured; their tokens are included above |
+| LLM per question, Nemotron 3 Super | mean $0.00016, max $0.00069 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
+| LLM per question, Claude Haiku 4.5 | ≈ $0.0019 | **estimate**: same token counts × $1 / $5 per MTok; Haiku's tokenizer differs — **TBD measured** |
+| One pass over the P0 tests | $0.00173 (Nemotron) | measured |
+| Speech recognition, prototype | $0 direct | Web Speech API (browser vendor's service, no SLA) |
+| Speech synthesis, prototype | $0 | OS voices |
+| Speech recognition, production (Deepgram Nova-3) | ≈ $0.00032 per question | **assumption**: 7-word mean question ≈ 2.5 s of speech × $0.0077/min |
+| Speech synthesis, production (Deepgram Aura-1) | ≈ $0.00105 per question | measured mean answer 70 characters × $0.015 per 1,000 |
+| **Total variable cost per question** | prototype: $0.00016 (Nemotron) / ≈ $0.0019 (Haiku est.); production voice: ≈ $0.0015 (Nemotron) / ≈ $0.0033 (Haiku est.) | sum of the rows above |
+| Paid intermediaries | $0 | the server calls the provider directly |
+| Hosting (fixed, separate) | $0 / month on Vercel Hobby, within its caps | `docs/pricing.md` |
+
+At these volumes the spoken answer (TTS) would cost more than the reasoning with Nemotron, and about half as much as Haiku.
 
 ## 12. One concrete check of AI output
 
@@ -96,7 +179,10 @@ Found by the eval (NVIDIA Nemotron 3 Super):
 
 ## 14. Unfinished parts
 
-**TBD.**
+- **Final eval on Claude Haiku 4.5** — the target model (D1). The key works, but the account had no balance during the session; the pipeline is ready (`LLM_PROVIDER=anthropic`), a run takes ~10 minutes.
+- **Voice measurements in Chrome** and **cold start on Vercel** — see §10.
+- **Deployment** — waiting for the Vercel project to be imported (§17).
+- Not built on purpose (P2): page viewer with the quote highlighted, a full/top-k comparison in the eval, prompt caching.
 
 ## 15. Time spent
 
@@ -104,7 +190,13 @@ See `docs/TIME_LOG.md`.
 
 ## 16. What I would improve next
 
-**TBD.**
+1. **Faster first audio:** stream the model's output and start speaking the first sentence once it validates, instead of waiting for the whole answer.
+2. **Production speech:** a streaming STT/TTS provider (priced in §11) for all browsers, stable voices and measured speaker latency; keep the browser path as a free fallback.
+3. **Reasoning over stated rules (A6):** try Haiku first; if it still declines, add a small rule-evaluation step for "is it allowed" questions rather than more prompt text.
+4. **Answer quality checks beyond facts:** a cheap fluency check (one garbled answer passed), and an LLM-judge pass in the eval for partial answers.
+5. **Show the page:** open the cited page with the quote highlighted, so the reviewer sees the evidence in context.
+6. **Bigger documents:** switch to top-k automatically (already implemented) and add embeddings once a corpus no longer fits the prompt; OCR for scans.
+7. **Keep documents across reloads** (IndexedDB) and a real per-user rate limit (a KV store) for a public demo.
 
 ## 17. Links
 

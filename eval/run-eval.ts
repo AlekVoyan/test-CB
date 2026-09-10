@@ -135,6 +135,7 @@ interface Record_ {
 
 const records: Record_[] = [];
 const ingestions: { file: string; pages: number; extractMs: number; indexMs: number }[] = [];
+const apiErrors: { run: number; session: string; testId: string; question: string; error: string }[] = [];
 
 for (let run = 1; run <= runs; run++) {
   for (const session of sessions) {
@@ -168,7 +169,16 @@ for (let run = 1; run <= runs; run++) {
         const t0 = performance.now();
         const selection = selectEvidence(docs, step.ask, { mode, history });
         const retrievalMs = performance.now() - t0;
-        const result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm });
+        let result: AnswerResult;
+        try {
+          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm });
+        } catch (error) {
+          // Provider outage (after the adapter's own retries): record it, don't score it, keep going.
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`run ${run} ${session.id} ${(step.testId ?? "(setup)").padEnd(12)} API-ERROR ${message}`);
+          apiErrors.push({ run, session: session.id, testId: step.testId ?? "(setup ask)", question: step.ask, error: message });
+          continue;
+        }
         const quoteErrors = verifyCitations(result.citations, docs);
         history = appendTurn(history, {
           question: step.ask,
@@ -283,6 +293,12 @@ const p0Fails = testIds.filter((id) => {
 });
 const criticalCount = records.filter((r) => r.scores.critical).length;
 lines.push(``, `**Acceptance (ТЗ §7.8):** P0 tests passing in ≥ 2/3 of runs: ${p0Fails.length ? `NO — ${p0Fails.join(", ")}` : "yes"}. Critical failures: ${criticalCount}.`, ``);
+if (apiErrors.length) {
+  lines.push(
+    `**Provider errors (not scored, excluded from the rates above):** ${apiErrors.length} — ${apiErrors.map((e) => `run ${e.run} ${e.session} ${e.testId}`).join(", ")}. Details under Failures.`,
+    ``,
+  );
+}
 
 lines.push(`## Factual accuracy`, ``);
 lines.push(`| ID | Type | Question | Expected | Actual (run 1) | Factual per run |`);
@@ -310,7 +326,8 @@ for (const id of testIds) {
 
 const failures = records.filter((r) => !r.scores.pass);
 lines.push(``, `## Failures`, ``);
-if (!failures.length) lines.push(`None.`);
+if (!failures.length && !apiErrors.length) lines.push(`None.`);
+for (const e of apiErrors) lines.push(`- run ${e.run} ${e.session} ${e.testId}: provider error, not scored — ${cell(e.error)}`);
 for (const r of failures) {
   lines.push(
     `- run ${r.run} ${r.testId}${r.scores.critical ? " **CRITICAL**" : ""}: ${r.actual.status} — "${cell(r.actual.answer)}" (${r.scores.notes.join("; ") || "see scores"}; validation attempts ${r.actual.validation.attempts})`,
@@ -352,7 +369,7 @@ lines.push(`| Cost per ingestion | $0 (parsing and indexing run locally, no API 
 mkdirSync(path.join(root, "eval", "results"), { recursive: true });
 writeFileSync(
   path.join(root, "eval", "results", "actual-results.json"),
-  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, runs, records, ingestions, ingestBench }, null, 2),
+  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, runs, records, apiErrors, ingestions, ingestBench }, null, 2),
 );
 writeFileSync(path.join(root, "eval", "results", "report.md"), `${lines.join("\n")}\n`);
 console.log(`\nWrote eval/results/report.md — pass rate ${pct(mean(records.map((r) => (r.scores.pass ? 1 : 0))))}, critical ${criticalCount}.`);

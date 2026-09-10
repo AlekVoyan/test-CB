@@ -235,7 +235,11 @@ export function App() {
           ),
         );
       },
-      onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)),
+      onEnd: () => {
+        setPhase((p) => (p === "speaking" ? "idle" : p));
+        // A spoken clarification question: listen for the reply right away.
+        if (result.status === "needs_clarification" && source === "voice") startListening();
+      },
     });
     setLog((l) => l.map((m) => (m.id === id ? { ...m, voice } : m)));
   }
@@ -245,6 +249,10 @@ export function App() {
       recognizer.current?.stop();
       return;
     }
+    startListening();
+  }
+
+  function startListening() {
     stopSpeaking();
     setError(null);
     setInterim("");

@@ -81,8 +81,13 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
     ...cited.flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
   ]);
   for (const n of extractNumbers(answer)) {
-    if (!allowed.has(n))
-      errors.push(`The number ${n} in the answer does not appear in any cited line or in the question. Do not mention page numbers or line ids.`);
+    if (allowed.has(n)) continue;
+    // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
+    const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n)).slice(0, 3);
+    const hint = holders.length
+      ? ` Lines that contain ${n}: ${holders.map((u) => `[${u.id}] ${u.text}`).join(" ")} Cite the line that actually supports your statement, or remove the number.`
+      : " No evidence line contains it, so remove it. Do not mention page numbers or line ids.";
+    errors.push(`The number ${n} in the answer does not appear in any cited line or in the question.${hint}`);
   }
 
   const words = answer.split(/\s+/).filter(Boolean).length;

@@ -1,0 +1,1742 @@
+{
+  "generatedAt": "2026-09-10T17:33:37.175Z",
+  "commit": "ec88291 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "citations": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.6518750000000182,
+        "llmAttempts": [
+          2582.049
+        ],
+        "validation": 2.643416999999772,
+        "total": 2589.6265829999998
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 53,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000141135
+    },
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Which model are you asking about, Model A or Model B?",
+        "citations": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.2851670000000013,
+        "llmAttempts": [
+          1061.37
+        ],
+        "validation": 0.16520800000034797,
+        "total": 1063.5195839999997
+      },
+      "usage": {
+        "inputTokens": 1407,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139595
+    },
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the limit for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.60216599999967,
+        "llmAttempts": [
+          4079.309708
+        ],
+        "validation": 0.2686249999987922,
+        "total": 4082.275874
+      },
+      "usage": {
+        "inputTokens": 1429,
+        "outputTokens": 63,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000146665
+    },
+    {
+      "run": 1,
+      "session": "S11",
+      "testId": "A4",
+      "type": "unknown entity",
+      "priority": "P1",
+      "question": "What is the maximum load for Model C?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual only covers Model A and Model B.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the maximum load for Model C.",
+        "citations": [],
+        "resolvedQuery": "What is the maximum load for Model C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5593749999989086,
+        "llmAttempts": [
+          866.9167089999992
+        ],
+        "validation": 0.9063330000008136,
+        "total": 869.2683749999997
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139935
+    },
+    {
+      "run": 1,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify whether Model B can run at 15 units at 25°C.",
+        "citations": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status not_found ≠ answered",
+          "missing: 20"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.3138749999998254,
+        "llmAttempts": [
+          3787.640666000001
+        ],
+        "validation": 0.117458999999144,
+        "total": 3789.304333
+      },
+      "usage": {
+        "inputTokens": 1419,
+        "outputTokens": 70,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000148615
+    },
+    {
+      "run": 1,
+      "session": "S15",
+      "testId": "H4",
+      "type": "holdout inference",
+      "priority": "holdout",
+      "question": "Does the Compact have night mode?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. Night mode is available only on Nimbus Pro.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "only"
+          ]
+        ],
+        "mustNotInclude": [
+          "yes"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "No, night mode is available only on Nimbus Pro.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s6",
+            "quote": "Night mode is available only on Nimbus Pro."
+          }
+        ],
+        "resolvedQuery": "Does the Nimbus Compact have night mode?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.28070800000023155,
+        "llmAttempts": [
+          2184.965875
+        ],
+        "validation": 0.20708399999966787,
+        "total": 2188.202125
+      },
+      "usage": {
+        "inputTokens": 909,
+        "outputTokens": 63,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000102465
+    },
+    {
+      "run": 1,
+      "session": "S15",
+      "testId": "H5",
+      "type": "holdout absent",
+      "priority": "holdout",
+      "question": "How much does the Pro cost?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The guide does not state a price.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the cost of the Nimbus Pro.",
+        "citations": [],
+        "resolvedQuery": "How much does the Nimbus Pro cost?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.3275419999990845,
+        "llmAttempts": [
+          2957.1892500000013
+        ],
+        "validation": 2.551499999997759,
+        "total": 2961.317792
+      },
+      "usage": {
+        "inputTokens": 936,
+        "outputTokens": 57,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00010236
+    },
+    {
+      "run": 1,
+      "session": "S16",
+      "testId": "A7",
+      "type": "STT error",
+      "priority": "P1",
+      "question": "What's the max load for model bee?",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [
+          "20 units"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the maximum load for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.31716700000106357,
+        "llmAttempts": [
+          1228.8613330000007
+        ],
+        "validation": 0.30216699999800767,
+        "total": 1231.534208000001
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 65,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000145935
+    },
+    {
+      "run": 2,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "citations": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.39962499999819556,
+        "llmAttempts": [
+          8347.703416999997
+        ],
+        "validation": 0.16029099999650498,
+        "total": 8350.740083
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 53,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000141135
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Which model are you asking about, Model A or Model B?",
+        "citations": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5057919999999285,
+        "llmAttempts": [
+          2032.2884580000027
+        ],
+        "validation": 0.06295799999861629,
+        "total": 2034.1430010000004
+      },
+      "usage": {
+        "inputTokens": 1407,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139595
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the limit for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5933750000003783,
+        "llmAttempts": [
+          1556.1385840000003
+        ],
+        "validation": 0.1270829999994021,
+        "total": 1558.2486250000038
+      },
+      "usage": {
+        "inputTokens": 1429,
+        "outputTokens": 64,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000147065
+    },
+    {
+      "run": 2,
+      "session": "S11",
+      "testId": "A4",
+      "type": "unknown entity",
+      "priority": "P1",
+      "question": "What is the maximum load for Model C?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual only covers Model A and Model B.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the maximum load for Model C.",
+        "citations": [],
+        "resolvedQuery": "What is the maximum load for Model C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.2607499999976426,
+        "llmAttempts": [
+          904.1797080000033
+        ],
+        "validation": 0.08758300000044983,
+        "total": 905.151249999999
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139935
+    },
+    {
+      "run": 2,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify whether Model B can run at 15 units at 25°C.",
+        "citations": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status not_found ≠ answered",
+          "missing: 20"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.47629199999937555,
+        "llmAttempts": [
+          1401.783457999998
+        ],
+        "validation": 0.11954200000036508,
+        "total": 1403.594459
+      },
+      "usage": {
+        "inputTokens": 1419,
+        "outputTokens": 70,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000148615
+    },
+    {
+      "run": 2,
+      "session": "S15",
+      "testId": "H4",
+      "type": "holdout inference",
+      "priority": "holdout",
+      "question": "Does the Compact have night mode?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. Night mode is available only on Nimbus Pro.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "only"
+          ]
+        ],
+        "mustNotInclude": [
+          "yes"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "No, the Compact does not have night mode.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s6",
+            "quote": "Night mode is available only on Nimbus Pro."
+          }
+        ],
+        "resolvedQuery": "Does the Nimbus Compact have night mode?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.09358300000167219,
+        "llmAttempts": [
+          1605.7290839999987
+        ],
+        "validation": 0.06891699999687262,
+        "total": 1606.5691250000018
+      },
+      "usage": {
+        "inputTokens": 909,
+        "outputTokens": 61,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000101665
+    },
+    {
+      "run": 2,
+      "session": "S15",
+      "testId": "H5",
+      "type": "holdout absent",
+      "priority": "holdout",
+      "question": "How much does the Pro cost?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The guide does not state a price.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the cost of the Nimbus Pro.",
+        "citations": [],
+        "resolvedQuery": "How much does the Nimbus Pro cost?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.3266250000015134,
+        "llmAttempts": [
+          1955.282124999998
+        ],
+        "validation": 0.1330420000012964,
+        "total": 1957.0346250000002
+      },
+      "usage": {
+        "inputTokens": 934,
+        "outputTokens": 57,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00010219000000000001
+    },
+    {
+      "run": 2,
+      "session": "S16",
+      "testId": "A7",
+      "type": "STT error",
+      "priority": "P1",
+      "question": "What's the max load for model bee?",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [
+          "20 units"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the maximum load for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.29904199999873526,
+        "llmAttempts": [
+          6684.1162079999995
+        ],
+        "validation": 0.1363329999949201,
+        "total": 6685.548042000002
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 64,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000145535
+    },
+    {
+      "run": 3,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "citations": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.8102080000026035,
+        "llmAttempts": [
+          1646.6455829999977
+        ],
+        "validation": 0.07725000000209548,
+        "total": 1648.075708000004
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 53,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000141135
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Which model are you asking about, Model A or Model B?",
+        "citations": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.20425000000250293,
+        "llmAttempts": [
+          2907.0633330000055
+        ],
+        "validation": 0.14108300000225427,
+        "total": 2908.721000000005
+      },
+      "usage": {
+        "inputTokens": 1407,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139595
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the limit for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.2453329999989364,
+        "llmAttempts": [
+          1957.7919580000016
+        ],
+        "validation": 0.09037499999976717,
+        "total": 1961.9604159999944
+      },
+      "usage": {
+        "inputTokens": 1429,
+        "outputTokens": 64,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000147065
+    },
+    {
+      "run": 3,
+      "session": "S11",
+      "testId": "A4",
+      "type": "unknown entity",
+      "priority": "P1",
+      "question": "What is the maximum load for Model C?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual only covers Model A and Model B.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the maximum load for Model C.",
+        "citations": [],
+        "resolvedQuery": "What is the maximum load for Model C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.43083300000580493,
+        "llmAttempts": [
+          1598.6148749999993
+        ],
+        "validation": 0.14929200000187848,
+        "total": 1600.495041000002
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 50,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000139935
+    },
+    {
+      "run": 3,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify whether Model B can run at 15 units at 25°C.",
+        "citations": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status not_found ≠ answered",
+          "missing: 20"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.430832999998529,
+        "llmAttempts": [
+          2931.0245829999985
+        ],
+        "validation": 0.06183299999975134,
+        "total": 2932.022124999996
+      },
+      "usage": {
+        "inputTokens": 1419,
+        "outputTokens": 70,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000148615
+    },
+    {
+      "run": 3,
+      "session": "S15",
+      "testId": "H4",
+      "type": "holdout inference",
+      "priority": "holdout",
+      "question": "Does the Compact have night mode?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. Night mode is available only on Nimbus Pro.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "only"
+          ]
+        ],
+        "mustNotInclude": [
+          "yes"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "No, the Compact does not have night mode.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s6",
+            "quote": "Night mode is available only on Nimbus Pro."
+          }
+        ],
+        "resolvedQuery": "Does the Nimbus Compact have night mode?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.11549999999988358,
+        "llmAttempts": [
+          1089.713125000002
+        ],
+        "validation": 0.06295799999497831,
+        "total": 1090.335957999996
+      },
+      "usage": {
+        "inputTokens": 909,
+        "outputTokens": 62,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000102065
+    },
+    {
+      "run": 3,
+      "session": "S15",
+      "testId": "H5",
+      "type": "holdout absent",
+      "priority": "holdout",
+      "question": "How much does the Pro cost?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The guide does not state a price.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "answer": "The uploaded documents do not specify the cost of the Nimbus Pro.",
+        "citations": [],
+        "resolvedQuery": "How much does the Nimbus Pro cost?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.2900840000002063,
+        "llmAttempts": [
+          967.9214169999977
+        ],
+        "validation": 0.08875000000261934,
+        "total": 969.0143339999995
+      },
+      "usage": {
+        "inputTokens": 934,
+        "outputTokens": 57,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00010219000000000001
+    },
+    {
+      "run": 3,
+      "session": "S16",
+      "testId": "A7",
+      "type": "STT error",
+      "priority": "P1",
+      "question": "What's the max load for model bee?",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [
+          "20 units"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "The maximum load for Model B is 12 units under normal conditions.",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "resolvedQuery": "What is the maximum load for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5511249999981374,
+        "llmAttempts": [
+          1543.2529579999973
+        ],
+        "validation": 0.10579100000177277,
+        "total": 1544.726791000001
+      },
+      "usage": {
+        "inputTokens": 1411,
+        "outputTokens": 65,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000145935
+    }
+  ],
+  "apiErrors": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 345.3928750000001,
+      "indexMs": 0.3809999999998581
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 12.247457999999824,
+      "indexMs": 0.1462079999996604
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 24.34245799999917,
+      "indexMs": 0.13933300000098825
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 10.447041000001263,
+      "indexMs": 0.1334580000002461
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 10.970917000000554,
+      "indexMs": 0.12283299999944575
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 19.226250000003347,
+      "indexMs": 0.13333400000192341
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 13.236375000000407,
+      "indexMs": 0.13220899999942048
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 17.582750000001397,
+      "indexMs": 0.20308400000067195
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 9.752124999999069,
+      "indexMs": 0.312792000000627
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 11.633334000005561,
+      "indexMs": 0.1235000000015134
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 3.2096660000024713,
+      "indexMs": 0.04195800000161398
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 8.93124999999418,
+      "indexMs": 0.1272919999973965
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 9.585040999998455,
+      "indexMs": 0.13295900000230176
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 8.068792000005487,
+      "indexMs": 0.31395800000609597
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 9.55070899999555,
+      "indexMs": 0.10416700000496348
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 7.1195000000006985,
+      "indexMs": 0.10779200000251876
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 12.77245799999946,
+      "indexMs": 0.053583000000799075
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 10.114874999999302,
+      "indexMs": 0.14929100000153994
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        5.478666999995767,
+        4.322791999999026,
+        4.281999999999243,
+        5.106958999997005,
+        3.5471249999973224
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        4.328583000002254,
+        4.567833000000974,
+        3.8513329999987036,
+        4.0005830000009155,
+        3.4139159999976982
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        6.56104200000118,
+        5.213125000002037,
+        3.2892080000019632,
+        9.309000000001106,
+        4.372332999999344
+      ]
+    }
+  ]
+}

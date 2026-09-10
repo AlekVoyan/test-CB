@@ -73,7 +73,10 @@ if ("error" in created) {
 const { llm, provider, model } = created;
 
 const expectedFile = JSON.parse(readFileSync(path.join(root, "eval", "expected.json"), "utf8")) as { sessions: Session[] };
-const sessions = expectedFile.sessions.filter((s) => !onlySession || s.id === onlySession);
+const sessionFilter = onlySession ? new Set(onlySession.split(",")) : null;
+const sessions = expectedFile.sessions.filter((s) => !sessionFilter || sessionFilter.has(s.id));
+// A partial run writes its own files so it never overwrites the full report.
+const suffix = onlySession ? `-${onlySession.replace(/,/g, "+")}` : "";
 const fixture = (file: string) => new Uint8Array(readFileSync(path.join(root, "fixtures", file)));
 
 // ---------- scoring ----------
@@ -370,8 +373,8 @@ lines.push(`| Cost per ingestion | $0 (parsing and indexing run locally, no API 
 
 mkdirSync(path.join(root, "eval", "results"), { recursive: true });
 writeFileSync(
-  path.join(root, "eval", "results", "actual-results.json"),
+  path.join(root, "eval", "results", `actual-results${suffix}.json`),
   JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, runs, records, apiErrors, ingestions, ingestBench }, null, 2),
 );
-writeFileSync(path.join(root, "eval", "results", "report.md"), `${lines.join("\n")}\n`);
-console.log(`\nWrote eval/results/report.md — pass rate ${pct(mean(records.map((r) => (r.scores.pass ? 1 : 0))))}, critical ${criticalCount}.`);
+writeFileSync(path.join(root, "eval", "results", `report${suffix}.md`), `${lines.join("\n")}\n`);
+console.log(`\nWrote eval/results/report${suffix}.md —pass rate ${pct(mean(records.map((r) => (r.scores.pass ? 1 : 0))))}, critical ${criticalCount}.`);

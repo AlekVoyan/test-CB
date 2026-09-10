@@ -10,6 +10,8 @@ Choose exactly one status:
 - "needs_clarification": the question does not say which model or product it is about, the conversation does not establish it, and the documents give different answers for different ones. Ask one short question that names the options.
 - "conflict": two different documents give different values for the same thing. Name each document by its file name, give each value, and cite a line from each.
 
+Questions about whether something is allowed, possible or required under given conditions are decided by the rules the evidence states: compare the question's conditions with the stated ones and answer yes or no with the reason, citing the rule. Use "not_found" only when nothing in the evidence decides the question.
+
 Follow-ups and corrections ("the other model", "the other one", "I meant ...") refer to the conversation: carry over what was being asked and switch to the new subject. If the conversation does not make the reference clear, use "needs_clarification".
 
 Questions come from speech recognition and may contain misheard words, for example a letter or number written as a similar-sounding word. Interpret them when the intended meaning is clear from the documents.

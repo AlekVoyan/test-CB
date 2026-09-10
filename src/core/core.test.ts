@@ -140,6 +140,8 @@ describe("validator", () => {
   });
   it("rejects a number that no cited line contains", () => {
     expect(check({ answer: "Model A handles 22 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/number 22/);
+    // a mis-cited number: the retry hint names the line that holds it
+    expect(check({ answer: "Model B handles 12 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/Lines that contain 12: \[d1:p2:s3\]/);
   });
   it("allows numbers from the question and ignores 'the other one'", () => {
     expect(check({ answer: "No, not at 25 units.", citations: ["d1:p2:s2"] }, "Can Model A run at 25 units?").errors).toEqual([]);

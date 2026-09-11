@@ -10,6 +10,7 @@ import { ingestPdf } from "./ingest.js";
 import { SCANNED_MESSAGE } from "./limits.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
 import { selectEvidence, tokenize } from "./retriever.js";
+import { editDistance, findCorrectedSlip } from "./slips.js";
 import type { EvidenceUnit, IndexedDocument, Turn } from "./types.js";
 import { validateLlmAnswer, verifyCitations } from "./validator.js";
 
@@ -160,7 +161,8 @@ describe("validator", () => {
     expect(check({ status: "not_found", answer: "The manual does not specify it.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/empty citations/);
     expect(check({ status: "not_found", answer: "Twenty units." }).errors.join()).toMatch(/say explicitly/);
     expect(check({ status: "not_found", answer: "The uploaded manual does not specify battery life." }).errors).toEqual([]);
-    expect(check({ status: "needs_clarification", answer: "Model A or Model B." }).errors.join()).toMatch(/must be a question/);
+    expect(check({ status: "needs_clarification", answer: "Model A or Model B." }).errors.join()).toMatch(/must ask which option/);
+    expect(check({ status: "needs_clarification", answer: "Please specify which model you mean: Model A or Model B." }).errors).toEqual([]);
     expect(check({ status: "conflict", answer: "20 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/two different documents/);
     expect(check({ status: "conflict", answer: "v1 says 20 units, v2 says 24 units.", citations: ["d1:p2:s2", "d2:p2:s2"] }).errors).toEqual([]);
   });
@@ -174,17 +176,41 @@ describe("reasoning fields", () => {
     expect(check({ ...out, reason: "" }, q).errors.join()).toMatch(/needs a one-sentence "reason"/);
     expect(check({ ...out, reason: "The limit is 22 units." }, q).errors.join()).toMatch(/number 22/);
   });
-  it("keeps inferences and assumptions off answers that are not answers", () => {
+  it("ignores reasoning marks on answers that are not answers", () => {
     const clarify = { status: "needs_clarification" as const, answer: "Model A or Model B?" };
-    expect(check({ ...clarify, basis: "inferred", reason: "r" }).errors.join()).toMatch(/needs status "answered"/);
-    expect(check({ ...clarify, assumed: "nozzle" }).errors.join()).toMatch(/only for answered/);
+    expect(check({ ...clarify, basis: "inferred", reason: "r", assumed: "nozzle" }).errors).toEqual([]);
   });
-  it("allows related lines only with not_found, and lets them back the numbers they mention", () => {
+  it("points a not-found answer that cites its own inference at the answered status", () => {
+    const out = {
+      status: "not_found" as const,
+      basis: "inferred" as const,
+      answer: "The manual does not specify it.",
+      reason: "The maximum load is 20 units.",
+      citations: ["d1:p2:s2"],
+    };
+    expect(check(out).errors.join()).toMatch(/gave this reason: "The maximum load is 20 units."\. If the cited lines decide the question, answer it/);
+  });
+  it("lets related lines back numbers only on a not-found answer", () => {
     const notFound = { status: "not_found" as const, answer: "The manual does not specify battery life. Model B's maximum load is 12 units." };
     expect(check({ ...notFound, related: ["d1:p2:s3"] }).errors).toEqual([]);
     expect(check(notFound).errors.join()).toMatch(/number 12/);
     expect(check({ ...notFound, related: ["d9:p9:s9"] }).errors.join()).toMatch(/Unknown related id/);
-    expect(check({ answer: "It is 20 units.", citations: ["d1:p2:s2"], related: ["d1:p2:s3"] }).errors.join()).toMatch(/only for not_found/);
+    expect(check({ answer: "Model B handles 12 units.", citations: ["d1:p2:s2"], related: ["d1:p2:s3"] }).errors.join()).toMatch(/number 12/);
+  });
+});
+
+describe("slips", () => {
+  const nozzle = [unit("d1:p3:s7", "Clean the dosing nozzle of Model B every 30 days.", "doc1", 3)];
+  it("finds a word the model corrected to a document word", () => {
+    expect(findCorrectedSlip("How often should I clean the nozzel on Model B?", "How often should I clean the nozzle on Model B?", nozzle)).toBe("nozzle");
+  });
+  it("ignores paraphrases, inflections and words the documents use", () => {
+    expect(findCorrectedSlip("How often do I clean it?", "How often should I clean the dosing nozzle of Model B?", nozzle)).toBeNull();
+    expect(findCorrectedSlip("Cleaning the nozzles?", "How often should I clean the nozzle?", nozzle)).toBeNull();
+  });
+  it("counts a swap of two letters as one edit", () => {
+    expect(editDistance("nozzel", "nozzle")).toBe(1);
+    expect(editDistance("kitten", "sitting")).toBe(3);
   });
 });
 
@@ -254,6 +280,28 @@ describe("answerer", () => {
     expect(result.related.map((c) => c.quote)).toEqual(["Model B: the maximum load is 12 units under normal conditions."]);
   });
 
+  it("accepts a clarifying request and shows no quotes with it", async () => {
+    const llm = fakeLlm([
+      { status: "needs_clarification", answer: "Please specify which model: Model A (20 units) or Model B (12 units).", citations: ["d1:p2:s2", "d1:p2:s3"] },
+    ]);
+    const result = await answerQuestion({ question: "What is the limit?", history: [], evidence, llm });
+    expect(result).toMatchObject({ status: "needs_clarification", citations: [] });
+    expect(result.validation.attempts).toBe(1);
+  });
+
+  it("names a slip the model fixed without saying so", async () => {
+    const withNozzle = [...evidence, unit("d1:p3:s7", "Clean the dosing nozzle of Model B every 30 days.", "doc1", 3)];
+    const llm = fakeLlm([{ answer: "Every 30 days.", citations: ["d1:p3:s7"], resolvedQuery: "How often should I clean the nozzle on Model B?" }]);
+    const result = await answerQuestion({ question: "How often should I clean the nozzel on Model B?", history: [], evidence: withNozzle, llm });
+    expect(result).toMatchObject({ assumed: "nozzle", answer: "Assuming you meant “nozzle”: Every 30 days." });
+  });
+
+  it("keeps reasoning marks on answers only", async () => {
+    const llm = fakeLlm([{ status: "needs_clarification", basis: "inferred", reason: "r", assumed: "nozzle", answer: "Model A or Model B?" }]);
+    const result = await answerQuestion({ question: "How often should I clean the nozzel?", history: [], evidence, llm });
+    expect(result).toMatchObject({ status: "needs_clarification", basis: "stated", reason: "", assumed: "" });
+  });
+
   it("asks for Think harder only when the model can reason first", async () => {
     const out = { answer: "Model A handles 20 units.", citations: ["d1:p2:s2"] };
     const plain = fakeLlm([out]);
@@ -272,6 +320,7 @@ describe("parseLlmAnswer", () => {
     expect(parseLlmAnswer("```json\n" + JSON.stringify(valid) + "\n```")).toEqual(valid);
     expect(parseLlmAnswer(JSON.stringify({ ...valid, citations: [" [d1:p2:s2] "] }))?.citations).toEqual(["d1:p2:s2"]);
     expect(parseLlmAnswer(JSON.stringify({ ...valid, related: ["[d1:p2:s3]"] }))?.related).toEqual(["d1:p2:s3"]);
+    expect(parseLlmAnswer(JSON.stringify({ ...valid, citations: [":d1:p2:s2", "d1:p2:s3."] }))?.citations).toEqual(["d1:p2:s2", "d1:p2:s3"]);
   });
   it("rejects text and objects that break the contract", () => {
     expect(parseLlmAnswer("The answer is 20 units.")).toBeNull();

@@ -40,8 +40,12 @@ export const LLM_ANSWER_JSON_SCHEMA = {
   additionalProperties: false,
 };
 
-// Some models copy the brackets around ids from the evidence ("[d1:p2:s3]").
-const cleanId = (id: string) => id.trim().replace(/^\[(.*)\]$/, "$1");
+// Some models copy the brackets around ids from the evidence ("[d1:p2:s3]") or stray punctuation (":d1:p2:s3").
+const cleanId = (id: string) =>
+  id
+    .trim()
+    .replace(/^\[(.*)\]$/, "$1")
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
 
 /** Parses model output into the contract. Tolerates code fences or text around the JSON object. */
 export function parseLlmAnswer(rawText: string): LlmAnswer | null {

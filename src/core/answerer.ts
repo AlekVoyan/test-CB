@@ -2,6 +2,7 @@ import { config, DEFAULT_LANGUAGE, type Language } from "./config.js";
 import type { LlmAnswer } from "./contract.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
 import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt.js";
+import { assumptionPrefix, findCorrectedSlip } from "./slips.js";
 import type { AnswerResult, EvidenceUnit, Turn } from "./types.js";
 import { buildCitations, validateLlmAnswer } from "./validator.js";
 
@@ -44,9 +45,8 @@ export async function answerQuestion(input: {
   const deep = { requested: !!input.deep, applied: !!input.deep && input.llm.supportsDeep };
   const evidenceById = new Map(input.evidence.map((u) => [u.id, u]));
   const question = normalizeSpokenQuestion(input.question);
-  const messages: LlmMessage[] = [
-    { role: "user", content: buildUserPrompt(question, input.history, input.evidence, input.language ?? DEFAULT_LANGUAGE) },
-  ];
+  const language = input.language ?? DEFAULT_LANGUAGE;
+  const messages: LlmMessage[] = [{ role: "user", content: buildUserPrompt(question, input.history, input.evidence, language) }];
 
   const llmMs: number[] = [];
   let validationMs = 0;
@@ -79,14 +79,20 @@ export async function answerQuestion(input: {
 
     if (completion.parsed && errors.length === 0) {
       const out = completion.parsed;
+      // Reasoning marks describe answers only; a clarifying question or a not-found answer keeps none.
+      const isAnswer = out.status === "answered" || out.status === "conflict";
+      const inferred = isAnswer && out.basis === "inferred";
+      // A slip the model fixed without saying so is named in the answer, so the user hears what was assumed.
+      const silentFix = isAnswer && !out.assumed.trim() ? findCorrectedSlip(question, out.resolvedQuery, input.evidence) : null;
       return {
         status: out.status,
-        basis: out.basis,
-        answer: out.answer.trim(),
-        reason: out.basis === "inferred" ? out.reason.trim() : "",
-        citations: buildCitations(out.citations, evidenceById),
+        basis: inferred ? "inferred" : "stated",
+        answer: silentFix ? `${assumptionPrefix(language, silentFix)} ${out.answer.trim()}` : out.answer.trim(),
+        reason: inferred ? out.reason.trim() : "",
+        // A clarifying question makes no claim, so it shows no quotes.
+        citations: out.status === "needs_clarification" ? [] : buildCitations(out.citations, evidenceById),
         related: out.status === "not_found" ? buildCitations(out.related, evidenceById).slice(0, config.maxRelated) : [],
-        assumed: out.assumed.trim(),
+        assumed: isAnswer ? out.assumed.trim() || silentFix || "" : "",
         deep,
         resolvedQuery: out.resolvedQuery,
         activeEntities: out.activeEntities,

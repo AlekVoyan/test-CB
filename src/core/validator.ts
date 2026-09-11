@@ -30,6 +30,9 @@ const ABOUT_DOCS_RE = /(document|manual|guide|uploaded|specif|mention|state|cont
 const NEGATION_CYR_RE = /(?<!\p{L})(не|нет|немає|ні|без|нельзя)(?!\p{L})|отсутств|відсутн/iu;
 const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|указан|вказан|зазнач|упомина|згаду|содерж|міст|описан|информац|інформац|найд|найти|знайд|знайти/iu;
 
+// A clarification asks the user to choose: a question, or a request such as "Please specify which model ...".
+const ASKS_RE = /\?|\b(which|specify|clarify)\b|уточн|котор|какой|какая|какое|какую|який|яка|яке|яку|якої|якого/iu;
+
 function saysNotFound(answer: string): boolean {
   return (NEGATION_RE.test(answer) && ABOUT_DOCS_RE.test(answer)) || (NEGATION_CYR_RE.test(answer) && ABOUT_DOCS_CYR_RE.test(answer));
 }
@@ -70,32 +73,36 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
         errors.push('Status "conflict" needs citations from at least two different documents.');
       break;
     case "not_found":
-      if (ids.length) errors.push('Status "not_found" must have an empty citations list.');
+      if (ids.length && out.basis === "inferred") {
+        // The model derived something from the lines it cited: point the retry at the answered status, in its own words.
+        const why = out.reason.trim() ? ` and gave this reason: "${out.reason.trim()}"` : "";
+        errors.push(
+          `Status "not_found" must have an empty citations list. You cited lines${why}. If the cited lines decide the question, answer it: status "answered", basis "inferred", keep the reason and the citations. If they do not, use "not_found" with no citations.`,
+        );
+      } else if (ids.length) errors.push('Status "not_found" must have an empty citations list.');
       if (!saysNotFound(answer))
         errors.push('A "not_found" answer must say explicitly that the uploaded documents do not contain the answer.');
       break;
     case "needs_clarification":
-      if (ids.length) errors.push('Status "needs_clarification" must have an empty citations list.');
-      if (!answer.includes("?")) errors.push('A "needs_clarification" answer must be a question.');
+      // Citations are allowed here only to back numbers in the question; the answerer does not show them.
+      if (!ASKS_RE.test(answer)) errors.push('A "needs_clarification" answer must ask which option the user means.');
       break;
   }
 
-  // Reasoning fields: an inference names its rule; related lines belong to not_found only; a slip needs an answer.
-  const relatedIds = [...new Set(out.related)];
+  // Reasoning fields. basis, reason and assumed describe an answer; on other statuses they are ignored (the answerer
+  // drops them). Related lines count only on a not-found answer, where they may back the numbers they mention.
+  const isAnswer = out.status === "answered" || out.status === "conflict";
+  const inferred = isAnswer && out.basis === "inferred";
   const relatedUnits: EvidenceUnit[] = [];
-  for (const id of relatedIds) {
-    const unit = ctx.evidenceById.get(id);
-    if (unit) relatedUnits.push(unit);
-    else errors.push(`Unknown related id "${id}". Use only ids that appear in the evidence.`);
+  if (out.status === "not_found") {
+    for (const id of new Set(out.related)) {
+      const unit = ctx.evidenceById.get(id);
+      if (unit) relatedUnits.push(unit);
+      else errors.push(`Unknown related id "${id}". Use only ids that appear in the evidence.`);
+    }
   }
-  if (relatedIds.length && out.status !== "not_found")
-    errors.push('"related" is only for not_found answers; put supporting lines in "citations".');
-  if (out.basis === "inferred" && out.status !== "answered" && out.status !== "conflict")
-    errors.push('basis "inferred" needs status "answered".');
-  if (out.basis === "inferred" && !out.reason.trim())
+  if (inferred && !out.reason.trim())
     errors.push('An inferred answer needs a one-sentence "reason" naming the rule it follows from.');
-  if (out.assumed.trim() && out.status !== "answered" && out.status !== "conflict")
-    errors.push('"assumed" is only for answered questions; with more than one possible meaning, ask instead.');
 
   // Every number in the answer or reason must be backed by a cited or related line, or come from the question.
   // Digits in a cited file name ("manual-v2.pdf") are allowed so conflict answers can name the documents.
@@ -103,7 +110,7 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
     ...extractNumbers(ctx.question),
     ...[...cited, ...relatedUnits].flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
   ]);
-  for (const n of extractNumbers(`${answer} ${out.reason}`)) {
+  for (const n of extractNumbers(`${answer} ${inferred ? out.reason : ""}`)) {
     if (allowed.has(n)) continue;
     // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
     const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n)).slice(0, 3);

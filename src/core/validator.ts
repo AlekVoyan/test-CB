@@ -24,12 +24,15 @@ export function extractNumbers(text: string): Set<string> {
   return out;
 }
 
-// A not_found answer has to say in words that the documents lack the answer. "The question does not specify which
-// limit" is about the question, not the documents: that is a clarification. English, Russian and Ukrainian wording.
+// A not_found answer has to say in words that the documents lack the answer. English, Russian and Ukrainian wording;
+// any kind of document ("the CV does not mention", "в резюме не указано"). An answer that finds the question itself
+// unclear is caught separately, before this check.
 const NEGATION_RE = /\b(not|no|cannot|couldn't|can't|doesn't|don't|isn't|aren't|without|neither|nor)\b/i;
-const ABOUT_DOCS_RE = /\b(documents?|manuals?|guides?|files?|pdfs?|uploaded|text)\b/i;
+const ABOUT_DOCS_RE =
+  /(document|manual|guide|uploaded|\bcv\b|resume|résumé|file|specif|mention|state|contain|cover|include|information|find|found|list|provide)/i;
 const NEGATION_CYR_RE = /(?<!\p{L})(не|нет|немає|ні|без|нельзя)(?!\p{L})|отсутств|відсутн/iu;
-const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|файл|текст/iu;
+const ABOUT_DOCS_CYR_RE =
+  /документ|руководств|посібник|инструкц|інструкц|резюме|файл|указан|вказан|зазнач|упомина|згаду|содерж|міст|описан|информац|інформац|найд|найти|знайд|знайти/iu;
 
 // A not-found answer that finds the question unclear ("The question does not specify which limit", "... what limit is
 // being asked about") is a clarification in disguise.
@@ -76,7 +79,9 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
       break;
     case "conflict":
       if (new Set(cited.map((u) => u.documentId)).size < 2)
-        errors.push('Status "conflict" needs citations from at least two different documents.');
+        errors.push(
+          'Status "conflict" needs citations from at least two different documents that disagree. If the question assumes something the document contradicts, correct it with status "answered".',
+        );
       break;
     case "not_found":
       if (ids.length && out.basis === "inferred") {

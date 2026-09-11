@@ -5,8 +5,15 @@ export const STATUSES = ["answered", "not_found", "needs_clarification", "confli
 /** stated: a cited line says it. inferred: it follows from cited lines (a rule, range, limit or condition). */
 export const BASES = ["stated", "inferred"] as const;
 
-/** What the model must return (enforced by structured outputs). */
+/**
+ * What the model must return (enforced by structured outputs). Field order is the order of generation: the model
+ * restates the question and notes what the lines say before it commits to a status. With status first, a model
+ * without reasoning picked "not found" and then wrote a reason that contradicted it.
+ */
 export const LlmAnswerSchema = z.object({
+  resolvedQuery: z.string(),
+  /** Private working notes: which lines bear on the question and what they say. Never shown. */
+  analysis: z.string(),
   status: z.enum(STATUSES),
   basis: z.enum(BASES),
   answer: z.string(),
@@ -17,7 +24,6 @@ export const LlmAnswerSchema = z.object({
   related: z.array(z.string()),
   /** The corrected term when the question had an obvious slip (typo, misheard word). */
   assumed: z.string(),
-  resolvedQuery: z.string(),
   activeEntities: z.array(z.string()),
 });
 export type LlmAnswer = z.infer<typeof LlmAnswerSchema>;
@@ -26,6 +32,8 @@ export type LlmAnswer = z.infer<typeof LlmAnswerSchema>;
 export const LLM_ANSWER_JSON_SCHEMA = {
   type: "object",
   properties: {
+    resolvedQuery: { type: "string" },
+    analysis: { type: "string" },
     status: { type: "string", enum: [...STATUSES] },
     basis: { type: "string", enum: [...BASES] },
     answer: { type: "string" },
@@ -33,10 +41,9 @@ export const LLM_ANSWER_JSON_SCHEMA = {
     citations: { type: "array", items: { type: "string" } },
     related: { type: "array", items: { type: "string" } },
     assumed: { type: "string" },
-    resolvedQuery: { type: "string" },
     activeEntities: { type: "array", items: { type: "string" } },
   },
-  required: ["status", "basis", "answer", "reason", "citations", "related", "assumed", "resolvedQuery", "activeEntities"],
+  required: ["resolvedQuery", "analysis", "status", "basis", "answer", "reason", "citations", "related", "assumed", "activeEntities"],
   additionalProperties: false,
 };
 

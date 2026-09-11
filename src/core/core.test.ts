@@ -127,6 +127,7 @@ const evidence = [
 ];
 const evidenceById = new Map(evidence.map((u) => [u.id, u]));
 const BLANK: LlmAnswer = {
+  analysis: "",
   status: "answered",
   basis: "stated",
   answer: "",
@@ -165,7 +166,10 @@ describe("validator", () => {
     const clarify = /the status is "needs_clarification", not "not_found"/;
     expect(check({ status: "not_found", answer: "The question does not specify which limit is meant." }).errors.join()).toMatch(clarify);
     expect(check({ status: "not_found", answer: "The uploaded documents do not specify what limit is being asked about." }).errors.join()).toMatch(clarify);
-    expect(check({ status: "not_found", answer: "It is not stated." }).errors.join()).toMatch(/must say explicitly/);
+    expect(check({ status: "not_found", answer: "No." }).errors.join()).toMatch(/must say explicitly/);
+    // any kind of document counts, in any of the three languages
+    expect(check({ status: "not_found", answer: "The CV does not mention a salary." }).errors).toEqual([]);
+    expect(check({ status: "not_found", answer: "В резюме не указано, сколько он зарабатывал." }).errors).toEqual([]);
     expect(check({ status: "not_found", answer: "The manual does not specify the battery life you are asking about." }).errors).toEqual([]);
     expect(check({ status: "needs_clarification", answer: "Model A or Model B." }).errors.join()).toMatch(/must ask which option/);
     expect(check({ status: "needs_clarification", answer: "Please specify which model you mean: Model A or Model B." }).errors).toEqual([]);

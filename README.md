@@ -76,7 +76,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/llm/nvidia.ts`, `src/llm/index.ts` | NVIDIA-hosted model adapter (OpenAI-compatible API) and provider selection from `LLM_PROVIDER` |
 | `src/server/handler.ts`, `api/answer.ts` | `POST /api/answer`, and `GET` for the running model and Think harder availability (Vercel function; the dev server reuses the handler) |
 | `src/web/App.tsx`, `styles.css` | UI (bento layout, language switch, answer and quote folders, measurements) — design system in `DESIGN.md` |
-| `src/web/PageViewer.tsx` | "Open in page": renders the cited PDF page with pdf.js, the paragraph in focus and cited lines framed |
+| `src/web/PageViewer.tsx` | "Open in page": renders the cited PDF page with pdf.js, the paragraph in focus and cited lines framed; zoom to 300% by buttons, keys, pinch or Ctrl/⌘-scroll |
 | `src/web/voice.ts` | Speech recognition (Web Speech API) |
 | `src/web/tts.ts` | Speech output behind a `TtsProvider` interface: browser voices now, a hosted voice can be added in front |
 | `eval/expected.json`, `eval/run-eval.ts` | Test sessions with expected outcomes, and the scorer |

@@ -347,7 +347,7 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
 }
 
 /** One sheet: a paragraph of the source, its cited lines in focus, the rest quieter, the lines around it dissolving. */
-function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boolean; onOpen?: () => void }) {
+function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boolean; onOpen?: (from: HTMLElement) => void }) {
   const { passage: p } = props;
   return (
     <Tile
@@ -394,7 +394,7 @@ function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boo
           {p.cited.length} of {p.total} {p.total === 1 ? "line" : "lines"} quoted
         </span>
         {props.onOpen && (
-          <button type="button" className="btn-ghost passage-open" onClick={props.onOpen}>
+          <button type="button" className="btn-ghost passage-open" onClick={(e) => props.onOpen?.(e.currentTarget)}>
             Open in page <ArrowUpRightIcon weight="bold" aria-hidden />
           </button>
         )}
@@ -541,8 +541,8 @@ export function App() {
     setDocs((ds) => ds.filter((d) => d.key !== key));
   }
 
-  /** Opens the cited page with this passage in focus and its cited lines framed. */
-  function openPassage(p: Passage) {
+  /** Opens the cited page with this passage in focus and its cited lines framed; focus returns to `from` on close. */
+  function openPassage(p: Passage, from: HTMLElement) {
     const entry = docsRef.current.find((d) => d.doc?.documentId === p.documentId);
     if (!entry?.doc || !entry.bytes) return;
     const { boxes, units } = entry.doc;
@@ -552,7 +552,8 @@ export function App() {
       page: p.page,
       cited: p.cited.flatMap((id) => boxes[id] ?? []),
       passage: units.filter((u) => u.page === p.page && u.paragraph === p.paragraph).flatMap((u) => boxes[u.id] ?? []),
-      opener: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      // The button itself, not document.activeElement: Safari does not focus a button on click.
+      opener: from,
     });
   }
 
@@ -808,7 +809,8 @@ export function App() {
       bg: backShade(depth, proofTone),
       onOpen: () => setProofFront(i),
     }));
-  const opener = (p: Passage) => (docs.some((d) => d.doc?.documentId === p.documentId && d.bytes) ? () => openPassage(p) : undefined);
+  const opener = (p: Passage) =>
+    docs.some((d) => d.doc?.documentId === p.documentId && d.bytes) ? (from: HTMLElement) => openPassage(p, from) : undefined;
 
   // Latency breakdown of the last question, in the order it happened.
   const segments = last

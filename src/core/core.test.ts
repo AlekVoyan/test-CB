@@ -9,6 +9,7 @@ import { appendTurn, documentSetKey } from "./conversation.js";
 import { ingestPdf } from "./ingest.js";
 import { SCANNED_MESSAGE } from "./limits.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
+import { extractPdf, type PdfjsLike } from "./pdf.js";
 import { selectEvidence, tokenize } from "./retriever.js";
 import { editDistance, findCorrectedSlip } from "./slips.js";
 import type { EvidenceUnit, IndexedDocument, Turn } from "./types.js";
@@ -83,6 +84,67 @@ describe("ingestion", () => {
     await expect(
       ingestPdf({ bytes: new TextEncoder().encode("hello"), filename: "x.pdf", documentId: "x", docKey: "dx", existing: [], pdfjs }),
     ).rejects.toThrow(/Only PDF files/);
+  });
+});
+
+describe("page layout", () => {
+  const item = (str: string, x: number, y: number, width: number) => ({ str, transform: [6, 0, 0, 6, x, y], width });
+  const onePage = (items: unknown[]): PdfjsLike => ({
+    getDocument: () => ({
+      promise: Promise.resolve({ numPages: 1, getPage: async () => ({ getTextContent: async () => ({ items }) }) }),
+      destroy: async () => {},
+    }),
+  });
+  const lines = async (items: unknown[]) => (await extractPdf(new Uint8Array([1]), onePage(items))).pages[0]!.lines.map((l) => l.text);
+
+  it("reads a sidebar and a main column separately, like a CV", async () => {
+    const cv = [
+      item("Oleh Dudek", 30, 700, 53), item("EXPERIENCE", 166, 700, 46),
+      item("Budapest, Hungary", 30, 690, 50), item("UI/UX Designer", 166, 690, 49), item("2022 – 2025", 537, 690, 32),
+      item("Figma", 30, 680, 15), item("Expert", 115, 680, 16), item("Growkal · Remote", 166, 680, 46),
+      item("Photoshop", 30, 670, 27), item("Expert", 115, 670, 16),
+      item("Designed modern, user-centric interfaces for digital products, ensuring alignment", 166, 670, 407),
+      item("Icon generation", 30, 660, 45), item("with business goals and brand positioning.", 166, 660, 150),
+      item("Bachelors of Design Engineer", 30, 650, 84), item("Mechanical Design Engineer", 166, 650, 89), item("2011 – 2015", 539, 650, 30),
+      item("Aviation Factory “Motor Sich”", 166, 640, 76),
+    ];
+    expect(await lines(cv)).toEqual([
+      "Oleh Dudek",
+      "Budapest, Hungary",
+      "Figma Expert",
+      "Photoshop Expert",
+      "Icon generation",
+      "Bachelors of Design Engineer",
+      "EXPERIENCE",
+      "UI/UX Designer 2022 – 2025",
+      "Growkal · Remote",
+      "Designed modern, user-centric interfaces for digital products, ensuring alignment with business goals and brand positioning.",
+      "Mechanical Design Engineer 2011 – 2015",
+      "Aviation Factory “Motor Sich”",
+    ]);
+  });
+
+  it("keeps a one-column page with right-aligned dates as one column, and never wraps a dated line", async () => {
+    const resume = [
+      item("Experience", 56, 700, 60),
+      item("Senior Designer, Acme", 56, 690, 120), item("2019 – 2021", 520, 690, 40),
+      item("Led the redesign of the checkout flow and the design system used by four product teams.", 56, 680, 400),
+      item("Designer, Beta", 56, 670, 80), item("2016 – 2019", 520, 670, 40),
+      item("Built the component library and ran usability tests with customers every sprint.", 56, 660, 380),
+      item("Education", 56, 640, 55),
+      item("Bachelor of Design, Zaporizhzhia Technical University", 56, 630, 260), item("2011", 544, 630, 16),
+      item("Skills: Figma, prototyping, research, design systems, accessibility.", 56, 620, 330),
+    ];
+    expect(await lines(resume)).toEqual([
+      "Experience",
+      "Senior Designer, Acme 2019 – 2021",
+      "Led the redesign of the checkout flow and the design system used by four product teams.",
+      "Designer, Beta 2016 – 2019",
+      "Built the component library and ran usability tests with customers every sprint.",
+      "Education",
+      "Bachelor of Design, Zaporizhzhia Technical University 2011",
+      "Skills: Figma, prototyping, research, design systems, accessibility.",
+    ]);
   });
 });
 

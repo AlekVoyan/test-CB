@@ -146,6 +146,59 @@ describe("page layout", () => {
       "Skills: Figma, prototyping, research, design systems, accessibility.",
     ]);
   });
+
+  it("reads a two-column section at the foot of a page column by column (Languages | Focus areas)", async () => {
+    const page = [
+      item("About me", 56, 700, 44),
+      item("Designer with four years of experience in web and product design, building websites and", 56, 690, 484),
+      item("dashboards for digital services.", 56, 680, 144),
+      item("Experience", 56, 670, 54),
+      item("Senior Designer, Acme", 56, 660, 120), item("2019 – 2021", 500, 660, 40),
+      item("Led the redesign of the checkout flow and the design system.", 56, 650, 344),
+      item("ADDITIONAL INFO", 56, 620, 74),
+      item("Languages", 56, 610, 44), item("Focus Areas", 300, 610, 50),
+      item("English – Intermediate (working with clients in", 56, 600, 224), item("Web & product interfaces for SaaS and education", 300, 600, 240),
+      item("written form)", 56, 590, 54), item("Conversion-oriented landing pages", 300, 590, 200),
+      item("Ukrainian – Native", 56, 580, 84), item("Design systems and component libraries", 300, 580, 220),
+      item("Russian – Fluent", 56, 570, 74), item("No-code implementation", 300, 570, 120),
+    ];
+    expect(await lines(page)).toEqual([
+      "About me",
+      "Designer with four years of experience in web and product design, building websites and dashboards for digital services.",
+      "Experience",
+      "Senior Designer, Acme 2019 – 2021",
+      "Led the redesign of the checkout flow and the design system.",
+      "ADDITIONAL INFO",
+      "Languages",
+      "English – Intermediate (working with clients in written form)",
+      "Ukrainian – Native",
+      "Russian – Fluent",
+      "Focus Areas",
+      "Web & product interfaces for SaaS and education",
+      "Conversion-oriented landing pages",
+      "Design systems and component libraries",
+      "No-code implementation",
+    ]);
+  });
+
+  it("never splits a label–value table into two columns", async () => {
+    const skills = [
+      item("Skills and tools", 56, 700, 84),
+      item("Figma", 56, 690, 24), item("Expert", 300, 690, 30),
+      item("Adobe XD, Sketch", 56, 680, 74), item("Advanced", 300, 680, 40),
+      item("Photoshop", 56, 670, 44), item("Expert", 300, 670, 30),
+      item("After Effects, LottieFiles", 56, 660, 114), item("Intermediate", 300, 660, 50),
+      item("Blender 3D", 56, 650, 49), item("Intermediate", 300, 650, 50),
+    ];
+    expect(await lines(skills)).toEqual([
+      "Skills and tools",
+      "Figma Expert",
+      "Adobe XD, Sketch Advanced",
+      "Photoshop Expert",
+      "After Effects, LottieFiles Intermediate",
+      "Blender 3D Intermediate",
+    ]);
+  });
 });
 
 describe("tokenizer", () => {

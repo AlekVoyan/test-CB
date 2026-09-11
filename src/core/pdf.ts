@@ -42,7 +42,7 @@ export interface LogicalLine {
 
 export interface ExtractedPage {
   page: number;
-  /** Physical lines joined with "\n", before normalization, in reading order (column by column). */
+  /** Physical lines joined with "\n", before normalization, in reading order (block by block). */
   rawText: string;
   lines: LogicalLine[];
   /** Non-whitespace characters on the page (used to detect scans). */
@@ -53,6 +53,9 @@ export interface ExtractedPdf {
   pageCount: number;
   pages: ExtractedPage[];
 }
+
+/** Non-space characters that make a run of text running text, not a label or a value ("Expert", "2019 – 2021"). */
+const TEXT_RUN_CHARS = 24;
 
 function isTextItem(item: unknown): item is TextItemLike {
   return typeof item === "object" && item !== null && typeof (item as TextItemLike).str === "string" && Array.isArray((item as TextItemLike).transform);
@@ -97,16 +100,17 @@ function joinPieces(pieces: Piece[], size: number): PhysicalLine {
   return { text: text.trim(), x: pieces[0]!.x, right: last.x + last.width, y: pieces[0]!.y, gapped };
 }
 
-/**
- * The x of an empty vertical band that splits the page into two text columns, or null for one column.
- * The band holds no text from top to bottom, is at least two font sizes wide, and has at least 15% of the page's
- * characters on each side, so a column of right-aligned dates is not taken for a second column of text.
- */
-function findGutter(groups: Piece[][], size: number): number | null {
-  // Runs: pieces on one baseline no further apart than a font size.
-  const runs: { x: number; right: number; chars: number }[] = [];
+interface Run {
+  right: number;
+  x: number;
+  chars: number;
+}
+
+/** Runs of text: pieces on one baseline no further apart than a font size. */
+function runsOf(groups: Piece[][], size: number): Run[] {
+  const runs: Run[] = [];
   for (const group of groups) {
-    let run: (typeof runs)[number] | null = null;
+    let run: Run | null = null;
     for (const p of group) {
       const chars = p.str.replace(/\s/g, "").length;
       if (run && p.x - run.right <= size) {
@@ -118,9 +122,22 @@ function findGutter(groups: Piece[][], size: number): number | null {
       }
     }
   }
+  return runs;
+}
+
+/**
+ * The x of an empty vertical band that splits a region into two text columns, or null.
+ * The band holds no text from the top of the region to its bottom and is at least two font sizes wide, and each side
+ * holds at least 15% of the characters and some running text. So a column of right-aligned dates, or the value column
+ * of a label–value table ("Figma … Expert"), is never taken for a column of its own.
+ */
+function findGutter(groups: Piece[][], size: number): number | null {
+  const runs = runsOf(groups, size);
   if (runs.length < 8) return null;
 
   const total = runs.reduce((n, r) => n + r.chars, 0);
+  const qualifies = (side: Run[]) =>
+    side.reduce((n, r) => n + r.chars, 0) >= 0.15 * total && side.some((r) => r.chars >= TEXT_RUN_CHARS);
   const sorted = [...runs].sort((a, b) => a.x - b.x);
   let reach = sorted[0]!.right;
   let best: { x: number; width: number } | null = null;
@@ -128,8 +145,7 @@ function findGutter(groups: Piece[][], size: number): number | null {
     const width = run.x - reach;
     if (width >= 2 * size) {
       const x = (reach + run.x) / 2;
-      const leftChars = runs.filter((r) => r.right <= x).reduce((n, r) => n + r.chars, 0);
-      const balanced = leftChars >= 0.15 * total && total - leftChars >= 0.15 * total;
+      const balanced = qualifies(runs.filter((r) => r.right <= x)) && qualifies(runs.filter((r) => r.x >= x));
       if (balanced && (!best || width > best.width)) best = { x, width };
     }
     reach = Math.max(reach, run.right);
@@ -137,30 +153,69 @@ function findGutter(groups: Piece[][], size: number): number | null {
   return best?.x ?? null;
 }
 
+/** The pieces of each baseline left and right of a gutter. */
+function splitAt(groups: Piece[][], gutter: number): Piece[][][] {
+  const center = (p: Piece) => p.x + p.width / 2;
+  return [
+    groups.map((g) => g.filter((p) => center(p) < gutter)).filter((g) => g.length),
+    groups.map((g) => g.filter((p) => center(p) >= gutter)).filter((g) => g.length),
+  ];
+}
+
+/** A region's baselines split into sections where the vertical gap is wider than a paragraph break. */
+function sections(groups: Piece[][]): Piece[][][] {
+  const gaps = groups.slice(1).map((g, i) => groups[i]![0]!.y - g[0]!.y);
+  const typical = median(gaps.filter((g) => g > 0)) || 12;
+  const out: Piece[][][] = [];
+  groups.forEach((group, i) => {
+    if (i === 0 || gaps[i - 1]! > typical * 1.4) out.push([]);
+    out[out.length - 1]!.push(group);
+  });
+  return out;
+}
+
 /**
- * The page's physical lines, one list per text column, each top to bottom. On a two-column page (a CV with a
- * sidebar) each baseline is split at the gutter, so a sidebar line and a main-column line never merge.
+ * Cuts a region into blocks of physical lines, in reading order. A gutter through the whole region splits it into
+ * columns, read left, then right (a CV's sidebar and main column). Otherwise a section may hold columns of its own,
+ * like "Languages | Focus areas" at the foot of the main column; sections without columns stay together as one block,
+ * so a one-column page comes out as a single block, exactly as before.
  */
-function pageColumns(items: TextItemLike[]): PhysicalLine[][] {
+function cutRegion(groups: Piece[][], size: number, depth: number, out: PhysicalLine[][]): void {
+  const lines = (gs: Piece[][]) => gs.map((g) => joinPieces(g, size));
+  const gutter = depth < 3 ? findGutter(groups, size) : null;
+  if (gutter !== null) {
+    for (const side of splitAt(groups, gutter)) cutRegion(side, size, depth + 1, out);
+    return;
+  }
+  const parts = depth < 3 ? sections(groups) : [groups];
+  let plain: Piece[][] = [];
+  for (const section of parts) {
+    const inner = parts.length > 1 ? findGutter(section, size) : null;
+    if (inner === null) {
+      plain.push(...section);
+      continue;
+    }
+    if (plain.length) out.push(lines(plain));
+    plain = [];
+    for (const side of splitAt(section, inner)) cutRegion(side, size, depth + 1, out);
+  }
+  if (plain.length) out.push(lines(plain));
+}
+
+/** The page's physical lines, one list per block (column or column section), each top to bottom. */
+function pageBlocks(items: TextItemLike[]): PhysicalLine[][] {
   const groups = baselineGroups(items);
   const size = median(groups.flat().map((p) => p.size).filter((s) => s > 0)) || 10;
-  const gutter = findGutter(groups, size);
-  if (gutter === null) return [groups.map((g) => joinPieces(g, size))];
-
-  const columns: PhysicalLine[][] = [[], []];
-  for (const group of groups) {
-    const left = group.filter((p) => p.x + p.width / 2 < gutter);
-    const right = group.filter((p) => p.x + p.width / 2 >= gutter);
-    if (left.length) columns[0]!.push(joinPieces(left, size));
-    if (right.length) columns[1]!.push(joinPieces(right, size));
-  }
-  return columns;
+  const blocks: PhysicalLine[][] = [];
+  cutRegion(groups, size, 0, blocks);
+  return blocks;
 }
 
 /**
  * Re-joins lines that were wrapped at the right margin, and numbers paragraphs by vertical gaps.
- * A line counts as wrapped when it reaches the text block's right edge without closing punctuation, and is running
- * text: a line with a wide gap inside (a table row, a right-aligned date) is never wrapped.
+ * A line counts as wrapped when it reaches the text block's right edge without closing punctuation and is running
+ * text (no wide gap inside, as in a table row or a title with its date), and the next line does not start with a
+ * capital letter, which would begin a new list item or sentence.
  */
 function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
   const gaps = lines.slice(1).map((l, i) => lines[i]!.y - l.y).filter((g) => g > 0);
@@ -172,7 +227,12 @@ function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
     const newParagraph = prev !== undefined && prev.y - line.y > typicalGap * 1.4;
     if (newParagraph) paragraph++;
     const prevWrapped =
-      prev !== undefined && !newParagraph && !prev.gapped && prev.right >= textRight * 0.9 && !/[.!?:;]["')\]]?$/.test(prev.text);
+      prev !== undefined &&
+      !newParagraph &&
+      !prev.gapped &&
+      !/^\p{Lu}/u.test(line.text) &&
+      prev.right >= textRight * 0.9 &&
+      !/[.!?:;]["')\]]?$/.test(prev.text);
     const last = out[out.length - 1];
     if (last && prevWrapped) last.text += ` ${line.text}`;
     else out.push({ text: line.text, paragraph });
@@ -189,22 +249,22 @@ export async function extractPdf(data: Uint8Array, pdfjs: PdfjsLike): Promise<Ex
     for (let n = 1; n <= doc.numPages; n++) {
       const page = await doc.getPage(n);
       const content = await page.getTextContent();
-      perPage.push(pageColumns(content.items.filter(isTextItem)));
+      perPage.push(pageBlocks(content.items.filter(isTextItem)));
     }
-    // Wrapping is judged against the text block's right edge: the widest line of the document on one-column pages,
-    // the column's own edge on a two-column page.
-    const textRight = Math.max(0, ...perPage.filter((columns) => columns.length === 1).flat(2).map((l) => l.right));
+    // Wrapping is judged against the text block's right edge: the widest line of the document on one-block pages,
+    // the block's own edge on a page with columns.
+    const textRight = Math.max(0, ...perPage.filter((blocks) => blocks.length === 1).flat(2).map((l) => l.right));
     return {
       pageCount: doc.numPages,
-      pages: perPage.map((columns, i) => {
+      pages: perPage.map((blocks, i) => {
         let paragraphs = 0;
-        const lines = columns.flatMap((column) => {
-          const right = columns.length === 1 ? textRight : Math.max(...column.map((l) => l.right));
-          const logical = logicalLines(column, right).map((l) => ({ ...l, paragraph: l.paragraph + paragraphs }));
+        const lines = blocks.flatMap((block) => {
+          const right = blocks.length === 1 ? textRight : Math.max(...block.map((l) => l.right));
+          const logical = logicalLines(block, right).map((l) => ({ ...l, paragraph: l.paragraph + paragraphs }));
           paragraphs = logical[logical.length - 1]?.paragraph ?? paragraphs;
           return logical;
         });
-        const physical = columns.flat();
+        const physical = blocks.flat();
         return {
           page: i + 1,
           rawText: physical.map((l) => l.text).join("\n"),

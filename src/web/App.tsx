@@ -1,5 +1,7 @@
 import {
   ArrowsClockwiseIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   CheckCircleIcon,
   CheckIcon,
   CopyIcon,
@@ -76,7 +78,17 @@ interface AnswerView {
   clientErrors: string[];
 }
 
+interface PageGroup {
+  key: string;
+  filename: string;
+  page: number;
+  lines: Citation[];
+}
+
 type Phase = "idle" | "listening" | "thinking" | "speaking";
+
+/** Answers kept in the folder stack behind the current one. */
+const HISTORY_LIMIT = 8;
 
 const STAGE_LABEL: Record<DocStage, string> = {
   reading: "Uploading",
@@ -121,19 +133,211 @@ const toCitation = (u: EvidenceUnit): Citation => ({
 const fmtMs = (x?: number) => (x === undefined ? "—" : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(2)} s`);
 const fmtUsd = (x: number) => (Number.isFinite(x) ? `$${x.toFixed(5)}` : "no price set");
 
+// Older answers are deeper shades of the answer lime; proof folders deepen the sage.
+const answerShade = (age: number) =>
+  age <= 0 ? "var(--lime)" : `color-mix(in oklab, var(--lime) ${100 - Math.min(age, 5) * 8}%, #6d7a34)`;
+const backShade = (depth: number, tone: "sage" | "dark") =>
+  tone === "sage"
+    ? `color-mix(in oklab, var(--sage) ${100 - (depth + 1) * 9}%, #3d5836)`
+    : `color-mix(in oklab, var(--surface-2) ${100 - (depth + 1) * 14}%, #0f100e)`;
+
+/** Quotes are filed per page: one folder holds every cited line of that page. */
+function groupByPage(citations: Citation[]): PageGroup[] {
+  const groups = new Map<string, PageGroup>();
+  for (const c of citations) {
+    const key = `${c.documentId}#${c.page}`;
+    const group = groups.get(key) ?? { key, filename: c.filename, page: c.page, lines: [] };
+    group.lines.push(c);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+const pageLabel = (g: PageGroup, withFile: boolean) =>
+  `${withFile ? `${g.filename} · ` : ""}Page ${g.page}${g.lines.length > 1 ? ` · ${g.lines.length} lines` : ""}`;
+
 type Tone = "lime" | "coral" | "teal" | "sage" | "dark";
 
-function Tile(props: { tone: Tone; area: string; tab?: ReactNode; labelledBy?: string; label?: string; className?: string; children: ReactNode }) {
+function Tile(props: {
+  tone: Tone;
+  area: string;
+  tab?: ReactNode;
+  labelledBy?: string;
+  label?: string;
+  className?: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
   return (
     <section
       className={`tile tone-${props.tone}${props.tab ? " has-tab" : ""}${props.className ? ` ${props.className}` : ""}`}
-      style={{ gridArea: props.area }}
+      style={{ gridArea: props.area, ...props.style }}
       aria-labelledby={props.labelledBy}
       aria-label={props.label}
     >
       {props.tab && <div className="tile-tab">{props.tab}</div>}
       <div className="tile-body">{props.children}</div>
     </section>
+  );
+}
+
+interface BackFolder {
+  key: string;
+  hint: string;
+  aria: string;
+  bg: string;
+  onOpen: () => void;
+}
+
+/**
+ * One folder in front, the rest filed behind it with their tabs peeking above.
+ * The wheel pages through the filed folders only over the tab strip, and only while there is somewhere to go.
+ */
+function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: string | number; extra?: ReactNode; children: ReactNode }) {
+  const { backs } = props;
+  const stackRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [capacity, setCapacity] = useState(3);
+  const [offset, setOffset] = useState(0);
+  const maxOffset = Math.max(0, backs.length - capacity);
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const maxRef = useRef(maxOffset);
+  maxRef.current = maxOffset;
+
+  useEffect(() => setOffset(0), [props.resetKey]);
+  useEffect(() => {
+    if (offset > maxOffset) setOffset(maxOffset);
+  }, [offset, maxOffset]);
+
+  // How many tabs fit beside the front folder's own tab.
+  useEffect(() => {
+    const el = stackRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 800;
+      setCapacity(width < 420 ? 1 : width < 560 ? 2 : 3);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const hasBacks = backs.length > 0;
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    let accumulated = 0;
+    const onWheel = (e: WheelEvent) => {
+      const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!delta) return;
+      const next = offsetRef.current + (delta > 0 ? 1 : -1);
+      if (next < 0 || next > maxRef.current) {
+        accumulated = 0;
+        return; // nothing further this way: let the page scroll
+      }
+      e.preventDefault();
+      accumulated += delta;
+      if (Math.abs(accumulated) >= 60) {
+        accumulated = 0;
+        setOffset(next);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [hasBacks]);
+
+  const peek = Math.min(capacity, backs.length);
+  const paged = backs.length > capacity;
+  return (
+    <div className="stack-wrap">
+      {(paged || props.extra) && (
+        <div className="stack-head">
+          {paged && (
+            <>
+              <span className="mono">
+                {offset + 1}
+                {capacity > 1 && `–${Math.min(offset + capacity, backs.length)}`} of {backs.length}
+              </span>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setOffset((o) => Math.max(0, o - 1))}
+                disabled={offset === 0}
+                aria-label={`Newer ${props.label.toLowerCase()}`}
+              >
+                <CaretLeftIcon weight="bold" aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setOffset((o) => Math.min(maxOffset, o + 1))}
+                disabled={offset >= maxOffset}
+                aria-label={`Older ${props.label.toLowerCase()}`}
+              >
+                <CaretRightIcon weight="bold" aria-hidden />
+              </button>
+            </>
+          )}
+          {props.extra}
+        </div>
+      )}
+      <div className="stack" ref={stackRef} style={{ "--peek": peek } as CSSProperties}>
+        {hasBacks && (
+          <div className="stack-strip" ref={stripRef} role="group" aria-label={props.label}>
+            {backs.map((b, i) => {
+              const slot = i - offset + 1;
+              const hidden = slot < 1 || slot > capacity;
+              return (
+                <button
+                  key={b.key}
+                  type="button"
+                  className="stack-back"
+                  data-hidden={hidden ? "" : undefined}
+                  tabIndex={hidden ? -1 : undefined}
+                  aria-hidden={hidden ? true : undefined}
+                  title={b.hint}
+                  aria-label={b.aria}
+                  onClick={b.onOpen}
+                  style={{ "--slot": Math.max(0, Math.min(slot, capacity + 1)), "--bg": b.bg } as CSSProperties}
+                >
+                  <span className="stack-back-tab">
+                    <span>{b.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+function ProofFolder(props: { group: PageGroup; tone: "sage" | "dark"; closest: boolean; withFile: boolean }) {
+  const { group } = props;
+  return (
+    <Tile
+      tone={props.tone}
+      area="auto"
+      className="proof-item"
+      label={`${props.closest ? "Closest passage" : "Quote"}, ${group.filename}, page ${group.page}`}
+      tab={
+        <>
+          <QuotesIcon weight="fill" aria-hidden />
+          {props.closest ? "Closest · " : ""}
+          {pageLabel(group, props.withFile)}
+        </>
+      }
+    >
+      <div className="quote-lines">
+        {group.lines.map((c) => (
+          <blockquote key={c.sentenceId}>{c.quote}</blockquote>
+        ))}
+      </div>
+      <p className="proof-source">
+        {group.filename} · <span className="mono">{group.lines.map((l) => l.sentenceId).join(", ")}</span>
+      </p>
+    </Tile>
   );
 }
 
@@ -168,7 +372,10 @@ export function App() {
   const [interim, setInterim] = useState("");
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<AnswerView | null>(null);
+  const [answers, setAnswers] = useState<AnswerView[]>([]);
+  const [viewIndex, setViewIndex] = useState(0);
+  const [proofFront, setProofFront] = useState(0);
+  const [proofExpanded, setProofExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [log, setLog] = useState<QuestionMetrics[]>([]);
@@ -187,6 +394,7 @@ export function App() {
   const voiceSupported = speechRecognitionSupported();
   const activeEntities = history[history.length - 1]?.activeEntities ?? [];
   const loadedPages = readyDocs.reduce((sum, d) => sum + d.pageCount, 0);
+  const answer = answers[viewIndex] ?? null;
 
   useEffect(() => {
     try {
@@ -254,6 +462,15 @@ export function App() {
     setDocs((ds) => ds.filter((d) => d.key !== key));
   }
 
+  /** Bring an earlier answer to the front. View only: follow-ups keep using the latest conversation. */
+  function openAnswer(index: number) {
+    stopSpeaking();
+    setPhase((p) => (p === "speaking" ? "idle" : p));
+    setViewIndex(index);
+    setProofFront(0);
+    setProofExpanded(false);
+  }
+
   async function ask(raw: string, source: "voice" | "text", voiceTimes?: { speechEndAt?: number; sttFinalAt?: number }) {
     const question = raw.trim();
     if (!question) return;
@@ -293,7 +510,10 @@ export function App() {
 
     const id = Date.now();
     setPending(null);
-    setAnswer({ id, question, language: lang, result, related, clientErrors });
+    setAnswers((list) => [{ id, question, language: lang, result, related, clientErrors }, ...list].slice(0, HISTORY_LIMIT));
+    setViewIndex(0);
+    setProofFront(0);
+    setProofExpanded(false);
     setHistory((h) =>
       appendTurn(h, {
         question,
@@ -446,8 +666,40 @@ export function App() {
     phase === "listening" ? "Listening… tap to stop" : phase === "thinking" ? "Finding the answer" : phase === "speaking" ? "Speaking" : "Tap and ask";
   const last = log[0];
   const status = answer ? STATUS_META[answer.result.status] : null;
+  const viewingEarlier = viewIndex > 0;
+
+  // Answer history: every answer except the one in front, newest first.
+  const answerBacks: BackFolder[] = answers.flatMap((a, i) =>
+    i === viewIndex
+      ? []
+      : [
+          {
+            key: String(a.id),
+            hint: a.question,
+            aria: `${i === 0 ? "Latest answer" : "Earlier answer"}: ${a.question}`,
+            bg: answerShade(i),
+            onOpen: () => openAnswer(i),
+          },
+        ],
+  );
+
+  // Evidence for the answer in front, filed per page.
   const proofs = answer?.result.citations ?? [];
-  const closest = answer && !proofs.length ? answer.related : [];
+  const isClosest = !!answer && proofs.length === 0;
+  const groups = groupByPage(proofs.length ? proofs : (answer?.related ?? []));
+  const proofTone: "sage" | "dark" = isClosest ? "dark" : "sage";
+  const multiDoc = new Set(groups.map((g) => g.filename)).size > 1;
+  const frontGroupIndex = Math.min(proofFront, Math.max(0, groups.length - 1));
+  const proofBacks: BackFolder[] = groups
+    .map((g, i) => ({ g, i }))
+    .filter(({ i }) => i !== frontGroupIndex)
+    .map(({ g, i }, depth) => ({
+      key: g.key,
+      hint: pageLabel(g, multiDoc),
+      aria: `Show ${pageLabel(g, true)}`,
+      bg: backShade(depth, proofTone),
+      onOpen: () => setProofFront(i),
+    }));
 
   // Latency breakdown of the last question, in the order it happened.
   const segments = last
@@ -618,117 +870,145 @@ export function App() {
           )}
         </Tile>
 
-        {/* Answer */}
-        <div className="answer-area" style={{ gridArea: "answer" }}>
-          <span className="stack-layer layer-far" aria-hidden />
-          <span className="stack-layer layer-near" aria-hidden />
-          <Tile
-            tone="lime"
-            area="auto"
-            label="Answer"
-            className="tile-answer"
-            tab={
-              pending ? (
-                <>
-                  <span className="dots" aria-hidden>
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  Finding the answer
-                </>
-              ) : status ? (
-                <>
-                  {status.icon}
-                  {status.label}
-                </>
-              ) : (
-                <>No question yet</>
-              )
-            }
-          >
-            <div aria-live="polite">
-              {pending ? (
-                <div className="answer-pending">
-                  <p className="asked">“{pending}”</p>
-                  <p className="answer-text is-muted">Reading the document…</p>
-                </div>
-              ) : answer ? (
-                <div className="answer-result" key={answer.id}>
-                  <p className="asked">You asked: “{answer.question}”</p>
-                  <p className="answer-text" lang={answer.language}>
-                    {answer.result.answer}
-                  </p>
-                  <div className="answer-actions">
-                    <button type="button" className={`btn${phase === "speaking" ? " is-speaking" : ""}`} onClick={replay}>
-                      {phase === "speaking" ? (
-                        <span className="eq" aria-hidden>
-                          <i />
-                          <i />
-                          <i />
-                        </span>
+        {/* Answer, with earlier answers filed behind it */}
+        <div className="stack-area" style={{ gridArea: "answer" }}>
+          <FolderStack label="Earlier answers" backs={answerBacks} resetKey={answers[0]?.id ?? 0}>
+            <Tile
+              tone="lime"
+              area="auto"
+              label="Answer"
+              className="tile-answer"
+              style={
+                {
+                  "--tile-bg": answerShade(viewIndex),
+                  ...(viewIndex >= 2 ? { "--ink-2": "rgb(20 21 18 / 0.84)" } : {}),
+                } as CSSProperties
+              }
+              tab={
+                pending ? (
+                  <>
+                    <span className="dots" aria-hidden>
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    Finding the answer
+                  </>
+                ) : status ? (
+                  <>
+                    {status.icon}
+                    {status.label}
+                    {viewingEarlier && " · earlier"}
+                  </>
+                ) : (
+                  <>No question yet</>
+                )
+              }
+            >
+              <div aria-live="polite">
+                {pending ? (
+                  <div className="answer-pending">
+                    <p className="asked">“{pending}”</p>
+                    <p className="answer-text is-muted">Reading the document…</p>
+                  </div>
+                ) : answer ? (
+                  <div className="answer-result" key={answer.id}>
+                    <p className="asked">You asked: “{answer.question}”</p>
+                    <p className="answer-text" lang={answer.language}>
+                      {answer.result.answer}
+                    </p>
+                    <div className="answer-actions">
+                      <button type="button" className={`btn${phase === "speaking" ? " is-speaking" : ""}`} onClick={replay}>
+                        {phase === "speaking" ? (
+                          <span className="eq" aria-hidden>
+                            <i />
+                            <i />
+                            <i />
+                          </span>
+                        ) : (
+                          <SpeakerHighIcon weight="bold" aria-hidden />
+                        )}
+                        {phase === "speaking" ? "Speaking" : "Replay"}
+                      </button>
+                      {viewingEarlier ? (
+                        <>
+                          <button type="button" className="btn-ghost" onClick={() => openAnswer(0)}>
+                            Back to latest
+                          </button>
+                          <span className="chip-static">Earlier answer · follow-ups use the latest</span>
+                        </>
                       ) : (
-                        <SpeakerHighIcon weight="bold" aria-hidden />
+                        readyDocs.length > 0 && (
+                          <span className="chip-static">
+                            Using {readyDocs.map((d) => d.filename).join(", ")}
+                            {activeEntities.length > 0 && ` · ${activeEntities.join(", ")}`}
+                          </span>
+                        )
                       )}
-                      {phase === "speaking" ? "Speaking" : "Replay"}
-                    </button>
-                    {readyDocs.length > 0 && (
-                      <span className="chip-static">
-                        Using {readyDocs.map((d) => d.filename).join(", ")}
-                        {activeEntities.length > 0 && ` · ${activeEntities.join(", ")}`}
-                      </span>
+                    </div>
+                    {answer.clientErrors.length > 0 && (
+                      <p className="inline-note">A quote could not be found on its page, so the answer was withheld.</p>
                     )}
                   </div>
-                  {answer.clientErrors.length > 0 && (
-                    <p className="inline-note">A quote could not be found on its page, so the answer was withheld.</p>
-                  )}
-                </div>
-              ) : (
-                <div className="answer-empty">
-                  <p className="answer-text">{readyDocs.length ? "Ask about the manual." : "Load a manual, then ask."}</p>
-                  <p className="asked">Try one of these with the sample manual:</p>
-                  <div className="chips">
-                    {EXAMPLES[language].map((q) => (
-                      <button key={q} type="button" className="chip" onClick={() => askExample(q)} disabled={!readyDocs.length || phase === "thinking"} lang={language}>
-                        {q}
-                      </button>
-                    ))}
+                ) : (
+                  <div className="answer-empty">
+                    <p className="answer-text">{readyDocs.length ? "Ask about the manual." : "Load a manual, then ask."}</p>
+                    <p className="asked">Try one of these with the sample manual:</p>
+                    <div className="chips">
+                      {EXAMPLES[language].map((q) => (
+                        <button key={q} type="button" className="chip" onClick={() => askExample(q)} disabled={!readyDocs.length || phase === "thinking"} lang={language}>
+                          {q}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {notice && <p className="inline-note">{notice}</p>}
-              {error && (
-                <p className="inline-note is-error" role="alert">
-                  <WarningCircleIcon weight="bold" aria-hidden /> {error}
-                </p>
-              )}
-            </div>
-          </Tile>
+                )}
+                {notice && <p className="inline-note">{notice}</p>}
+                {error && (
+                  <p className="inline-note is-error" role="alert">
+                    <WarningCircleIcon weight="bold" aria-hidden /> {error}
+                  </p>
+                )}
+              </div>
+            </Tile>
+          </FolderStack>
         </div>
 
-        {/* Proof */}
-        {(proofs.length > 0 || closest.length > 0) && (
-          <section className="proof" style={{ gridArea: "proof" }} aria-label={proofs.length ? "Evidence" : "Closest passages"} key={answer?.id}>
-            {(proofs.length ? proofs : closest).map((c, i) => (
-              <Tile
-                key={c.sentenceId}
-                tone={proofs.length ? "sage" : "dark"}
-                area="auto"
-                className="proof-item"
-                label={`${proofs.length ? "Quote" : "Closest passage"}, ${c.filename}, page ${c.page}`}
-                tab={
-                  <>
-                    <QuotesIcon weight="fill" aria-hidden />
-                    {proofs.length ? `Page ${c.page}` : `Closest · page ${c.page}`}
-                  </>
+        {/* Proof: one folder per cited page */}
+        {answer && groups.length > 0 && (
+          <section className="stack-area proof-area" style={{ gridArea: "proof" }} aria-label={isClosest ? "Closest passages" : "Evidence"} key={answer.id}>
+            {proofExpanded ? (
+              <>
+                <div className="stack-head">
+                  <span>
+                    {groups.length} {groups.length === 1 ? "page" : "pages"}
+                  </span>
+                  <button type="button" className="link-btn" onClick={() => setProofExpanded(false)}>
+                    Collapse
+                  </button>
+                </div>
+                <div className="proof">
+                  {groups.map((g) => (
+                    <ProofFolder key={g.key} group={g} tone={proofTone} closest={isClosest} withFile={multiDoc} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <FolderStack
+                label="More cited pages"
+                backs={proofBacks}
+                resetKey={answer.id}
+                extra={
+                  groups.length > 1 ? (
+                    <button type="button" className="link-btn" onClick={() => setProofExpanded(true)}>
+                      Show all {groups.length}
+                    </button>
+                  ) : undefined
                 }
               >
-                <blockquote style={{ "--n": i } as CSSProperties}>{c.quote}</blockquote>
-                <p className="proof-source">
-                  {c.filename} · <span className="mono">{c.sentenceId}</span>
-                </p>
-              </Tile>
-            ))}
+                <ProofFolder key={groups[frontGroupIndex]!.key} group={groups[frontGroupIndex]!} tone={proofTone} closest={isClosest} withFile={multiDoc} />
+              </FolderStack>
+            )}
           </section>
         )}
 

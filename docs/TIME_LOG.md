@@ -19,3 +19,4 @@ Budget: 8 focused hours. Clock started 2026-09-10 16:50 CEST.
 | — | Discussion: multilingual TTS plan (Chatterbox) | 20:00 | 20:20 | Chosen: EN/RU/UA through the browser, TTS behind an interface; Chatterbox documented, not integrated |
 | 9 | Languages (plan B) and redesign | 01:40 (Sep 11) | 02:30 | Core + tests L1–L6 (18/18); bento/folder redesign with impeccable, animate, emil-design-eng; H3 holdout regression found and partly fixed |
 | 10 | Voice test RU/UA in Chrome (Oleh) | 02:19 | 02:23 | 8 voice questions; STT median 69 ms, speech end → first audio median 2.07 s |
+| 11 | Answer history and grouped quotes as folder stacks | 02:35 | 03:05 | Shades of the answer lime by age, question on the tab, wheel only over the tab strip, view-only earlier answers; quotes one folder per page with Show all. Checked at 1280 and 375 px |

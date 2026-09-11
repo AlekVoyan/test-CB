@@ -196,7 +196,10 @@ Tiles are 28px-radius rounded rectangles. A tabbed tile drops its top-left radiu
 Segmented pill (EN · RU · UA) on an ink wash; the selected language sits on a sliding ink indicator (220ms ease-out) and turns coral. Accessible names are the native language names.
 
 ### Signature: the Proof Folder
-The answer tile is lime with its status on the tab, and two folders (coral, sage) peek above its right edge. Each citation is a sage folder whose tab reads "Page N"; the quote is set at 17px, with the file name and line id underneath. When an answer arrives it is filed: 320ms rise from 10px with a 3px blur clearing (cubic-bezier(0.23, 1, 0.32, 1)); quote folders follow with a 50ms stagger. Reduced motion keeps the fade and drops the movement.
+The answer tile is lime with its status on the tab. Earlier answers (up to 8) are filed behind it: each is a deeper shade of the answer lime by age and shows the start of its question on a tab peeking above the front folder's edge. Hovering lifts a filed folder by 8px; clicking brings it to the front, view only — follow-ups keep using the latest answer, and a "Back to latest" button returns. Quotes are filed per page: one sage folder per cited page, tab "Page N · k lines", every line verbatim at 17px with the file name and line ids underneath. More than one page forms a stack of its own, with "Show all" laying the pages out in a grid. When an answer arrives it is filed: 320ms rise from 10px with a 3px blur clearing (cubic-bezier(0.23, 1, 0.32, 1)); quote folders follow with a 50ms stagger. Reduced motion keeps the fade and drops the movement.
+
+### Folder stack
+One front folder with the rest filed behind it. Each filed folder sits 12px higher than the one in front of it (transform only, 240ms ease-out), so their top edges read as stacked folders; their tabs step to the right beside the front tab (from 36% of the stack width in 20% steps; two tabs under 560px, one under 420px). Nearer folders lie on top of farther ones, so no folder body hides a nearer tab. Up to three peek; more show a counter ("2–4 of 7") with ‹ › buttons. The mouse wheel pages through filed folders only over the tab strip, and releases the page at either end. Under reduced motion the folders fade instead of moving.
 
 ### Microphone
 A 104px ink disc with a coral icon. While listening, a ring leaves the disc every 1.6s; while speaking, the Replay button shows a three-bar equalizer. Both stop under reduced motion.
@@ -209,9 +212,12 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 - **Do** use drop-shadow filters so tabs and stacked folders share the tile's shadow.
 - **Do** keep UI motion under 300ms with the strong ease-out curve, and ship a reduced-motion variant with every animation.
 - **Do** theme the browser surfaces: lime selection with ink text, lime caret, dark scrollbars, visible focus.
+- **Do** file extra content behind the front folder (earlier answers, further pages) instead of listing it, and page through it only over the tab strip.
 
 ### Don't:
 - **Don't** use pure black or a neon glow on the ground; the lift and the grain are the material.
 - **Don't** add kickers or eyebrow labels above headings; tabs are data, not labels.
 - **Don't** set answers or quotes in Unbounded, or use mono for anything that is not a measurement or an id.
 - **Don't** add a tab to a tile that has nothing to say on it.
+- **Don't** give earlier answers new hues; they are deeper shades of the answer lime (The One Job Rule).
+- **Don't** capture the mouse wheel anywhere but a folder stack's tab strip.

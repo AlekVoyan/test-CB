@@ -669,31 +669,6 @@ body::before {
 
 /* ---------- answer ---------- */
 
-.answer-area {
-  position: relative;
-  min-width: 0;
-  display: grid;
-}
-/* folders filed behind the answer, peeking above its top edge */
-.stack-layer {
-  position: absolute;
-  top: 0;
-  height: 96px;
-  border-radius: 22px;
-  filter: var(--tile-shadow);
-}
-.layer-far {
-  left: 52%;
-  right: 40px;
-  top: 2px;
-  background: var(--coral);
-}
-.layer-near {
-  left: 44%;
-  right: 20px;
-  top: 14px;
-  background: var(--sage);
-}
 .tile-answer {
   align-self: stretch;
 }
@@ -866,8 +841,13 @@ body::before {
 .proof-item .tile-body {
   padding: 22px 24px 20px;
 }
-.proof-item blockquote {
-  margin: 0 0 14px;
+.quote-lines {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.quote-lines blockquote {
+  margin: 0;
   font-size: 17px;
   font-weight: 540;
   line-height: 1.45;
@@ -888,6 +868,167 @@ body::before {
   }
   .proof-item:hover {
     transform: translateY(-2px);
+  }
+}
+
+/* ---------- folder stacks: answer history, grouped quotes ---------- */
+
+.stack-area {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+}
+.stack-wrap {
+  display: grid;
+  min-width: 0;
+}
+.stack-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.stack-head .icon-btn {
+  width: 30px;
+  height: 30px;
+  background: var(--surface);
+  color: var(--text);
+}
+@media (hover: hover) and (pointer: fine) {
+  .stack-head .icon-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+}
+.link-btn {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--lime);
+  font: 600 13px/1 var(--font-ui);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.stack {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  container-type: inline-size;
+  padding-top: calc(var(--peek, 0) * 12px);
+}
+.stack > .tile {
+  z-index: 2;
+}
+.stack-strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--peek) * 12px + var(--tab-h) + 60px);
+  z-index: 1;
+}
+
+/* a filed folder: full width, hidden behind the front one except its top edge and tab */
+.stack-back {
+  /* tab end + the 14px fillet must stay inside the stack */
+  --tab-start: 36cqi;
+  --tab-step: 20cqi;
+  --tab-w: 18cqi;
+  position: absolute;
+  /* nearer folders lie on top of farther ones, so no body hides a nearer tab */
+  z-index: calc(20 - var(--slot));
+  left: 0;
+  right: 0;
+  top: calc(var(--peek) * 12px + var(--tab-h));
+  height: 60px;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  filter: var(--tile-shadow);
+  transform: translateY(calc(var(--slot) * -12px));
+  transition: transform 240ms var(--ease-out), opacity 200ms ease;
+  animation: stack-in 260ms var(--ease-out) both;
+}
+.stack-back[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+}
+/* a folder paged out of view parks its tab at the first position, so it never widens the page */
+.stack-back[data-hidden] .stack-back-tab {
+  transform: translateX(var(--tab-start));
+}
+.stack-back-tab {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  display: flex;
+  align-items: center;
+  height: var(--tab-h);
+  max-width: var(--tab-w);
+  padding: 2px 12px 0;
+  border-radius: var(--tab-r) var(--tab-r) 0 0;
+  background: var(--bg);
+  font: 650 12px/1 var(--font-ui);
+  transform: translateX(calc(var(--tab-start) + (var(--slot) - 1) * var(--tab-step)));
+  transition: transform 240ms var(--ease-out);
+}
+.stack-back-tab > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* concave fillets on both sides: the tab rises out of the folder's edge */
+.stack-back-tab::before,
+.stack-back-tab::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: var(--tab-r);
+  height: var(--tab-r);
+}
+.stack-back-tab::before {
+  right: 100%;
+  background: radial-gradient(circle at 0 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
+}
+.stack-back-tab::after {
+  left: 100%;
+  background: radial-gradient(circle at 100% 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
+}
+.stack-back:focus-visible {
+  outline: none;
+}
+.stack-back:focus-visible .stack-back-tab {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .stack-back:not([data-hidden]):hover {
+    transform: translateY(calc(var(--slot) * -12px - 8px));
+  }
+}
+@keyframes stack-in {
+  from {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+@container (max-width: 559px) {
+  .stack-back {
+    --tab-start: 48cqi;
+    --tab-step: 24cqi;
+    --tab-w: 22cqi;
+  }
+}
+@container (max-width: 419px) {
+  .stack-back {
+    --tab-start: 56cqi;
+    --tab-w: 36cqi;
   }
 }
 
@@ -990,9 +1131,6 @@ body::before {
     width: 34px;
     height: 34px;
   }
-  .stack-layer {
-    height: 70px;
-  }
 }
 
 /* ---------- reduced motion: keep fades, drop movement ---------- */
@@ -1015,8 +1153,16 @@ body::before {
     transform: scaleY(0.7);
   }
   .lang-indicator,
-  .progress > span {
+  .progress > span,
+  .stack-back,
+  .stack-back-tab {
     transition-duration: 0ms;
+  }
+  .stack-back {
+    animation: fade 200ms ease both;
+  }
+  .stack-back:not([data-hidden]):hover {
+    transform: translateY(calc(var(--slot) * -12px));
   }
   .proof-item:hover {
     transform: none;

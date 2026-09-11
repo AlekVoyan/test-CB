@@ -10,7 +10,7 @@ export type DeviceReply =
   | { type: "progress"; loaded: number; total: number }
   | { type: "ready"; backend: string; loadMs: number }
   | { type: "failed"; message: string }
-  | { type: "chunk"; id: number; samples: Float32Array; sampleRate: number; ms: number; last: boolean }
+  | { type: "chunk"; id: number; samples: Float32Array; sampleRate: number; ms: number; pause: number; last: boolean }
   | { type: "speak-failed"; id: number; message: string };
 
 export type DeviceVoiceState =
@@ -19,8 +19,11 @@ export type DeviceVoiceState =
   | { status: "ready"; backend: string; loadMs: number }
   | { status: "failed"; message: string };
 
+/** A piece of audio: its samples, how long it took to make, and the pause to leave before it. */
+type OnChunk = (samples: Float32Array, sampleRate: number, ms: number, pause: number) => void;
+
 interface Pending {
-  onChunk: (samples: Float32Array, sampleRate: number, ms: number) => void;
+  onChunk: OnChunk;
   resolve: () => void;
   reject: (error: Error) => void;
 }
@@ -70,7 +73,7 @@ export function loadDeviceVoice(): void {
         request.reject(new Error(message.message));
         return;
       }
-      request.onChunk(message.samples, message.sampleRate, message.ms);
+      request.onChunk(message.samples, message.sampleRate, message.ms, message.pause);
       if (message.last) {
         pending.delete(message.id);
         request.resolve();
@@ -86,7 +89,7 @@ export function loadDeviceVoice(): void {
 export function synthesizeOnDevice(
   text: string,
   language: Language,
-  onChunk: (samples: Float32Array, sampleRate: number, ms: number) => void,
+  onChunk: OnChunk,
 ): Promise<void> {
   const current = worker;
   if (!current || state.status !== "ready") return Promise.reject(new Error("the on-device voice is not loaded"));

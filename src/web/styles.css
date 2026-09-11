@@ -22,7 +22,7 @@
   --r-inner: 16px;
   --tab-r: 14px; /* tab height is 2 × this, which makes the S-curve */
   --tab-h: 28px;
-  --tile-shadow: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 16px 28px rgb(0 0 0 / 0.36));
+  --tile-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 16px 28px rgb(0 0 0 / 0.36);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -177,7 +177,8 @@ body::before {
   background: var(--tile-bg);
   color: var(--tile-fg);
   border-radius: var(--r-tile);
-  filter: var(--tile-shadow);
+  /* Box-shadows, not a drop-shadow filter: a filter is recomputed every frame while anything inside the tile moves. */
+  box-shadow: var(--tile-shadow);
 }
 
 .tile.has-tab {
@@ -197,6 +198,9 @@ body::before {
   padding: 2px 14px 0 20px;
   background: var(--tile-bg);
   border-radius: 22px var(--tab-r) 0 0;
+  /* the tab casts the tile's shadow too, cut at its foot so none of it falls on the body */
+  box-shadow: var(--tile-shadow);
+  clip-path: inset(-48px -48px 0 -48px);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.01em;

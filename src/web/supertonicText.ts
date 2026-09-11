@@ -41,26 +41,43 @@ export function prepareText(text: string, lang: string): string {
   return `<${lang}>${t}</${lang}>`;
 }
 
-/** Splits text at sentence ends into pieces of at most maxLen characters (a longer sentence stays whole). */
-export function chunkText(text: string, maxLen: number): string[] {
-  const chunks: string[] = [];
-  for (const paragraph of text.trim().split(/\n\s*\n+/)) {
-    const p = paragraph.trim();
-    if (!p) continue;
-    const sentences = p.split(
-      /(?<!Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Sr\.|Jr\.|Ph\.D\.|etc\.|e\.g\.|i\.e\.|vs\.|Inc\.|Ltd\.|Co\.|Corp\.|St\.|Ave\.|Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+/,
-    );
-    let current = "";
-    for (const sentence of sentences) {
-      if (current.length + sentence.length + 1 <= maxLen) current += (current ? " " : "") + sentence;
-      else {
-        if (current) chunks.push(current.trim());
-        current = sentence;
-      }
+/**
+ * Splits an answer into pieces synthesized one after another. The first piece is short, so the first sound comes
+ * quickly; the others are synthesized while the one before plays. A cut falls at a sentence end if there is one, else
+ * after a comma, semicolon or colon, else between words; a piece cut between words gets a comma, so the voice keeps
+ * the sentence going.
+ */
+export function speechPieces(text: string, firstMax: number, restMax: number): string[] {
+  const pieces: string[] = [];
+  let rest = text.replace(/\s+/g, " ").trim();
+  while (rest) {
+    const max = pieces.length ? restMax : firstMax;
+    if (rest.length <= max) {
+      pieces.push(rest);
+      break;
     }
-    if (current) chunks.push(current.trim());
+    const { at, between } = cutPoint(rest.slice(0, max + 1));
+    const head = rest.slice(0, at).trim();
+    pieces.push(between ? `${head},` : head);
+    rest = rest.slice(at).trim();
   }
-  return chunks;
+  return pieces;
+}
+
+/** The last good cut in the window, never in its first third. */
+function cutPoint(window: string): { at: number; between: boolean } {
+  const floor = Math.floor(window.length / 3);
+  const patterns: [RegExp, boolean][] = [
+    [/[.!?…]["»”)]*\s/g, false],
+    [/[,;:]\s/g, false],
+    [/\s/g, true],
+  ];
+  for (const [pattern, between] of patterns) {
+    let at = -1;
+    for (const m of window.matchAll(pattern)) if (m.index! >= floor) at = m.index! + m[0].length;
+    if (at > 0) return { at, between };
+  }
+  return { at: window.length - 1, between: true };
 }
 
 /** Ids for the text encoder: the model's indexer maps each UTF-16 code unit to an id; unknown ones become -1. */

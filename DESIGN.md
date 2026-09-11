@@ -153,14 +153,14 @@ A 12-column bento grid (max 1280px, 20px gaps, 44px/32px page padding). At ≥11
 
 ## Elevation & Depth
 
-Tiles float on the ground with a two-layer soft shadow applied as a filter, so the tab and the stacked folders cast the same shadow as the tile they belong to. Inside tiles, depth is tonal: ink washes at 10% for wells, inputs and rows.
+Tiles float on the ground with a two-layer soft shadow. The body and its tab each cast it, and the tab's is cut at its foot so none falls on the body: the silhouette, tab included, casts one shadow. Inside tiles, depth is tonal: ink washes at 10% for wells, inputs and rows.
 
 ### Shadow Vocabulary
-- **Tile float** (`filter: drop-shadow(0 1px 1px rgb(0 0 0 / .35)) drop-shadow(0 16px 28px rgb(0 0 0 / .36))`): every tile and stacked folder.
+- **Tile float** (`box-shadow: 0 1px 1px rgb(0 0 0 / .35), 0 16px 28px rgb(0 0 0 / .36)` on the body and on its tab, the tab's clipped at its foot): every tile. Filed folders carry a 1px hairline instead.
 - **Mic lift** (`box-shadow: 0 10px 24px rgb(20 21 18 / .28), 0 2px 4px rgb(20 21 18 / .3)`): the microphone disc only.
 
 ### Named Rules
-**The Shadow Follows the Silhouette Rule.** Shadows are drop-shadow filters on the whole folder, never box-shadows on a rectangle that ignores the tab.
+**The Shadow Follows the Silhouette Rule.** The tab casts the tile's shadow too; a shadow never ignores the tab. It is drawn as box-shadows, not as a drop-shadow filter: a filter on a tile is recomputed every frame while anything inside it moves (an answer filing in, the speaking bars). Measured, that took the GPU from the on-device voice and doubled its time to the first sound.
 
 ## Shapes
 
@@ -222,7 +222,7 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 ### Do:
 - **Do** keep each pastel to its one role (The One Job Rule).
 - **Do** put data on tabs — status, page, counts — and nothing else.
-- **Do** use drop-shadow filters so tabs and stacked folders share the tile's shadow.
+- **Do** give the tab the tile's shadow, clipped at its foot. **Don't** put drop-shadow filters on tiles: they are recomputed every frame while their content moves.
 - **Do** keep UI motion under 300ms with the strong ease-out curve, and ship a reduced-motion variant with every animation. The one exception is the first-view tile entrance (600ms, quadratic ease-in-out), which plays once per load.
 - **Do** theme the browser surfaces: lime selection with ink text, lime caret, dark scrollbars, visible focus.
 - **Do** file extra content behind the front folder (earlier answers, further pages) instead of listing it, and page through it only over the tab strip.

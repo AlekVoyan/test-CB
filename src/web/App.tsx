@@ -84,6 +84,8 @@ interface QuestionMetrics {
     /** Until the first audio data (first byte, or first sentence synthesized), and the voice service's own share of it. */
     firstByteMs?: number;
     upstreamMs?: number;
+    /** On-device voice: synthesis of the first piece itself. */
+    synthMs?: number;
     /** Why the hosted voice did not speak and the browser voice did. */
     fallback?: string;
     /** Why nothing was spoken. */
@@ -194,6 +196,7 @@ function voiceMetrics(info: SpeakInfo, text: string): QuestionMetrics["tts"] {
     model: info.model,
     firstByteMs: info.firstByteMs,
     upstreamMs: info.upstreamMs,
+    synthMs: info.synthMs,
     fallback: info.fallback,
     chars: text.length,
     backend: info.backend,
@@ -1540,7 +1543,8 @@ export function App() {
                   <div>
                     <dt>Voice ready · cost</dt>
                     <dd className="mono">
-                      {fmtMs(last.tts.firstByteMs)} · {fmtUsd(last.tts.costUsd ?? Number.NaN)}
+                      {fmtMs(last.tts.firstByteMs)}
+                      {last.tts.synthMs !== undefined && ` (synthesis ${fmtMs(last.tts.synthMs)})`} · {fmtUsd(last.tts.costUsd ?? Number.NaN)}
                     </dd>
                   </div>
                 )}

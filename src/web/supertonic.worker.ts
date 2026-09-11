@@ -6,7 +6,7 @@
 import * as ort from "onnxruntime-web/webgpu";
 import { config } from "../core/config";
 import type { DeviceReply, DeviceRequest } from "./deviceVoice";
-import { chunkText, prepareText, textIds } from "./supertonicText";
+import { prepareText, speechPieces, textIds } from "./supertonicText";
 
 // Its "some nodes were not assigned to the preferred execution provider" notices are expected (shape ops stay on the CPU).
 ort.env.logLevel = "error";
@@ -15,7 +15,8 @@ const scope = self as unknown as {
   onmessage: ((event: MessageEvent<DeviceRequest>) => void) | null;
   postMessage(message: DeviceReply, transfer?: Transferable[]): void;
 };
-const { repo, revision, voice, steps, speed, chunkChars, textBucket, frameBucket, downloadBytes } = config.deviceVoice;
+const { repo, revision, voice, steps, speed, firstChars, restChars, firstShape, restShape, textBucket, frameBucket, downloadBytes } =
+  config.deviceVoice;
 const BASE = `https://huggingface.co/${repo}/resolve/${revision}`;
 const CACHE = `supertonic-3-${revision.slice(0, 8)}`;
 
@@ -119,8 +120,9 @@ async function load(prefer?: "webgpu" | "wasm"): Promise<Model> {
     estimator: estimator!,
     vocoder: vocoder!,
   };
-  // One short sentence builds the kernels and buffers, so the first real answer is not the slow one.
-  await synthesize(model, "Ready.", "en");
+  // One piece in each fixed shape builds its kernels now, so no answer waits for them.
+  await synthesize(model, "The voice is ready to answer,", "en", firstShape);
+  await synthesize(model, "and the rest of an answer is spoken while its first part is already playing.", "en", restShape);
   scope.postMessage({ type: "ready", backend, loadMs: Math.round(performance.now() - startedAt) });
   return model;
 }
@@ -138,11 +140,17 @@ function gaussianNoise(size: number): Float32Array {
 
 const roundUp = (n: number, step: number) => Math.ceil(n / step) * step;
 
+type Shape = { text: number; frames: number };
+
+/** Thrown between denoising steps when a newer answer replaced this one. */
+class Cancelled extends Error {}
+
 /** One piece of text → samples: duration → text encoding → denoising steps from noise → vocoder. */
-async function synthesize(m: Model, text: string, lang: string): Promise<Float32Array> {
-  // Padded to a few fixed lengths and masked out, as the model's own batch code does.
+async function synthesize(m: Model, text: string, lang: string, shape?: Shape, id?: number): Promise<Float32Array> {
+  // Padded to a fixed shape (or a bucket) and masked out, as the model's own batch code does.
   const real = textIds(prepareText(text, lang), m.indexer);
-  const length = roundUp(real.length, textBucket);
+  const fits = shape !== undefined && real.length <= shape.text;
+  const length = fits ? shape.text : roundUp(real.length, textBucket);
   const ids = new BigInt64Array(length);
   ids.set(real);
   const idsTensor = new ort.Tensor("int64", ids, [1, length]);
@@ -157,13 +165,15 @@ async function synthesize(m: Model, text: string, lang: string): Promise<Float32
   const dim = m.cfg.ttl.latent_dim * m.cfg.ttl.chunk_compress_factor;
   const samples = Math.floor(seconds * rate);
   const realFrames = Math.floor((samples + frameSamples - 1) / frameSamples);
-  const frames = roundUp(realFrames, frameBucket);
+  const frames = fits && realFrames <= shape.frames ? shape.frames : roundUp(realFrames, frameBucket);
   const latentMask = new ort.Tensor("float32", new Float32Array(frames).fill(1, 0, realFrames), [1, 1, frames]);
   const totalStep = new ort.Tensor("float32", new Float32Array([steps]), [1]);
   let latent = gaussianNoise(dim * frames);
   // The noise is masked too: layout [1, dim, frames].
   for (let d = 0; d < dim; d++) latent.fill(0, d * frames + realFrames, (d + 1) * frames);
   for (let step = 0; step < steps; step++) {
+    // A newer answer does not wait for this piece: the check runs every step (~0.1 s).
+    if (id !== undefined && id <= cancelledThrough) throw new Cancelled();
     const { denoised_latent } = await m.estimator.run({
       noisy_latent: new ort.Tensor("float32", latent, [1, dim, frames]),
       text_emb: text_emb!,
@@ -194,20 +204,22 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 async function speak(id: number, text: string, language: string): Promise<void> {
   try {
     const m = await loadModel();
-    const pieces = chunkText(text, chunkChars);
+    const pieces = speechPieces(text, firstChars, restChars);
     if (!pieces.length) {
-      scope.postMessage({ type: "chunk", id, samples: new Float32Array(0), sampleRate: m.cfg.ae.sample_rate, ms: 0, last: true });
+      scope.postMessage({ type: "chunk", id, samples: new Float32Array(0), sampleRate: m.cfg.ae.sample_rate, ms: 0, pause: 0, last: true });
       return;
     }
     for (const [i, piece] of pieces.entries()) {
       if (id <= cancelledThrough) return;
       const startedAt = performance.now();
-      const samples = await synthesize(m, piece, language);
+      const samples = await synthesize(m, piece, language, i === 0 ? firstShape : restShape, id);
       const ms = Math.round(performance.now() - startedAt);
-      scope.postMessage({ type: "chunk", id, samples, sampleRate: m.cfg.ae.sample_rate, ms, last: i === pieces.length - 1 }, [samples.buffer]);
+      const before = pieces[i - 1];
+      const pause = before === undefined ? 0 : /[.!?…]["»”)]*$/.test(before) ? config.deviceVoice.sentencePauseSec : config.deviceVoice.clausePauseSec;
+      scope.postMessage({ type: "chunk", id, samples, sampleRate: m.cfg.ae.sample_rate, ms, pause, last: i === pieces.length - 1 }, [samples.buffer]);
     }
   } catch (error) {
-    scope.postMessage({ type: "speak-failed", id, message: errorText(error) });
+    if (!(error instanceof Cancelled)) scope.postMessage({ type: "speak-failed", id, message: errorText(error) });
   }
 }
 

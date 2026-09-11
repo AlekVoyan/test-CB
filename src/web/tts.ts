@@ -27,6 +27,8 @@ export interface SpeakInfo {
   firstByteMs?: number;
   /** Of that, the voice service's time to respond, as the server measured it. */
   upstreamMs?: number;
+  /** On-device voice: synthesis of the first piece itself (the rest of the wait was queueing or messaging). */
+  synthMs?: number;
   /** From the start event until the first sound reaches the audio output. */
   audibleInMs?: number;
   /** Why the chosen voice did not speak. */
@@ -260,10 +262,10 @@ async function speakOnDevice(text: string, language: Language, events: SpeakEven
   playing = { sources: p.sources };
   const startedAt = performance.now();
   try {
-    await synthesizeOnDevice(text, language, (samples, rate) => {
+    await synthesizeOnDevice(text, language, (samples, rate, ms, pause) => {
       if (id !== session || !samples.length) return;
       const first = !p.last;
-      const at = schedule(p, samples, rate, config.deviceVoice.pauseSec);
+      const at = schedule(p, samples, rate, pause);
       if (first)
         events.onStart?.({
           provider: DEVICE,
@@ -271,6 +273,7 @@ async function speakOnDevice(text: string, language: Language, events: SpeakEven
           model: "supertonic-3",
           backend: model.backend,
           firstByteMs: Math.round(performance.now() - startedAt),
+          synthMs: ms,
           audibleInMs: audibleIn(ctx, at),
         });
     });

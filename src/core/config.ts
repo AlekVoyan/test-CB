@@ -72,16 +72,21 @@ export const config = {
     /** Denoising steps (the example's default) and speaking rate. */
     steps: 8,
     speed: 1.05,
-    /** Text is synthesized sentence by sentence, in pieces of up to this many characters, so the first plays sooner. */
-    chunkChars: 100,
     /**
-     * Inputs are padded (and masked out) to multiples of these lengths: WebGPU builds its kernels per input shape, and a
-     * new shape cost about a second on its own in the benchmark.
+     * An answer is synthesized in pieces: a short first one, so the first sound comes quickly, and the others while the
+     * one before plays. Each kind has one fixed input shape (text ids, latent frames), padded and masked out, and both
+     * are warmed up at load: WebGPU builds its kernels per input shape, and a new shape cost 1–2 s in my tests.
      */
+    firstChars: 64,
+    restChars: 100,
+    firstShape: { text: 96, frames: 96 },
+    restShape: { text: 128, frames: 160 },
+    /** A piece that does not fit its shape is padded to multiples of these instead. */
     textBucket: 32,
     frameBucket: 16,
-    /** Pause between those pieces. */
-    pauseSec: 0.3,
+    /** Pause before a piece: after a sentence end, and after a cut inside a sentence. */
+    sentencePauseSec: 0.3,
+    clausePauseSec: 0.08,
     /** Size of the model files, for the progress bar. */
     downloadBytes: 398_600_000,
   },

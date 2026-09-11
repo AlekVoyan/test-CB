@@ -864,7 +864,7 @@ body::before {
   }
 }
 .enter {
-  animation: tile-in 520ms var(--ease-in-out) backwards;
+  animation: tile-in 600ms var(--ease-in-out) backwards;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 

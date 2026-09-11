@@ -209,6 +209,12 @@ body::before {
   width: 14px;
   height: 14px;
 }
+.tile-tab-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
 .tab-text {
   min-width: 0;
   overflow: hidden;
@@ -228,6 +234,24 @@ body::before {
 
 .tile-body {
   padding: 26px 28px 28px;
+}
+
+/* the front of a folder stack: a folder brought forward floods it with its colour, a disc spreading from its tab */
+.tile-flood {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.tile-flood > i {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--tile-bg);
+  opacity: 0;
+}
+.tile-flood ~ .tile-body {
+  position: relative;
 }
 
 .tone-lime {
@@ -763,6 +787,22 @@ body::before {
   color: var(--ink-2);
   overflow-wrap: anywhere;
 }
+/* the status word opens the card; the tab above carries its icon and the question */
+.asked-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 10px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  vertical-align: 1px;
+}
+.asked-status svg {
+  width: 14px;
+  height: 14px;
+}
 .answer-text {
   margin: 0;
   max-width: 34ch;
@@ -1133,120 +1173,208 @@ body::before {
 }
 
 .stack {
+  /* the row of tabs stops short of the right corner, clear of every filed folder's rounded edge */
+  --lane-w: calc((100cqi - var(--row-end, 28px)) / var(--lanes, 1));
   position: relative;
   display: grid;
   min-width: 0;
   container-type: inline-size;
-  padding-top: calc(var(--peek, 0) * 12px);
 }
 .stack > .tile {
   z-index: 2;
 }
+
+/* the front folder's tab stands in its own place in the row, with a fillet on each side */
+.stack[data-laned] > .tile > .tile-tab {
+  left: calc(var(--front-lane) * var(--lane-w) + var(--tab-r));
+  width: calc(var(--lane-w) - 2 * var(--tab-r));
+  max-width: none;
+  padding-left: 14px;
+  border-radius: var(--tab-r) var(--tab-r) 0 0;
+}
+.stack[data-laned] > .tile > .tile-tab::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  bottom: 0;
+  width: var(--tab-r);
+  height: var(--tab-r);
+  background: radial-gradient(circle at 0 0, transparent calc(var(--tab-r) - 0.5px), var(--tile-bg) var(--tab-r));
+}
+.stack[data-laned]:not([data-front-first]) > .tile.has-tab {
+  border-top-left-radius: var(--r-tile);
+}
+/* in the first place it grows out of the folder's left edge, as on every tile */
+.stack[data-front-first] > .tile > .tile-tab {
+  left: 0;
+  width: calc(var(--lane-w) - var(--tab-r));
+  padding-left: 20px;
+  border-radius: 22px var(--tab-r) 0 0;
+}
+.stack[data-front-first] > .tile > .tile-tab::before {
+  content: none;
+}
+
 .stack-strip {
   position: absolute;
   inset: 0 0 auto 0;
-  height: calc(var(--peek) * 12px + var(--tab-h) + 60px);
+  height: calc(var(--tab-h) + 60px);
   z-index: 1;
-}
-
-/* a filed folder: full width, hidden behind the front one except its top edge and tab */
-.stack-back {
-  /* tab end + the 14px fillet must stay inside the stack */
-  --tab-start: 36cqi;
-  --tab-step: 20cqi;
-  --tab-w: 18cqi;
-  position: absolute;
-  /* nearer folders lie on top of farther ones, so no body hides a nearer tab */
-  z-index: calc(20 - var(--slot));
-  left: 0;
-  right: 0;
-  top: calc(var(--peek) * 12px + var(--tab-h));
-  height: 60px;
-  padding: 0;
-  border: 0;
-  border-radius: 22px;
-  background: var(--bg);
-  color: var(--ink);
-  cursor: pointer;
-  filter: var(--tile-shadow);
-  transform: translateY(calc(var(--slot) * -12px));
-  transition: transform 240ms var(--ease-out), opacity 200ms ease;
-  animation: stack-in 260ms var(--ease-out) both;
-}
-.stack-back[data-hidden] {
-  opacity: 0;
   pointer-events: none;
 }
-/* a folder paged out of view parks its tab at the first position, so it never widens the page */
-.stack-back[data-hidden] .stack-back-tab {
-  transform: translateX(var(--tab-start));
+
+/* A filed folder. Its tab keeps its place in the row and its top on the front tab's line. Its body lies behind the
+   front folder, 8px narrower a side and 3px higher for every folder in front of it, so only a sliver of edge shows. */
+.fold {
+  --pad-l: var(--tab-r);
+  position: absolute;
+  inset: 0;
+  /* nearer folders lie on top of farther ones */
+  z-index: calc(10 - var(--depth));
+  color: var(--fg, var(--ink));
+  /* a hairline round tab and edge together, so each folder reads against the one behind it */
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.5));
+  transition: opacity 200ms ease;
+  animation: fade 220ms ease backwards;
 }
-.stack-back-tab {
+.fold[data-hidden] {
+  opacity: 0;
+}
+/* in the first place the tab grows out of the folder's left edge, which moves in with depth */
+.fold[data-first] {
+  --pad-l: calc(var(--depth) * 8px);
+}
+.fold-body {
   position: absolute;
   left: 0;
-  bottom: 100%;
+  right: 0;
+  top: var(--tab-h);
+  height: 60px;
+  border-radius: 22px;
+  background: var(--bg);
+  transform-origin: 50% 0;
+  transform: translateY(calc(var(--depth) * -3px - var(--lift, 0px))) scaleX(var(--sx, 1));
+  transition:
+    transform 280ms var(--ease-out),
+    opacity 200ms ease,
+    background-color 280ms ease;
+}
+.fold[data-first] .fold-body {
+  border-top-left-radius: 0;
+}
+/* the folder in front is the tile itself: here its body and tab step aside */
+.fold[data-front] .fold-body {
+  opacity: 0;
+}
+.fold[data-front] .fold-tab {
+  visibility: hidden;
+}
+.fold-tab {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   align-items: center;
+  width: calc(var(--lane-w) - var(--pad-l) - var(--tab-r));
   height: var(--tab-h);
-  max-width: var(--tab-w);
-  padding: 2px 12px 0;
+  padding: 2px 14px 0;
+  border: 0;
   border-radius: var(--tab-r) var(--tab-r) 0 0;
   background: var(--bg);
+  color: inherit;
   font: 650 12px/1 var(--font-ui);
-  transform: translateX(calc(var(--tab-start) + (var(--slot) - 1) * var(--tab-step)));
-  transition: transform 240ms var(--ease-out);
-}
-.stack-back-tab > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  pointer-events: auto;
+  /* `translate`, not `transform`, so the press scale does not scale the distance along the row */
+  translate: calc(var(--slot) * var(--lane-w) + var(--pad-l)) 0;
+  transform-origin: 50% 100%;
+  transition:
+    translate 280ms var(--ease-out),
+    width 280ms var(--ease-out),
+    scale 120ms var(--ease-out),
+    filter 150ms ease,
+    background-color 280ms ease;
 }
-/* concave fillets on both sides: the tab rises out of the folder's edge */
-.stack-back-tab::before,
-.stack-back-tab::after {
+.fold[data-first] .fold-tab {
+  padding-left: 20px;
+  border-top-left-radius: 22px;
+}
+.fold[data-hidden] .fold-tab {
+  pointer-events: none;
+}
+.fold-tab:disabled {
+  cursor: default;
+}
+/* centred on the part of the tab that shows above the folder's edge */
+.fold-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  transform: translateY(calc(var(--depth) * -1.5px - var(--lift, 0px) / 2));
+  transition: transform 280ms var(--ease-out);
+}
+.fold-label svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+/* concave fillets where the tab meets its folder's edge */
+.fold-tab::before,
+.fold-tab::after {
   content: "";
   position: absolute;
   bottom: 0;
   width: var(--tab-r);
   height: var(--tab-r);
+  transform: translateY(calc(var(--depth) * -3px - var(--lift, 0px)));
+  transition: transform 280ms var(--ease-out);
 }
-.stack-back-tab::before {
+.fold-tab::before {
   right: 100%;
   background: radial-gradient(circle at 0 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
 }
-.stack-back-tab::after {
+.fold-tab::after {
   left: 100%;
   background: radial-gradient(circle at 100% 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
 }
-.stack-back:focus-visible {
-  outline: none;
+.fold[data-first] .fold-tab::before {
+  content: none;
 }
-.stack-back:focus-visible .stack-back-tab {
+.fold-tab:focus-visible {
   outline: 2px solid var(--lime);
   outline-offset: 2px;
 }
+.fold-tab:active:not(:disabled) {
+  scale: 0.97;
+}
 @media (hover: hover) and (pointer: fine) {
-  .stack-back:not([data-hidden]):hover {
-    transform: translateY(calc(var(--slot) * -12px - 8px));
+  /* a filed folder rises a little under the pointer; its tab stays on the line */
+  .fold:has(> .fold-tab:hover:not(:disabled)) {
+    --lift: 4px;
+  }
+  .fold-tab:hover:not(:disabled) {
+    filter: brightness(1.06);
   }
 }
-@keyframes stack-in {
-  from {
-    opacity: 0;
-    transform: translateY(0);
-  }
+
+/* a stack of sheets is filed as one object; bringing a sheet forward only fades its words in */
+.proof-area .stack-wrap {
+  animation: file-in 280ms var(--ease-out) backwards;
 }
-@container (max-width: 559px) {
-  .stack-back {
-    --tab-start: 48cqi;
-    --tab-step: 24cqi;
-    --tab-w: 22cqi;
-  }
+.stack > .proof-item {
+  animation: none;
 }
-@container (max-width: 419px) {
-  .stack-back {
-    --tab-start: 56cqi;
-    --tab-w: 36cqi;
+.stack > .proof-item > .tile-body {
+  animation: fade 180ms ease backwards;
+}
+@media (hover: hover) and (pointer: fine) {
+  /* the front of a stack stays put: its tab is the line the others keep to */
+  .stack > .proof-item:hover {
+    transform: none;
   }
 }
 
@@ -1554,16 +1682,19 @@ body::before {
   }
   .lang-indicator,
   .switch-knob,
-  .progress > span,
-  .stack-back,
-  .stack-back-tab {
+  .progress > span {
     transition-duration: 0ms;
   }
-  .stack-back {
-    animation: fade 200ms ease both;
+  /* filed folders change depth in place; the flood is skipped in script */
+  .fold-body,
+  .fold-tab,
+  .fold-label,
+  .fold-tab::before,
+  .fold-tab::after {
+    transition-property: opacity, background-color;
   }
-  .stack-back:not([data-hidden]):hover {
-    transform: translateY(calc(var(--slot) * -12px));
+  .proof-area .stack-wrap {
+    animation: fade 200ms ease backwards;
   }
   .proof-item:hover {
     transform: none;

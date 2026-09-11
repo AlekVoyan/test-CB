@@ -22,7 +22,7 @@ import {
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
 import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
 import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
 import { spokenAnswer, UNVERIFIED_ANSWER } from "../core/answerer";
@@ -120,6 +120,7 @@ const STATUS_META: Record<AnswerStatus, { label: string; icon: ReactNode }> = {
 };
 // An answer that follows from a rule or range rather than from a line that says it.
 const INFERRED_META = { label: "Inferred from the document", icon: <LightbulbIcon weight="bold" aria-hidden /> };
+const statusMeta = (r: AnswerResult) => (r.status === "answered" && r.basis === "inferred" ? INFERRED_META : STATUS_META[r.status]);
 
 // Suggested questions for the synthetic sample manual, in each answer language.
 const EXAMPLES: Record<Language, string[]> = {
@@ -157,13 +158,18 @@ const toCitation = (u: EvidenceUnit): Citation => ({
 const fmtMs = (x?: number) => (x === undefined ? "—" : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(2)} s`);
 const fmtUsd = (x: number) => (Number.isFinite(x) ? `$${x.toFixed(5)}` : "no price set");
 
-// Older answers are deeper shades of the answer lime; proof folders deepen the sage.
+// A folder keeps its colour wherever it sits in a stack. Older answers are deeper shades of the answer lime;
+// the sheets of a stack deepen their tone by their place in it.
 const answerShade = (age: number) =>
   age <= 0 ? "var(--lime)" : `color-mix(in oklab, var(--lime) ${100 - Math.min(age, 5) * 8}%, #6d7a34)`;
-const backShade = (depth: number, tone: "sage" | "dark") =>
-  tone === "sage"
-    ? `color-mix(in oklab, var(--sage) ${100 - (depth + 1) * 9}%, #3d5836)`
-    : `color-mix(in oklab, var(--surface-2) ${100 - (depth + 1) * 14}%, #0f100e)`;
+const sheetShade = (index: number, tone: "sage" | "dark") =>
+  index <= 0
+    ? tone === "sage"
+      ? "var(--sage)"
+      : "var(--surface)"
+    : tone === "sage"
+      ? `color-mix(in oklab, var(--sage) ${100 - Math.min(index, 5) * 9}%, #3d5836)`
+      : `color-mix(in oklab, var(--surface-2) ${100 - Math.min(index - 1, 4) * 14}%, #0f100e)`;
 
 const passageLabel = (p: Passage, withFile: boolean) => `${withFile ? `${p.filename} · ` : ""}p.${p.page} · ${p.title}`;
 
@@ -198,6 +204,8 @@ function Tile(props: {
   label?: string;
   className?: string;
   style?: CSSProperties;
+  /** The front of a folder stack: a layer that takes the colour of a folder brought forward. */
+  flood?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -207,54 +215,100 @@ function Tile(props: {
       aria-labelledby={props.labelledBy}
       aria-label={props.label}
     >
-      {props.tab && <div className="tile-tab">{props.tab}</div>}
+      {props.flood && (
+        <span className="tile-flood" aria-hidden>
+          <i />
+        </span>
+      )}
+      {props.tab && (
+        <div className="tile-tab">
+          <span className="tile-tab-label">{props.tab}</span>
+        </div>
+      )}
       <div className="tile-body">{props.children}</div>
     </section>
   );
 }
 
-interface BackFolder {
+interface StackFolder {
   key: string;
-  hint: string;
+  /** Tab content, the same in front and behind: an icon and a short label. */
+  tab: ReactNode;
+  /** Full label, the tab's tooltip. */
+  title: string;
+  /** Accessible name of the tab that brings the folder forward. */
   aria: string;
+  /** The folder's own colour, kept wherever it sits. */
   bg: string;
-  onOpen: () => void;
+  /** Tab text colour on a dark folder. */
+  fg?: string;
 }
 
+/** Each filed folder shows this much of its edge above the one in front of it… */
+const FOLD_RISE = 3;
+/** …and is this much narrower on each side. */
+const FOLD_INSET = 8;
+
 /**
- * One folder in front, the rest filed behind it with their tabs peeking above.
- * The wheel pages through the filed folders only over the tab strip, and only while there is somewhere to go.
+ * Folders filed in a fixed order, each tab in its own place in one row. Bringing a folder forward moves it in depth
+ * only: nothing moves sideways, and its colour floods the front from its tab. Filed folders are narrower and show a
+ * sliver of edge above the one in front; every tab starts on the front tab's top line.
+ * The wheel over the tabs scrolls the row without changing the open folder; scrolled past, its tab holds at that edge.
  */
-function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: string | number; extra?: ReactNode; children: ReactNode }) {
-  const { backs } = props;
+function FolderStack(props: {
+  label: string;
+  folders: StackFolder[];
+  front: number;
+  /** Absent while the stack is busy: the tabs stay in view but do nothing. */
+  onOpen?: (index: number) => void;
+  prevLabel: string;
+  nextLabel: string;
+  extra?: ReactNode;
+  /** The front folder: a Tile with `flood` whose tab repeats folders[front].tab. */
+  children: ReactNode;
+}) {
+  const { folders, front, onOpen } = props;
+  const n = folders.length;
   const stackRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
-  const [capacity, setCapacity] = useState(3);
+  const [width, setWidth] = useState(800);
   const [offset, setOffset] = useState(0);
-  const maxOffset = Math.max(0, backs.length - capacity);
-  const offsetRef = useRef(offset);
-  offsetRef.current = offset;
-  const maxRef = useRef(maxOffset);
-  maxRef.current = maxOffset;
 
-  useEffect(() => setOffset(0), [props.resetKey]);
-  useEffect(() => {
-    if (offset > maxOffset) setOffset(maxOffset);
-  }, [offset, maxOffset]);
-
-  // How many tabs fit beside the front folder's own tab.
   useEffect(() => {
     const el = stackRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 800;
-      setCapacity(width < 420 ? 1 : width < 560 ? 2 : 3);
-    });
+    const observer = new ResizeObserver((entries) => setWidth(entries[0]?.contentRect.width ?? 800));
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const hasBacks = backs.length > 0;
+  // Tabs side by side: two on a phone, up to four on a desktop.
+  const lanes = n < 2 ? 1 : Math.min(n, width < 420 ? 2 : width < 560 ? 3 : 4);
+  const maxFirst = Math.max(0, n - lanes);
+  // Another folder in front (or another row width) brings its tab into view, moving the row no further than needed.
+  const view = `${folders[front]?.key}|${lanes}`;
+  const [seen, setSeen] = useState(view);
+  if (seen !== view) {
+    setSeen(view);
+    setOffset((o) => Math.min(Math.max(o, front - lanes + 1, 0), Math.min(front, maxFirst)));
+  }
+  const first = Math.min(offset, maxFirst);
+  const inRow = front >= first && front < first + lanes;
+  const frontSlot = inRow ? front - first : front < first ? 0 : lanes - 1;
+  let rank = 0;
+  const layout = folders.map((f, i) => {
+    const slot = i === front ? frontSlot : i - first;
+    const shown = i === front || (slot >= 0 && slot < lanes && (inRow || slot !== frontSlot));
+    // Depth follows the order of the row, so the nearest filed folder is the next one along.
+    const depth = i === front ? 0 : shown ? ++rank : lanes;
+    return { f, i, slot: Math.min(Math.max(slot, 0), lanes - 1), shown, depth };
+  });
+
+  const laned = lanes > 1;
+  const firstRef = useRef(first);
+  firstRef.current = first;
+  const maxRef = useRef(maxFirst);
+  maxRef.current = maxFirst;
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
@@ -262,7 +316,7 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
     const onWheel = (e: WheelEvent) => {
       const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (!delta) return;
-      const next = offsetRef.current + (delta > 0 ? 1 : -1);
+      const next = firstRef.current + (delta > 0 ? 1 : -1);
       if (next < 0 || next > maxRef.current) {
         accumulated = 0;
         return; // nothing further this way: let the page scroll
@@ -276,10 +330,72 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [hasBacks]);
+  }, [laned]);
 
-  const peek = Math.min(capacity, backs.length);
-  const paged = backs.length > capacity;
+  // The front tile is one element whatever folder it shows, so its moves are played here rather than by CSS.
+  const committed = useRef({ key: undefined as string | undefined, bg: "", slot: -1, lanes: 0, left: 0, width: 0, depths: new Map<string, number>() });
+  const running = useRef<Animation[]>([]);
+  useLayoutEffect(() => {
+    const was = committed.current;
+    const now = folders[front];
+    const moved = was.key !== now?.key || was.slot !== frontSlot || was.lanes !== lanes;
+    committed.current = { ...was, key: now?.key, bg: now?.bg ?? "", slot: frontSlot, lanes, depths: new Map(layout.map((l) => [l.f.key, l.depth])) };
+    if (!moved) return;
+    const tile = stackRef.current?.querySelector<HTMLElement>(":scope > .tile");
+    const tab = tile?.querySelector<HTMLElement>(":scope > .tile-tab");
+    if (!tile || !tab) return;
+    // Stop what an earlier move left playing; its handlers go first, so they cannot undo this move's colour.
+    for (const a of running.current) {
+      a.onfinish = null;
+      a.oncancel = null;
+      a.cancel();
+    }
+    running.current = [];
+    tile.style.removeProperty("background-color");
+    const left = tab.offsetLeft;
+    const tabWidth = tab.offsetWidth;
+    committed.current.left = left;
+    committed.current.width = tabWidth;
+    if (!was.key || !now || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timing: KeyframeAnimationOptions = { duration: 280, easing: "cubic-bezier(0.23, 1, 0.32, 1)" };
+    const el = (target: Element, frames: Keyframe[], fill: FillMode = "none") => {
+      const a = target.animate(frames, { ...timing, fill });
+      running.current.push(a);
+      return a;
+    };
+    const play = (target: Element, frames: Keyframe[]) => el(target, frames);
+    if (was.key === now.key) {
+      // The row scrolled: the open folder's tab travels with it.
+      if (was.width) play(tab, [{ left: `${was.left}px`, width: `${was.width}px` }, { left: `${left}px`, width: `${tabWidth}px` }]);
+      return;
+    }
+    // Another folder in front: its colour floods the front from its tab — a disc scaled out from under the tab.
+    // (A clip-path circle would be simpler, but Chrome's compositor misplaces a px centre while it runs.)
+    const wave = tile.querySelector<HTMLElement>(":scope > .tile-flood > i");
+    if (wave && was.bg && was.bg !== now.bg) {
+      const x = left + tabWidth / 2;
+      const reach = Math.ceil(Math.hypot(Math.max(x, tile.offsetWidth - x), tile.offsetHeight));
+      Object.assign(wave.style, { left: `${x - reach}px`, top: `${-reach}px`, width: `${2 * reach}px`, height: `${2 * reach}px` });
+      tile.style.backgroundColor = was.bg;
+      // Held at the end, then dropped in the same frame as the old colour, so the tile never flashes back.
+      const wash = el(wave, [{ transform: "scale(0)", opacity: 1 }, { transform: "scale(1)", opacity: 1 }], "forwards");
+      const settle = () => {
+        tile.style.removeProperty("background-color");
+        wash.effect = null;
+      };
+      wash.onfinish = settle;
+    }
+    // …and a filed one grows its tab down to the front edge (in the first place, out to the left edge as well).
+    const depth = Math.min(was.depths.get(now.key) ?? 0, lanes);
+    if (!depth) return;
+    if (tab.firstElementChild) play(tab.firstElementChild, [{ transform: `translateY(${(-depth * FOLD_RISE) / 2}px)` }, { transform: "none" }]);
+    if (frontSlot === 0) {
+      const inset = depth * FOLD_INSET;
+      play(tab, [{ left: `${inset}px`, width: `${tabWidth - inset}px` }, { left: "0px", width: `${tabWidth}px` }]);
+    }
+  });
+
+  const paged = n > lanes;
   return (
     <div className="stack-wrap">
       {(paged || props.extra) && (
@@ -287,24 +403,17 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
           {paged && (
             <>
               <span className="mono">
-                {offset + 1}
-                {capacity > 1 && `–${Math.min(offset + capacity, backs.length)}`} of {backs.length}
+                {front + 1} of {n}
               </span>
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setOffset((o) => Math.max(0, o - 1))}
-                disabled={offset === 0}
-                aria-label={`Newer ${props.label.toLowerCase()}`}
-              >
+              <button type="button" className="icon-btn" onClick={() => onOpen?.(front - 1)} disabled={!onOpen || front === 0} aria-label={props.prevLabel}>
                 <CaretLeftIcon weight="bold" aria-hidden />
               </button>
               <button
                 type="button"
                 className="icon-btn"
-                onClick={() => setOffset((o) => Math.min(maxOffset, o + 1))}
-                disabled={offset >= maxOffset}
-                aria-label={`Older ${props.label.toLowerCase()}`}
+                onClick={() => onOpen?.(front + 1)}
+                disabled={!onOpen || front >= n - 1}
+                aria-label={props.nextLabel}
               >
                 <CaretRightIcon weight="bold" aria-hidden />
               </button>
@@ -313,29 +422,56 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
           {props.extra}
         </div>
       )}
-      <div className="stack" ref={stackRef} style={{ "--peek": peek } as CSSProperties}>
-        {hasBacks && (
+      <div
+        className="stack"
+        ref={stackRef}
+        data-laned={laned ? "" : undefined}
+        data-front-first={laned && frontSlot === 0 ? "" : undefined}
+        style={
+          {
+            "--lanes": lanes,
+            "--front-lane": frontSlot,
+            // the row ends where the deepest filed folder's top edge starts to round
+            "--row-end": `${Math.max(28, FOLD_INSET * (lanes - 1) + 22)}px`,
+          } as CSSProperties
+        }
+      >
+        {laned && (
           <div className="stack-strip" ref={stripRef} role="group" aria-label={props.label}>
-            {backs.map((b, i) => {
-              const slot = i - offset + 1;
-              const hidden = slot < 1 || slot > capacity;
+            {layout.map(({ f, i, slot, shown, depth }) => {
+              const inFront = i === front;
+              const inert = inFront || !shown;
               return (
-                <button
-                  key={b.key}
-                  type="button"
-                  className="stack-back"
-                  data-hidden={hidden ? "" : undefined}
-                  tabIndex={hidden ? -1 : undefined}
-                  aria-hidden={hidden ? true : undefined}
-                  title={b.hint}
-                  aria-label={b.aria}
-                  onClick={b.onOpen}
-                  style={{ "--slot": Math.max(0, Math.min(slot, capacity + 1)), "--bg": b.bg } as CSSProperties}
+                <div
+                  key={f.key}
+                  className="fold"
+                  data-front={inFront ? "" : undefined}
+                  data-hidden={shown ? undefined : ""}
+                  data-first={slot === 0 ? "" : undefined}
+                  style={
+                    {
+                      "--slot": slot,
+                      "--depth": depth,
+                      "--sx": 1 - (2 * FOLD_INSET * depth) / Math.max(width, 1),
+                      "--bg": f.bg,
+                      "--fg": f.fg,
+                    } as CSSProperties
+                  }
                 >
-                  <span className="stack-back-tab">
-                    <span>{b.hint}</span>
-                  </span>
-                </button>
+                  <span className="fold-body" aria-hidden />
+                  <button
+                    type="button"
+                    className="fold-tab"
+                    tabIndex={inert ? -1 : undefined}
+                    aria-hidden={inert ? true : undefined}
+                    disabled={!onOpen}
+                    title={f.title}
+                    aria-label={f.aria}
+                    onClick={() => onOpen?.(i)}
+                  >
+                    <span className="fold-label">{f.tab}</span>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -347,7 +483,14 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
 }
 
 /** One sheet: a paragraph of the source, its cited lines in focus, the rest quieter, the lines around it dissolving. */
-function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boolean; onOpen?: (from: HTMLElement) => void }) {
+function PassageFolder(props: {
+  passage: Passage;
+  kind: ProofKind;
+  withFile: boolean;
+  onOpen?: (from: HTMLElement) => void;
+  /** In front of a stack: the sheet's own colour; the stack's head names the kind instead of the tab. */
+  stacked?: { bg: string };
+}) {
   const { passage: p } = props;
   return (
     <Tile
@@ -355,11 +498,13 @@ function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boo
       area="auto"
       className={`proof-item${props.kind === "related" ? " is-related" : ""}`}
       label={`${PROOF_NAME[props.kind]}, ${p.filename}, page ${p.page}: ${p.title}`}
+      style={props.stacked ? ({ "--tile-bg": props.stacked.bg } as CSSProperties) : undefined}
+      flood={Boolean(props.stacked)}
       tab={
         <>
           <FileTextIcon weight="bold" aria-hidden />
           <span className="tab-text">
-            {PROOF_PREFIX[props.kind]}
+            {props.stacked ? "" : PROOF_PREFIX[props.kind]}
             {passageLabel(p, props.withFile)}
           </span>
         </>
@@ -770,27 +915,38 @@ export function App() {
   const micLabel =
     phase === "listening" ? "Listening… tap to stop" : phase === "thinking" ? "Finding the answer" : phase === "speaking" ? "Speaking" : "Tap and ask";
   const last = log[0];
-  const status = answer
-    ? answer.result.status === "answered" && answer.result.basis === "inferred"
-      ? INFERRED_META
-      : STATUS_META[answer.result.status]
-    : null;
   const viewingEarlier = viewIndex > 0;
 
-  // Answer history: every answer except the one in front, newest first.
-  const answerBacks: BackFolder[] = answers.flatMap((a, i) =>
-    i === viewIndex
-      ? []
-      : [
-          {
-            key: String(a.id),
-            hint: a.question,
-            aria: `${i === 0 ? "Latest answer" : "Earlier answer"}: ${a.question}`,
-            bg: answerShade(i),
-            onOpen: () => openAnswer(i),
-          },
-        ],
+  // Answer history, newest first. A question being answered is filed in front at once, and the rest age a shade.
+  const pendingTab = (
+    <>
+      <span className="dots" aria-hidden>
+        <i />
+        <i />
+        <i />
+      </span>
+      <span className="tab-text">Finding the answer</span>
+    </>
   );
+  const answerTab = (a: AnswerView) => (
+    <>
+      {statusMeta(a.result).icon}
+      <span className="tab-text" lang={a.language}>
+        {a.question}
+      </span>
+    </>
+  );
+  const answerFolders: StackFolder[] = [
+    ...(pending ? [{ key: "pending", tab: pendingTab, title: pending, aria: `Finding the answer: ${pending}`, bg: answerShade(0) }] : []),
+    ...answers.map((a, i) => ({
+      key: String(a.id),
+      tab: answerTab(a),
+      title: a.question,
+      aria: `${i === 0 ? "Latest answer" : "Earlier answer"}: ${a.question}`,
+      bg: answerShade(pending ? i + 1 : i),
+    })),
+  ];
+  const frontAge = pending ? 0 : viewIndex;
 
   // Evidence for the answer in front, one sheet per source paragraph. A not-found answer shows nearby lines, never as proof.
   const proofs = answer?.result.citations ?? [];
@@ -799,16 +955,19 @@ export function App() {
   const proofTone: "sage" | "dark" = proofKind === "evidence" ? "sage" : "dark";
   const multiDoc = new Set(passages.map((p) => p.documentId)).size > 1;
   const frontIndex = Math.min(proofFront, Math.max(0, passages.length - 1));
-  const proofBacks: BackFolder[] = passages
-    .map((p, i) => ({ p, i }))
-    .filter(({ i }) => i !== frontIndex)
-    .map(({ p, i }, depth) => ({
-      key: p.key,
-      hint: passageLabel(p, multiDoc),
-      aria: `Show ${passageLabel(p, true)}`,
-      bg: backShade(depth, proofTone),
-      onOpen: () => setProofFront(i),
-    }));
+  const proofFolders: StackFolder[] = passages.map((p, i) => ({
+    key: p.key,
+    tab: (
+      <>
+        <FileTextIcon weight="bold" aria-hidden />
+        <span className="tab-text">{passageLabel(p, multiDoc)}</span>
+      </>
+    ),
+    title: passageLabel(p, true),
+    aria: `Show ${passageLabel(p, true)}`,
+    bg: sheetShade(i, proofTone),
+    fg: proofKind === "evidence" ? undefined : proofKind === "related" ? "var(--teal)" : "var(--text-2)",
+  }));
   const opener = (p: Passage) =>
     docs.some((d) => d.doc?.documentId === p.documentId && d.bytes) ? (from: HTMLElement) => openPassage(p, from) : undefined;
 
@@ -1010,38 +1169,27 @@ export function App() {
 
         {/* Answer, with earlier answers filed behind it */}
         <div className="stack-area enter" style={{ gridArea: "answer", "--i": 2 } as CSSProperties}>
-          <FolderStack label="Earlier answers" backs={answerBacks} resetKey={answers[0]?.id ?? 0}>
+          <FolderStack
+            label="Answers"
+            folders={answerFolders}
+            front={pending ? 0 : viewIndex}
+            onOpen={pending ? undefined : openAnswer}
+            prevLabel="Newer answer"
+            nextLabel="Older answer"
+          >
             <Tile
               tone="lime"
               area="auto"
               label="Answer"
               className="tile-answer"
+              flood
               style={
                 {
-                  "--tile-bg": answerShade(viewIndex),
-                  ...(viewIndex >= 2 ? { "--ink-2": "rgb(20 21 18 / 0.84)" } : {}),
+                  "--tile-bg": answerShade(frontAge),
+                  ...(frontAge >= 2 ? { "--ink-2": "rgb(20 21 18 / 0.84)" } : {}),
                 } as CSSProperties
               }
-              tab={
-                pending ? (
-                  <>
-                    <span className="dots" aria-hidden>
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    Finding the answer
-                  </>
-                ) : status ? (
-                  <>
-                    {status.icon}
-                    {status.label}
-                    {viewingEarlier && " · earlier"}
-                  </>
-                ) : (
-                  <>No question yet</>
-                )
-              }
+              tab={pending ? pendingTab : answer ? answerTab(answer) : <>No question yet</>}
             >
               <div aria-live="polite">
                 {pending ? (
@@ -1051,7 +1199,13 @@ export function App() {
                   </div>
                 ) : answer ? (
                   <div className="answer-result" key={answer.id}>
-                    <p className="asked">You asked: “{answer.question}”</p>
+                    <p className="asked">
+                      <span className="asked-status">
+                        {statusMeta(answer.result).icon}
+                        {statusMeta(answer.result).label}
+                      </span>
+                      <span lang={answer.language}>“{answer.question}”</span>
+                    </p>
                     <p className="answer-text" lang={answer.language}>
                       {answer.result.answer}
                     </p>
@@ -1142,12 +1296,18 @@ export function App() {
               </>
             ) : (
               <FolderStack
-                label="More cited passages"
-                backs={proofBacks}
-                resetKey={answer.id}
+                label="Passages"
+                folders={proofFolders}
+                front={frontIndex}
+                onOpen={setProofFront}
+                prevLabel="Previous passage"
+                nextLabel="Next passage"
                 extra={
                   <>
-                    <span className="stack-summary">{stackSummary(passages)}</span>
+                    <span className="stack-summary">
+                      {PROOF_PREFIX[proofKind]}
+                      {stackSummary(passages)}
+                    </span>
                     {passages.length > 1 && (
                       <button type="button" className="link-btn" onClick={() => setProofExpanded(true)}>
                         Read all {passages.length}
@@ -1162,6 +1322,7 @@ export function App() {
                   kind={proofKind}
                   withFile={multiDoc}
                   onOpen={opener(passages[frontIndex]!)}
+                  stacked={{ bg: sheetShade(frontIndex, proofTone) }}
                 />
               </FolderStack>
             )}

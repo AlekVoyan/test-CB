@@ -368,6 +368,100 @@
           }
         }
       ]
+    },
+    {
+      "id": "S19",
+      "note": "Added with the RU/UA extension (plan B), before any run of these sessions. The answer must be in the selected language; quotes stay in English.",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Какая максимальная нагрузка у модели A?",
+          "language": "ru", "testId": "L1", "type": "direct fact", "priority": "lang",
+          "expected": {
+            "status": "answered",
+            "answer": "Максимальная нагрузка модели A — 20 единиц.",
+            "mustInclude": [["20"]], "mustNotInclude": ["24"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        },
+        {
+          "ask": "А у другой модели?",
+          "language": "ru", "testId": "L2", "type": "follow-up", "priority": "lang",
+          "expected": {
+            "status": "answered",
+            "answer": "У модели B максимальная нагрузка 12 единиц в обычных условиях.",
+            "mustInclude": [["12"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S20",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Сколько работает модель A от батареи?",
+          "language": "ru", "testId": "L3", "type": "absent fact", "priority": "lang",
+          "expected": {
+            "status": "not_found",
+            "answer": "В документе не указано время работы от батареи.",
+            "mustInclude": [], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S21",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Яке максимальне навантаження моделі B?",
+          "language": "uk", "testId": "L4", "type": "direct fact", "priority": "lang",
+          "expected": {
+            "status": "answered",
+            "answer": "Максимальне навантаження моделі B — 12 одиниць за звичайних умов.",
+            "mustInclude": [["12"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S22",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Чи може модель B перевищувати свій звичайний ліміт?",
+          "language": "uk", "testId": "L5", "type": "exception", "priority": "lang",
+          "expected": {
+            "status": "answered",
+            "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+            "mustInclude": [["так", "може"], ["15"], ["5"], ["20"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 3 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 2 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S23",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Скільки коштує модель A?",
+          "language": "uk", "testId": "L6", "type": "absent fact", "priority": "lang",
+          "expected": {
+            "status": "not_found",
+            "answer": "У документі ціна не вказана.",
+            "mustInclude": [], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
     }
   ]
 }

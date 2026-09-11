@@ -29,6 +29,8 @@ export function createNvidiaLlm(options: {
       : { response_format: { type: "json_schema", json_schema: { name: "answer", schema: LLM_ANSWER_JSON_SCHEMA, strict: true } } };
 
   return {
+    // Nemotron's own reasoning broke its JSON output in tests, so "Think harder" is not offered on this provider.
+    supportsDeep: false,
     async complete({ system, messages }) {
       const body = JSON.stringify({
         model,

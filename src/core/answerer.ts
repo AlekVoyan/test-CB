@@ -22,7 +22,9 @@ export interface LlmCompletion {
 }
 
 export interface LlmClient {
-  complete(request: { system: string; messages: LlmMessage[] }): Promise<LlmCompletion>;
+  /** Whether the model can reason before it answers ("Think harder"). */
+  supportsDeep: boolean;
+  complete(request: { system: string; messages: LlmMessage[]; deep?: boolean }): Promise<LlmCompletion>;
 }
 
 export const UNVERIFIED_ANSWER = "I couldn't verify an answer in the uploaded documents.";
@@ -33,10 +35,13 @@ export async function answerQuestion(input: {
   evidence: EvidenceUnit[];
   llm: LlmClient;
   language?: Language;
+  /** "Think harder": ignored by models that cannot reason first (reported as not applied). */
+  deep?: boolean;
   maxAttempts?: number;
 }): Promise<AnswerResult> {
   const started = performance.now();
   const maxAttempts = input.maxAttempts ?? config.maxAttempts;
+  const deep = { requested: !!input.deep, applied: !!input.deep && input.llm.supportsDeep };
   const evidenceById = new Map(input.evidence.map((u) => [u.id, u]));
   const question = normalizeSpokenQuestion(input.question);
   const messages: LlmMessage[] = [
@@ -53,7 +58,7 @@ export async function answerQuestion(input: {
   const retryReasons: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const completion = await input.llm.complete({ system: SYSTEM_PROMPT, messages });
+    const completion = await input.llm.complete({ system: SYSTEM_PROMPT, messages, deep: deep.applied });
     llmMs.push(completion.latencyMs);
     inputTokens += completion.inputTokens;
     outputTokens += completion.outputTokens;
@@ -76,8 +81,13 @@ export async function answerQuestion(input: {
       const out = completion.parsed;
       return {
         status: out.status,
+        basis: out.basis,
         answer: out.answer.trim(),
+        reason: out.basis === "inferred" ? out.reason.trim() : "",
         citations: buildCitations(out.citations, evidenceById),
+        related: out.status === "not_found" ? buildCitations(out.related, evidenceById).slice(0, config.maxRelated) : [],
+        assumed: out.assumed.trim(),
+        deep,
         resolvedQuery: out.resolvedQuery,
         activeEntities: out.activeEntities,
         validation: { passed: true, attempts: attempt, errors: [], warnings, retryReasons },
@@ -98,8 +108,13 @@ export async function answerQuestion(input: {
   // Never return an answer that did not pass validation.
   return {
     status: "not_found",
+    basis: "stated",
     answer: UNVERIFIED_ANSWER,
+    reason: "",
     citations: [],
+    related: [],
+    assumed: "",
+    deep,
     resolvedQuery: input.question,
     activeEntities: [],
     validation: { passed: false, attempts: maxAttempts, errors, warnings, retryReasons },

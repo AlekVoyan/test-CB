@@ -125,11 +125,19 @@ const evidence = [
   unit("d2:p2:s2", "Model A: the maximum load is 24 units.", "doc2"),
 ];
 const evidenceById = new Map(evidence.map((u) => [u.id, u]));
+const BLANK: LlmAnswer = {
+  status: "answered",
+  basis: "stated",
+  answer: "",
+  reason: "",
+  citations: [],
+  related: [],
+  assumed: "",
+  resolvedQuery: "q",
+  activeEntities: [],
+};
 const check = (out: Partial<LlmAnswer>, question = "What is the maximum for Model A?") =>
-  validateLlmAnswer(
-    { status: "answered", answer: "", citations: [], resolvedQuery: "", activeEntities: [], ...out },
-    { question, evidenceById, maxWords: 45, maxCitations: 3 },
-  );
+  validateLlmAnswer({ ...BLANK, ...out }, { question, evidenceById, maxWords: 45, maxCitations: 3 });
 
 describe("validator", () => {
   it("accepts a supported answer", () => {
@@ -158,6 +166,28 @@ describe("validator", () => {
   });
 });
 
+describe("reasoning fields", () => {
+  const q = "Can Model A run at 25 units?";
+  it("accepts an inferred answer that names its rule, and checks the numbers in the rule", () => {
+    const out = { basis: "inferred" as const, answer: "No, 25 units is over the limit.", reason: "Model A's maximum load is 20 units.", citations: ["d1:p2:s2"] };
+    expect(check(out, q).errors).toEqual([]);
+    expect(check({ ...out, reason: "" }, q).errors.join()).toMatch(/needs a one-sentence "reason"/);
+    expect(check({ ...out, reason: "The limit is 22 units." }, q).errors.join()).toMatch(/number 22/);
+  });
+  it("keeps inferences and assumptions off answers that are not answers", () => {
+    const clarify = { status: "needs_clarification" as const, answer: "Model A or Model B?" };
+    expect(check({ ...clarify, basis: "inferred", reason: "r" }).errors.join()).toMatch(/needs status "answered"/);
+    expect(check({ ...clarify, assumed: "nozzle" }).errors.join()).toMatch(/only for answered/);
+  });
+  it("allows related lines only with not_found, and lets them back the numbers they mention", () => {
+    const notFound = { status: "not_found" as const, answer: "The manual does not specify battery life. Model B's maximum load is 12 units." };
+    expect(check({ ...notFound, related: ["d1:p2:s3"] }).errors).toEqual([]);
+    expect(check(notFound).errors.join()).toMatch(/number 12/);
+    expect(check({ ...notFound, related: ["d9:p9:s9"] }).errors.join()).toMatch(/Unknown related id/);
+    expect(check({ answer: "It is 20 units.", citations: ["d1:p2:s2"], related: ["d1:p2:s3"] }).errors.join()).toMatch(/only for not_found/);
+  });
+});
+
 describe("verifyCitations", () => {
   it("catches a tampered quote", async () => {
     const doc = await load("manual-v1.pdf");
@@ -179,11 +209,14 @@ describe("conversation", () => {
   });
 });
 
-function fakeLlm(outputs: Partial<LlmAnswer>[]): LlmClient & { calls: number } {
+function fakeLlm(outputs: Partial<LlmAnswer>[], supportsDeep = false): LlmClient & { calls: number; deepSeen: boolean[] } {
   const llm = {
     calls: 0,
-    async complete(): Promise<LlmCompletion> {
-      const out = { status: "answered", answer: "", citations: [], resolvedQuery: "q", activeEntities: [], ...outputs[llm.calls] } as LlmAnswer;
+    deepSeen: [] as boolean[],
+    supportsDeep,
+    async complete(request: { deep?: boolean }): Promise<LlmCompletion> {
+      const out: LlmAnswer = { ...BLANK, ...outputs[llm.calls] };
+      llm.deepSeen.push(!!request.deep);
       llm.calls++;
       return { parsed: out, rawText: JSON.stringify(out), inputTokens: 100, outputTokens: 20, latencyMs: 1, model: "fake", stopReason: "end_turn" };
     },
@@ -213,18 +246,37 @@ describe("answerer", () => {
     expect(result).toMatchObject({ status: "not_found", answer: UNVERIFIED_ANSWER, citations: [] });
     expect(result.validation.passed).toBe(false);
   });
+
+  it("files the model's related lines with a not-found answer, never as citations", async () => {
+    const llm = fakeLlm([{ status: "not_found", answer: "The manual does not specify battery life.", related: ["d1:p2:s3"] }]);
+    const result = await answerQuestion({ question: "How long does Model B run on battery?", history: [], evidence, llm });
+    expect(result.citations).toEqual([]);
+    expect(result.related.map((c) => c.quote)).toEqual(["Model B: the maximum load is 12 units under normal conditions."]);
+  });
+
+  it("asks for Think harder only when the model can reason first", async () => {
+    const out = { answer: "Model A handles 20 units.", citations: ["d1:p2:s2"] };
+    const plain = fakeLlm([out]);
+    expect((await answerQuestion({ question: "Q?", history: [], evidence, llm: plain, deep: true })).deep).toEqual({ requested: true, applied: false });
+    expect(plain.deepSeen).toEqual([false]);
+    const thinker = fakeLlm([out], true);
+    expect((await answerQuestion({ question: "Q?", history: [], evidence, llm: thinker, deep: true })).deep).toEqual({ requested: true, applied: true });
+    expect(thinker.deepSeen).toEqual([true]);
+  });
 });
 
 describe("parseLlmAnswer", () => {
-  const valid = { status: "answered", answer: "20 units.", citations: ["d1:p2:s2"], resolvedQuery: "q", activeEntities: ["Model A"] };
+  const valid: LlmAnswer = { ...BLANK, answer: "20 units.", citations: ["d1:p2:s2"], activeEntities: ["Model A"] };
   it("accepts plain JSON and JSON wrapped in a code fence", () => {
     expect(parseLlmAnswer(JSON.stringify(valid))).toEqual(valid);
     expect(parseLlmAnswer("```json\n" + JSON.stringify(valid) + "\n```")).toEqual(valid);
     expect(parseLlmAnswer(JSON.stringify({ ...valid, citations: [" [d1:p2:s2] "] }))?.citations).toEqual(["d1:p2:s2"]);
+    expect(parseLlmAnswer(JSON.stringify({ ...valid, related: ["[d1:p2:s3]"] }))?.related).toEqual(["d1:p2:s3"]);
   });
   it("rejects text and objects that break the contract", () => {
     expect(parseLlmAnswer("The answer is 20 units.")).toBeNull();
     expect(parseLlmAnswer(JSON.stringify({ ...valid, status: "maybe" }))).toBeNull();
+    expect(parseLlmAnswer(JSON.stringify({ ...valid, basis: "guessed" }))).toBeNull();
   });
 });
 
@@ -244,5 +296,6 @@ describe("languages", () => {
     expect(buildUserPrompt("Q?", [], evidence, "uk")).toContain("<answer_language>Ukrainian</answer_language>");
     const parsed = AnswerRequestSchema.parse({ question: "Q?", history: [], evidence });
     expect(parsed.language).toBe("en");
+    expect(parsed.deep).toBe(false);
   });
 });

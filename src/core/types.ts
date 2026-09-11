@@ -55,8 +55,17 @@ export interface Usage {
 
 export interface AnswerResult {
   status: AnswerStatus;
+  /** stated: a cited line says it; inferred: it follows from the cited lines. */
+  basis: "stated" | "inferred";
   answer: string;
+  /** For an inferred answer, the rule it follows from (also spoken). */
+  reason: string;
   citations: Citation[];
+  /** For not_found: closely related lines the model mentions. Never the answer. */
+  related: Citation[];
+  /** The corrected term when the question had an obvious slip; empty otherwise. */
+  assumed: string;
+  deep: { requested: boolean; applied: boolean };
   resolvedQuery: string;
   activeEntities: string[];
   /** retryReasons: validator findings of every rejected attempt (kept even when a retry succeeds). */

@@ -10,13 +10,21 @@ export function createAnthropicLlm(options: { apiKey: string; model?: string }):
   const model = options.model ?? config.llm.anthropicModel;
   const format = zodOutputFormat(LlmAnswerSchema);
 
+  // "Think harder": Haiku 4.5 has manual extended thinking only (a fixed budget_tokens). Thinking tokens count
+  // toward max_tokens, so the budget is added on top; thinking runs at the default temperature.
+  const deepParams = {
+    max_tokens: config.llm.maxTokens + config.llm.deepThinkingBudget,
+    thinking: { type: "enabled" as const, budget_tokens: config.llm.deepThinkingBudget },
+  };
+  const plainParams = { max_tokens: config.llm.maxTokens, temperature: config.llm.temperature };
+
   return {
-    async complete({ system, messages }) {
+    supportsDeep: true,
+    async complete({ system, messages, deep }) {
       const started = performance.now();
       const response = await client.messages.create({
         model,
-        max_tokens: config.llm.maxTokens,
-        temperature: config.llm.temperature,
+        ...(deep ? deepParams : plainParams),
         system,
         messages,
         output_config: { format },

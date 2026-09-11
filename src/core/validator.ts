@@ -80,13 +80,30 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
       break;
   }
 
-  // Every number in the answer must be backed by a cited line or come from the user's question.
+  // Reasoning fields: an inference names its rule; related lines belong to not_found only; a slip needs an answer.
+  const relatedIds = [...new Set(out.related)];
+  const relatedUnits: EvidenceUnit[] = [];
+  for (const id of relatedIds) {
+    const unit = ctx.evidenceById.get(id);
+    if (unit) relatedUnits.push(unit);
+    else errors.push(`Unknown related id "${id}". Use only ids that appear in the evidence.`);
+  }
+  if (relatedIds.length && out.status !== "not_found")
+    errors.push('"related" is only for not_found answers; put supporting lines in "citations".');
+  if (out.basis === "inferred" && out.status !== "answered" && out.status !== "conflict")
+    errors.push('basis "inferred" needs status "answered".');
+  if (out.basis === "inferred" && !out.reason.trim())
+    errors.push('An inferred answer needs a one-sentence "reason" naming the rule it follows from.');
+  if (out.assumed.trim() && out.status !== "answered" && out.status !== "conflict")
+    errors.push('"assumed" is only for answered questions; with more than one possible meaning, ask instead.');
+
+  // Every number in the answer or reason must be backed by a cited or related line, or come from the question.
   // Digits in a cited file name ("manual-v2.pdf") are allowed so conflict answers can name the documents.
   const allowed = new Set([
     ...extractNumbers(ctx.question),
-    ...cited.flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
+    ...[...cited, ...relatedUnits].flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
   ]);
-  for (const n of extractNumbers(answer)) {
+  for (const n of extractNumbers(`${answer} ${out.reason}`)) {
     if (allowed.has(n)) continue;
     // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
     const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n)).slice(0, 3);

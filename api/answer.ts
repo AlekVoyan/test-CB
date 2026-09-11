@@ -1,4 +1,4 @@
-// Vercel serverless function: POST /api/answer
+// Vercel serverless function: POST /api/answer (and GET for the model's capabilities)
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { handleAnswerRequest } from "../src/server/handler.js";
 

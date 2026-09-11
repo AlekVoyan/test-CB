@@ -13,7 +13,7 @@ import { llmCostUsd, priceFor } from "../src/core/cost.js";
 import { ingestPdf } from "../src/core/ingest.js";
 import { normalizeText } from "../src/core/normalize.js";
 import { selectEvidence } from "../src/core/retriever.js";
-import type { AnswerResult, AnswerStatus, IndexedDocument, Turn } from "../src/core/types.js";
+import type { AnswerResult, AnswerStatus, Citation, IndexedDocument, Turn } from "../src/core/types.js";
 import { verifyCitations } from "../src/core/validator.js";
 import { createLlmFromEnv } from "../src/llm/index.js";
 
@@ -36,6 +36,13 @@ interface Expected {
   mustNotInclude: string[];
   sources: Source[];
   allowedExtraSources: Source[];
+  // Reasoning checks (think-better tests), scored apart from facts and citations:
+  /** How the answer must be marked. */
+  basis?: "stated" | "inferred";
+  /** An "Assuming you meant …" interpretation must be reported. */
+  assumed?: boolean;
+  /** A not-found answer must offer a related line from one of these pages. */
+  related?: Source[];
 }
 type UploadSpec = string | { file: string; as: string };
 type Step =
@@ -55,6 +62,8 @@ const argValue = (name: string) => {
 };
 const onlySession = argValue("--session");
 const runs = Number(argValue("--runs") ?? process.env.EVAL_RUNS ?? 3);
+/** --deep: ask every question with "Think harder" (needs a model that can reason first). */
+const deep = args.includes("--deep") || process.env.EVAL_DEEP === "1";
 const mode = (process.env.RETRIEVAL_MODE as RetrievalMode | undefined) ?? config.retrievalMode;
 // Record the code version at the start: the report is written minutes later and HEAD may have moved.
 let commit = "unknown";
@@ -71,12 +80,16 @@ if ("error" in created) {
   process.exit(1);
 }
 const { llm, provider, model } = created;
+if (deep && !llm.supportsDeep) {
+  console.error(`"Think harder" needs a model that can reason before answering; ${provider} (${model}) cannot.`);
+  process.exit(1);
+}
 
 const expectedFile = JSON.parse(readFileSync(path.join(root, "eval", "expected.json"), "utf8")) as { sessions: Session[] };
 const sessionFilter = onlySession ? new Set(onlySession.split(",")) : null;
 const sessions = expectedFile.sessions.filter((s) => !sessionFilter || sessionFilter.has(s.id));
 // A partial run writes its own files so it never overwrites the full report.
-const suffix = onlySession ? `-${onlySession.replace(/,/g, "+")}` : "";
+const suffix = `${onlySession ? `-${onlySession.replace(/,/g, "+")}` : ""}${deep ? "-deep" : ""}`;
 const fixture = (file: string) => new Uint8Array(readFileSync(path.join(root, "fixtures", file)));
 
 // ---------- scoring ----------
@@ -119,18 +132,34 @@ function score(result: AnswerResult, expected: Expected, quoteErrors: string[], 
     citation = result.citations.length === 0 ? 1 : 0;
   }
 
+  // Reasoning checks: is the inference marked, the slip named, a related line offered?
+  const onPages = (pages: Source[]) => result.related.some((c) => pages.some((s) => s.file === c.filename && s.page === c.page));
+  const reasoningNotes = [
+    expected.basis && result.basis !== expected.basis && `basis ${result.basis} ≠ ${expected.basis}`,
+    expected.assumed && !result.assumed && "no assumption reported",
+    expected.related && !onPages(expected.related) && "no related line from the expected pages",
+  ].filter(Boolean) as string[];
+  const reasoning = expected.basis || expected.assumed || expected.related ? (reasoningNotes.length ? 0 : 1) : null;
+
+  // An inference presented as an answer and wrong is as bad as an invented fact.
+  const wrongInference = result.basis === "inferred" && factual === 0;
   const critical =
     (CITING.has(expected.status) && factual >= 0.5 && citation === 0) ||
-    (expected.status === "not_found" && result.status === "answered");
+    (expected.status === "not_found" && result.status === "answered") ||
+    wrongInference;
   const notes = [
     !statusOk && `status ${result.status} ≠ ${expected.status}`,
     missing.length && `missing: ${missing.map((g) => g.join("/")).join(", ")}`,
     forbidden.length && `forbidden: ${forbidden.join(", ")}`,
     wrongLanguage,
+    wrongInference && "wrong inferred answer",
+    ...reasoningNotes,
     ...quoteErrors,
   ].filter(Boolean) as string[];
-  return { factual, citation, pass: factual === 1 && citation === 1, critical, notes };
+  return { factual, citation, reasoning, pass: factual === 1 && citation === 1 && reasoning !== 0, critical, notes };
 }
+
+const cite = (c: Citation) => ({ file: c.filename, page: c.page, sentenceId: c.sentenceId, quote: c.quote });
 
 // ---------- run ----------
 interface Record_ {
@@ -143,8 +172,12 @@ interface Record_ {
   expected: Expected;
   actual: {
     status: AnswerStatus;
+    basis: AnswerResult["basis"];
     answer: string;
-    citations: { file: string; page: number; sentenceId: string; quote: string }[];
+    reason: string;
+    assumed: string;
+    citations: ReturnType<typeof cite>[];
+    related: ReturnType<typeof cite>[];
     resolvedQuery: string;
     validation: AnswerResult["validation"];
   };
@@ -194,7 +227,7 @@ for (let run = 1; run <= runs; run++) {
         const retrievalMs = performance.now() - t0;
         let result: AnswerResult;
         try {
-          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm, language: step.language });
+          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm, language: step.language, deep });
         } catch (error) {
           // Provider outage (after the adapter's own retries): record it, don't score it, keep going.
           const message = error instanceof Error ? error.message : String(error);
@@ -225,8 +258,12 @@ for (let run = 1; run <= runs; run++) {
             expected: step.expected,
             actual: {
               status: result.status,
+              basis: result.basis,
               answer: result.answer,
-              citations: result.citations.map((c) => ({ file: c.filename, page: c.page, sentenceId: c.sentenceId, quote: c.quote })),
+              reason: result.reason,
+              assumed: result.assumed,
+              citations: result.citations.map(cite),
+              related: result.related.map(cite),
               resolvedQuery: result.resolvedQuery,
               validation: result.validation,
             },
@@ -243,7 +280,16 @@ for (let run = 1; run <= runs; run++) {
             ...(baseline !== undefined ? { changedFromBaseline: baseline !== result.answer } : {}),
           });
           const mark = scores.pass ? "PASS" : scores.critical ? "CRITICAL" : "FAIL";
-          console.log(`run ${run} ${session.id} ${step.testId.padEnd(12)} ${mark.padEnd(8)} f=${scores.factual} c=${scores.citation}  ${result.status}: ${result.answer}`);
+          const extra = [
+            result.basis === "inferred" && `why: ${result.reason}`,
+            result.assumed && `assumed: ${result.assumed}`,
+            result.related.length > 0 && `related: ${result.related.map((c) => `p.${c.page}`).join(", ")}`,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          console.log(
+            `run ${run} ${session.id} ${step.testId.padEnd(12)} ${mark.padEnd(8)} f=${scores.factual} c=${scores.citation} r=${scores.reasoning ?? "-"}  ${result.status}${result.basis === "inferred" ? " (inferred)" : ""}: ${result.answer}${extra ? `  [${extra}]` : ""}`,
+          );
         }
       }
     }
@@ -284,24 +330,27 @@ const groups = [
   { name: "P1", match: (r: Record_) => r.priority === "P1" },
   { name: "holdout", match: (r: Record_) => r.priority === "holdout" },
   { name: "RU/UA", match: (r: Record_) => r.priority === "lang" },
+  { name: "Think better", match: (r: Record_) => r.priority === "think" },
   { name: "all", match: () => true },
 ];
+const statusLabel = (a: Record_["actual"]) => `${a.status}${a.basis === "inferred" ? " (inferred)" : ""}`;
 
 const lines: string[] = [];
 lines.push(`# Eval report`, ``);
 lines.push(`- Date: ${new Date().toISOString()}`);
-lines.push(`- Commit: \`${commit}\` · provider: \`${provider}\` · model: \`${model}\` · retrieval: \`${mode}\` · runs per session: ${runs}`);
+lines.push(`- Commit: \`${commit}\` · provider: \`${provider}\` · model: \`${model}\` · retrieval: \`${mode}\` · think harder: ${deep ? "on" : "off"} · runs per session: ${runs}`);
 lines.push(`- Expected outcomes: \`eval/expected.json\` (committed before the first run)`);
 lines.push(`- Latency here is the text pipeline in Node (retrieval + LLM + validation). Voice latency is measured in the browser.`, ``);
 
 lines.push(`## Summary`, ``);
-lines.push(`| Group | Tests | Runs | Factual accuracy | Citation accuracy | Pass rate | Critical failures |`);
-lines.push(`|---|---|---|---|---|---|---|`);
+lines.push(`| Group | Tests | Runs | Factual accuracy | Citation accuracy | Reasoning checks | Pass rate | Critical failures |`);
+lines.push(`|---|---|---|---|---|---|---|---|`);
 for (const g of groups) {
   const rs = records.filter(g.match);
   if (!rs.length) continue;
+  const checks = rs.flatMap((r) => (r.scores.reasoning === null ? [] : [r.scores.reasoning]));
   lines.push(
-    `| ${g.name} | ${new Set(rs.map((r) => r.testId)).size} | ${rs.length} | ${pct(mean(rs.map((r) => r.scores.factual)))} | ${pct(mean(rs.map((r) => r.scores.citation)))} | ${pct(mean(rs.map((r) => (r.scores.pass ? 1 : 0))))} | ${rs.filter((r) => r.scores.critical).length} |`,
+    `| ${g.name} | ${new Set(rs.map((r) => r.testId)).size} | ${rs.length} | ${pct(mean(rs.map((r) => r.scores.factual)))} | ${pct(mean(rs.map((r) => r.scores.citation)))} | ${checks.length ? pct(mean(checks)) : "—"} | ${pct(mean(rs.map((r) => (r.scores.pass ? 1 : 0))))} | ${rs.filter((r) => r.scores.critical).length} |`,
   );
 }
 const p0Fails = testIds.filter((id) => {
@@ -324,7 +373,7 @@ for (const id of testIds) {
   const rs = byTest(id);
   const r = rs[0]!;
   lines.push(
-    `| ${id} | ${r.type} | ${cell(r.question)} | ${r.expected.status}: ${cell(r.expected.answer)} | ${r.actual.status}: ${cell(r.actual.answer)} | ${rs.map((x) => x.scores.factual).join(" / ")} |`,
+    `| ${id} | ${r.type} | ${cell(r.question)} | ${r.expected.status}: ${cell(r.expected.answer)} | ${statusLabel(r.actual)}: ${cell(r.actual.answer)} | ${rs.map((x) => x.scores.factual).join(" / ")} |`,
   );
 }
 
@@ -339,6 +388,26 @@ for (const id of testIds) {
     ? r.actual.citations.map((c) => `${c.file} p.${c.page}: "${cell(c.quote)}"`).join("<br>")
     : "none";
   lines.push(`| ${id} | ${expected} | ${actual} | ${rs.map((x) => x.scores.citation).join(" / ")} |`);
+}
+
+// Every answer where the model inferred, interpreted a slip or offered a related line, in any test.
+const reasoned = records.filter((r) => r.actual.basis === "inferred" || r.actual.assumed || r.actual.related.length || r.scores.reasoning !== null);
+lines.push(``, `## Reasoning: inferred, assumed and related answers`, ``);
+lines.push(`All tests, all runs. A wrong inferred answer counts as a critical failure.`, ``);
+if (!reasoned.length) lines.push(`None.`);
+else {
+  lines.push(`| Run | ID | Question | Answer | Why · assumed · related | Reasoning check |`, `|---|---|---|---|---|---|`);
+  for (const r of reasoned) {
+    const detail = [
+      r.actual.basis === "inferred" ? `why: ${r.actual.reason}` : "",
+      r.actual.assumed ? `assumed: ${r.actual.assumed}` : "",
+      ...r.actual.related.map((c) => `related p.${c.page}: "${c.quote}"`),
+    ]
+      .filter(Boolean)
+      .map(cell)
+      .join("<br>");
+    lines.push(`| ${r.run} | ${r.testId} | ${cell(r.question)} | ${statusLabel(r.actual)}: ${cell(r.actual.answer)} | ${detail || "—"} | ${r.scores.reasoning ?? "—"} |`);
+  }
 }
 
 const failures = records.filter((r) => !r.scores.pass);
@@ -386,7 +455,7 @@ lines.push(`| Cost per ingestion | $0 (parsing and indexing run locally, no API 
 mkdirSync(path.join(root, "eval", "results"), { recursive: true });
 writeFileSync(
   path.join(root, "eval", "results", `actual-results${suffix}.json`),
-  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, runs, records, apiErrors, ingestions, ingestBench }, null, 2),
+  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, deep, runs, records, apiErrors, ingestions, ingestBench }, null, 2),
 );
 writeFileSync(path.join(root, "eval", "results", `report${suffix}.md`), `${lines.join("\n")}\n`);
 console.log(`\nWrote eval/results/report${suffix}.md —pass rate ${pct(mean(records.map((r) => (r.scores.pass ? 1 : 0))))}, critical ${criticalCount}.`);

@@ -21,6 +21,8 @@ export const config = {
   // Answering
   historyTurns: 4,
   maxCitations: 3,
+  /** Related lines shown (and spoken about) with a not-found answer. */
+  maxRelated: 2,
   answerMaxWords: 45,
   maxAttempts: 2,
 
@@ -35,6 +37,8 @@ export const config = {
     /** Nemotron reasons before answering unless told not to; with reasoning on, its JSON output degenerated in tests. */
     nvidiaDisableThinking: true,
     maxTokens: 1024,
+    /** "Think harder": Claude's thinking budget in tokens (min 1024). It is added on top of maxTokens. */
+    deepThinkingBudget: 2048,
     temperature: 0,
     requestTimeoutMs: 60_000,
   },

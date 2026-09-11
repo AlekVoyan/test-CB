@@ -24,6 +24,12 @@ export interface HandlerResult {
 }
 
 export async function handleAnswerRequest(req: { method: string; body: unknown; ip: string }): Promise<HandlerResult> {
+  // GET tells the page which model answers and whether "Think harder" is available. No model call.
+  if (req.method === "GET") {
+    const created = createLlmFromEnv(process.env);
+    if ("error" in created) return { status: 500, json: { error: created.error } };
+    return { status: 200, json: { provider: created.provider, model: created.model, deep: created.llm.supportsDeep } };
+  }
   if (req.method !== "POST") return { status: 405, json: { error: "Use POST." } };
   if (rateLimited(req.ip)) return { status: 429, json: { error: "Too many questions. Wait a minute and try again." } };
 

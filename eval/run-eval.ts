@@ -194,6 +194,8 @@ interface Record_ {
 const records: Record_[] = [];
 const ingestions: { file: string; pages: number; extractMs: number; indexMs: number }[] = [];
 const apiErrors: { run: number; session: string; testId: string; question: string; error: string }[] = [];
+/** Steps after a provider error in the same session: the conversation they depend on never happened, so they are not scored. */
+const skipped: { run: number; session: string; testId: string; after: string }[] = [];
 
 for (let run = 1; run <= runs; run++) {
   for (const session of sessions) {
@@ -201,6 +203,7 @@ for (let run = 1; run <= runs; run++) {
     let history: Turn[] = [];
     let keyCounter = 0;
     const answersByTest = new Map<string, string>();
+    let brokenBy: string | null = null;
 
     for (const step of session.steps) {
       if ("upload" in step) {
@@ -224,6 +227,10 @@ for (let run = 1; run <= runs; run++) {
         docs = docs.filter((d) => !step.remove.includes(d.filename));
         history = [];
       } else {
+        if (brokenBy) {
+          if (step.testId) skipped.push({ run, session: session.id, testId: step.testId, after: brokenBy });
+          continue;
+        }
         const t0 = performance.now();
         const selection = selectEvidence(docs, step.ask, { mode, history });
         const retrievalMs = performance.now() - t0;
@@ -235,6 +242,7 @@ for (let run = 1; run <= runs; run++) {
           const message = error instanceof Error ? error.message : String(error);
           console.log(`run ${run} ${session.id} ${(step.testId ?? "(setup)").padEnd(12)} API-ERROR ${message}`);
           apiErrors.push({ run, session: session.id, testId: step.testId ?? "(setup ask)", question: step.ask, error: message });
+          brokenBy = step.testId ?? "a setup question";
           continue;
         }
         const quoteErrors = verifyCitations(result.citations, docs);
@@ -367,6 +375,12 @@ if (apiErrors.length) {
     ``,
   );
 }
+if (skipped.length) {
+  lines.push(
+    `**Not scored because an earlier step of the same session hit a provider error** (the conversation they depend on never happened): ${skipped.map((s) => `run ${s.run} ${s.testId} (after ${s.after})`).join(", ")}.`,
+    ``,
+  );
+}
 
 lines.push(`## Factual accuracy`, ``);
 lines.push(`| ID | Type | Question | Expected | Actual (run 1) | Factual per run |`);
@@ -457,7 +471,7 @@ lines.push(`| Cost per ingestion | $0 (parsing and indexing run locally, no API 
 mkdirSync(path.join(root, "eval", "results"), { recursive: true });
 writeFileSync(
   path.join(root, "eval", "results", `actual-results${suffix}.json`),
-  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, deep, runs, records, apiErrors, ingestions, ingestBench }, null, 2),
+  JSON.stringify({ generatedAt: new Date().toISOString(), commit, model, mode, deep, runs, records, apiErrors, skipped, ingestions, ingestBench }, null, 2),
 );
 writeFileSync(path.join(root, "eval", "results", `report${suffix}.md`), `${lines.join("\n")}\n`);
 console.log(`\nWrote eval/results/report${suffix}.md —pass rate ${pct(mean(records.map((r) => (r.scores.pass ? 1 : 0))))}, critical ${criticalCount}.`);

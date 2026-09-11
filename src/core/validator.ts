@@ -31,6 +31,11 @@ const ABOUT_DOCS_RE = /\b(documents?|manuals?|guides?|files?|pdfs?|uploaded|text
 const NEGATION_CYR_RE = /(?<!\p{L})(не|нет|немає|ні|без|нельзя)(?!\p{L})|отсутств|відсутн/iu;
 const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|файл|текст/iu;
 
+// A not-found answer that finds the question unclear ("The question does not specify which limit", "... what limit is
+// being asked about") is a clarification in disguise.
+const QUESTION_UNCLEAR_RE =
+  /\bthe question\b[^.?!]*\b(does not|doesn't|did not|didn't|is not|isn't)\b|\b(what|which)\b[^.?!]*\b(is being asked|are you asking|you are asking|you mean|you're referring|you are referring|is meant)\b|что именно|какой именно|вы имеете в виду|що саме|який саме|ви маєте на увазі/iu;
+
 // A clarification asks the user to choose: a question, or a request such as "Please specify which model ...".
 const ASKS_RE = /\?|\b(which|specify|clarify)\b|уточн|котор|какой|какая|какое|какую|який|яка|яке|яку|якої|якого/iu;
 
@@ -81,10 +86,13 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
           `Status "not_found" must have an empty citations list. You cited lines${why}. If the cited lines decide the question, answer it: status "answered", basis "inferred", keep the reason and the citations. If they do not, use "not_found" with no citations.`,
         );
       } else if (ids.length) errors.push('Status "not_found" must have an empty citations list.');
-      if (!saysNotFound(answer))
+      // The model follows the first instruction of a retry hint, so an unclear question gets only the clarification path.
+      if (QUESTION_UNCLEAR_RE.test(answer))
         errors.push(
-          'A "not_found" answer must say explicitly that the uploaded documents do not contain the answer. If the question itself is unclear and the documents answer it differently for different options, use "needs_clarification" and ask which one.',
+          'This answer says the question is unclear, so the status is "needs_clarification", not "not_found". Ask one short question that names the options the documents distinguish, for example the models.',
         );
+      else if (!saysNotFound(answer))
+        errors.push('A "not_found" answer must say explicitly that the uploaded documents do not contain the answer.');
       break;
     case "needs_clarification":
       // Citations are allowed here only to back numbers in the question; the answerer does not show them.

@@ -162,7 +162,11 @@ describe("validator", () => {
     expect(check({ status: "not_found", answer: "Twenty units." }).errors.join()).toMatch(/say explicitly/);
     expect(check({ status: "not_found", answer: "The uploaded manual does not specify battery life." }).errors).toEqual([]);
     // about the question, not the documents: steer to a clarification
-    expect(check({ status: "not_found", answer: "The question does not specify which limit is meant." }).errors.join()).toMatch(/use "needs_clarification"/);
+    const clarify = /the status is "needs_clarification", not "not_found"/;
+    expect(check({ status: "not_found", answer: "The question does not specify which limit is meant." }).errors.join()).toMatch(clarify);
+    expect(check({ status: "not_found", answer: "The uploaded documents do not specify what limit is being asked about." }).errors.join()).toMatch(clarify);
+    expect(check({ status: "not_found", answer: "It is not stated." }).errors.join()).toMatch(/must say explicitly/);
+    expect(check({ status: "not_found", answer: "The manual does not specify the battery life you are asking about." }).errors).toEqual([]);
     expect(check({ status: "needs_clarification", answer: "Model A or Model B." }).errors.join()).toMatch(/must ask which option/);
     expect(check({ status: "needs_clarification", answer: "Please specify which model you mean: Model A or Model B." }).errors).toEqual([]);
     expect(check({ status: "conflict", answer: "20 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/two different documents/);

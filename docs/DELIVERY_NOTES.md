@@ -44,7 +44,7 @@ See `README.md` (install, `.env`, `npm run dev`, `npm test`, `npm run eval`, dep
 
 - macOS 15 (Darwin 24.6), Node 22.19.
 - Text flow (upload, ask, answer card, quotes, replace, limits, measurements) checked in the Chromium-based browser embedded in the Claude desktop app, desktop and 375 px widths.
-- Voice flow: Google Chrome 152 on macOS, local voice "Aaron" (en-US), tested by me with my own 7-page PDF (not in the repo).
+- Voice flow: Google Chrome 152 on macOS. English with the local voice "Aaron" on my own 7-page PDF; Russian (voice "Милена") and Ukrainian ("Леся") on the sample manual and on my own 1-page CV. Neither of my own documents is in the repo.
 
 ## 7. Test files and questions
 
@@ -125,7 +125,10 @@ The two scores are equal in this run because the only failure (A6) declined to a
 | Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 69 questions | median 2151 ms, p90 7322 ms, max 33437 ms (the max includes provider retries on the free endpoint) |
 | Ingestion, my own 7-page PDF | Chrome 152 | 157 ms (extract 153 ms, index 1 ms) |
 | Voice question → first audio, same PDF | Chrome 152, NVIDIA | speech end → first audio 1172 ms; submit → first audio 1172 ms (LLM 1053 ms); one sample |
-| End of speech → final transcript (STT) | Chrome 152 | read 0 ms in that test — a measurement bug: Chrome fired `speechend` after the final result, so the code used the final result as the end of speech. Now the end is `speechend` or the last interim result, whichever comes first. **👤 re-measure** |
+| End of speech → final transcript (STT) | Chrome 152, 8 voice questions (RU 7, UA 1), NVIDIA | median 69 ms (1–171 ms). The first English test read 0 ms — a measurement bug: Chrome fired `speechend` after the final result. The end of speech is now `speechend` or the last interim result, whichever comes first. |
+| Speech end → first audio | same 8 questions | median 2.07 s (1.10–4.00 s) |
+| Submit → first audio | same 8 questions | median 1.96 s (1.06–3.92 s); almost all of it is the model call on the free endpoint |
+| Ingestion, my own 1-page CV | Chrome 152 | 305 ms (extract 256 ms) |
 | Cold start of the deployed function | Vercel | **TBD** |
 
 Almost all of the question latency is the model call; retrieval and validation are ~1 ms. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
@@ -183,6 +186,7 @@ Found by the eval (NVIDIA Nemotron 3 Super):
 - **One garbled answer** — "answerModelA: the maximum load is 20 units." (fact and quote correct, so it scored as a pass). The validator checks facts and quotes, not fluency.
 - **Free endpoint** — returns 503 "temporarily overloaded" at times (handled by retries; one unscored provider error in the first run) and its latency varies.
 - **A7 before the fix** — "model bee" was answered with a clarification question; fixed in code by restoring spoken letters after "model".
+- **Seen in the Russian voice test (my CV):** recognition turned "самая сильная сторона" (strongest side) into "самая сильная страна" (strongest country); the app answered "not in the document" instead of inventing a country, and the re-asked question was answered. "Какой самый лучший скилл" (what is the best skill) got "not specified": the CV does not rank skills, so the app declined to conclude — the behaviour the brief asks for.
 - **H3 regression (holdout)** — "And the other one?" after a question about the Compact's filter passed 3/3 before the language work and 0/3 after it: the model asked "Compact or Pro?" instead. The new `<answer_language>` block sat between the conversation and the question; moving it above the conversation brought H3 back to 1/3 (M3 and L2, the other follow-ups, stayed 3/3). Not tuned further, because the holdout must not be used for prompt tuning. Retry reasons are now recorded (`validation.retryReasons`), which showed the first attempt returning an empty clarification.
 
 ## 14. Unfinished parts

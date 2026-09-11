@@ -18,3 +18,4 @@ Budget: 8 focused hours. Clock started 2026-09-10 16:50 CEST.
 | 7 | Voice test with the user's own PDF; fixes | 19:45 | 19:55 | Overview question got not_found → prompt rule + test A9 (3/3); STT timing read 0 ms → measured from the last interim result |
 | — | Discussion: multilingual TTS plan (Chatterbox) | 20:00 | 20:20 | Chosen: EN/RU/UA through the browser, TTS behind an interface; Chatterbox documented, not integrated |
 | 9 | Languages (plan B) and redesign | 01:40 (Sep 11) | 02:30 | Core + tests L1–L6 (18/18); bento/folder redesign with impeccable, animate, emil-design-eng; H3 holdout regression found and partly fixed |
+| 10 | Voice test RU/UA in Chrome (Oleh) | 02:19 | 02:23 | 8 voice questions; STT median 69 ms, speech end → first audio median 2.07 s |

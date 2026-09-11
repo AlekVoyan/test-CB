@@ -87,8 +87,8 @@ Pick the answer language with the EN · RU · UA switch. Recognition, the answer
 | Language | Recognition locale | Speech (browser voice, macOS example) | Tested |
 |---|---|---|---|
 | English | en-US | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
-| Russian | ru-RU | Milena | eval (L1–L3); voice test pending |
-| Ukrainian | uk-UA | Lesya | eval (L4–L6); voice test pending |
+| Russian | ru-RU | Milena | eval (L1–L3) + Chrome voice test |
+| Ukrainian | uk-UA | Lesya | eval (L4–L6) + Chrome voice test |
 
 If the browser has no voice for the language, the answer stays on screen and the Measurements panel says so. Chatterbox Multilingual was considered as a higher-quality voice and not integrated: its language list has no Ukrainian, it needs a Python/GPU service that Vercel can't host, and it would add generation time before the first audio. `tts.ts` is the place to add such a provider.
 

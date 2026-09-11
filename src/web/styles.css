@@ -174,11 +174,32 @@ body::before {
 .tile {
   position: relative;
   min-width: 0;
-  background: var(--tile-bg);
   color: var(--tile-fg);
   border-radius: var(--r-tile);
-  /* Box-shadows, not a drop-shadow filter: a filter is recomputed every frame while anything inside the tile moves. */
+}
+
+/* The tile's surface and its tab, under the content. They are painted in this order: the surface's shadow, the tab with
+   its own shadow, the surface, which covers the part of the tab's shadow that would fall on it. So the silhouette
+   casts one shadow with no seam, and it is drawn once. A drop-shadow filter would be recomputed every frame while
+   anything inside or over it moves: when the answer filed in, that took half the GPU from the on-device voice. */
+.tile-skin {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.tile-skin::before,
+.tile-skin::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.tile-skin::before {
   box-shadow: var(--tile-shadow);
+}
+.tile-skin::after {
+  background: var(--skin-bg, var(--tile-bg));
 }
 
 .tile.has-tab {
@@ -198,9 +219,7 @@ body::before {
   padding: 2px 14px 0 20px;
   background: var(--tile-bg);
   border-radius: 22px var(--tab-r) 0 0;
-  /* the tab casts the tile's shadow too, cut at its foot so none of it falls on the body */
   box-shadow: var(--tile-shadow);
-  clip-path: inset(-48px -48px 0 -48px);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -237,6 +256,7 @@ body::before {
 }
 
 .tile-body {
+  position: relative;
   padding: 26px 28px 28px;
 }
 
@@ -253,9 +273,6 @@ body::before {
   border-radius: 50%;
   background: var(--tile-bg);
   opacity: 0;
-}
-.tile-flood ~ .tile-body {
-  position: relative;
 }
 
 .tone-lime {
@@ -1212,14 +1229,14 @@ body::before {
 }
 
 /* the front folder's tab stands in its own place in the row, with a fillet on each side */
-.stack[data-laned] > .tile > .tile-tab {
+.stack[data-laned] > .tile > .tile-skin > .tile-tab {
   left: calc(var(--front-lane) * var(--lane-w) + var(--tab-r));
   width: calc(var(--lane-w) - 2 * var(--tab-r));
   max-width: none;
   padding-left: 14px;
   border-radius: var(--tab-r) var(--tab-r) 0 0;
 }
-.stack[data-laned] > .tile > .tile-tab::before {
+.stack[data-laned] > .tile > .tile-skin > .tile-tab::before {
   content: "";
   position: absolute;
   right: 100%;
@@ -1232,13 +1249,13 @@ body::before {
   border-top-left-radius: var(--r-tile);
 }
 /* in the first place it grows out of the folder's left edge, as on every tile */
-.stack[data-front-first] > .tile > .tile-tab {
+.stack[data-front-first] > .tile > .tile-skin > .tile-tab {
   left: 0;
   width: calc(var(--lane-w) - var(--tab-r));
   padding-left: 20px;
   border-radius: 22px var(--tab-r) 0 0;
 }
-.stack[data-front-first] > .tile > .tile-tab::before {
+.stack[data-front-first] > .tile > .tile-skin > .tile-tab::before {
   content: none;
 }
 
@@ -1261,7 +1278,9 @@ body::before {
   color: var(--fg, var(--ink));
   /* a hairline round tab and edge together, so each folder reads against the one behind it */
   filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.5));
-  transition: opacity 200ms ease;
+  transition:
+    opacity 200ms ease,
+    filter 150ms ease;
   animation: fade 220ms ease backwards;
 }
 .fold[data-hidden] {
@@ -1309,7 +1328,8 @@ body::before {
   border-radius: var(--tab-r) var(--tab-r) 0 0;
   background: var(--bg);
   color: inherit;
-  font: 650 12px/1 var(--font-ui);
+  /* room above and below the line for й, ї, у and д */
+  font: 650 12px/1.3 var(--font-ui);
   letter-spacing: 0.01em;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1322,7 +1342,6 @@ body::before {
     translate 280ms var(--ease-out),
     width 280ms var(--ease-out),
     scale 120ms var(--ease-out),
-    filter 150ms ease,
     background-color 280ms ease;
 }
 .fold[data-first] .fold-tab {
@@ -1354,9 +1373,10 @@ body::before {
 .fold-tab::after {
   content: "";
   position: absolute;
-  bottom: 0;
+  /* one pixel into the folder's edge, so no seam can open between them */
+  bottom: -1px;
   width: var(--tab-r);
-  height: var(--tab-r);
+  height: calc(var(--tab-r) + 1px);
   transform: translateY(calc(var(--depth) * -3px - var(--lift, 0px)));
   transition: transform 280ms var(--ease-out);
 }
@@ -1380,11 +1400,10 @@ body::before {
 }
 @media (hover: hover) and (pointer: fine) {
   /* a filed folder rises a little under the pointer; its tab stays on the line */
+  /* the whole folder, tab and edge together, so the fillets never part from the edge they join */
   .fold:has(> .fold-tab:hover:not(:disabled)) {
     --lift: 4px;
-  }
-  .fold-tab:hover:not(:disabled) {
-    filter: brightness(1.06);
+    filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.5)) brightness(1.06);
   }
 }
 

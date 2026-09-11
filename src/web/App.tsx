@@ -268,15 +268,18 @@ function Tile(props: {
       aria-labelledby={props.labelledBy}
       aria-label={props.label}
     >
+      {/* The surface and its tab, which carry the tile's shadow between them; the content sits on top of both. */}
+      <div className="tile-skin">
+        {props.tab && (
+          <div className="tile-tab">
+            <span className="tile-tab-label">{props.tab}</span>
+          </div>
+        )}
+      </div>
       {props.flood && (
         <span className="tile-flood" aria-hidden>
           <i />
         </span>
-      )}
-      {props.tab && (
-        <div className="tile-tab">
-          <span className="tile-tab-label">{props.tab}</span>
-        </div>
       )}
       <div className="tile-body">{props.children}</div>
     </section>
@@ -395,8 +398,9 @@ function FolderStack(props: {
     committed.current = { ...was, key: now?.key, bg: now?.bg ?? "", slot: frontSlot, lanes, depths: new Map(layout.map((l) => [l.f.key, l.depth])) };
     if (!moved) return;
     const tile = stackRef.current?.querySelector<HTMLElement>(":scope > .tile");
-    const tab = tile?.querySelector<HTMLElement>(":scope > .tile-tab");
-    if (!tile || !tab) return;
+    const skin = tile?.querySelector<HTMLElement>(":scope > .tile-skin");
+    const tab = skin?.querySelector<HTMLElement>(":scope > .tile-tab");
+    if (!tile || !skin || !tab) return;
     // Stop what an earlier move left playing; its handlers go first, so they cannot undo this move's colour.
     for (const a of running.current) {
       a.onfinish = null;
@@ -404,7 +408,7 @@ function FolderStack(props: {
       a.cancel();
     }
     running.current = [];
-    tile.style.removeProperty("background-color");
+    skin.style.removeProperty("--skin-bg");
     const left = tab.offsetLeft;
     const tabWidth = tab.offsetWidth;
     committed.current.left = left;
@@ -429,11 +433,11 @@ function FolderStack(props: {
       const x = left + tabWidth / 2;
       const reach = Math.ceil(Math.hypot(Math.max(x, tile.offsetWidth - x), tile.offsetHeight));
       Object.assign(wave.style, { left: `${x - reach}px`, top: `${-reach}px`, width: `${2 * reach}px`, height: `${2 * reach}px` });
-      tile.style.backgroundColor = was.bg;
+      skin.style.setProperty("--skin-bg", was.bg);
       // Held at the end, then dropped in the same frame as the old colour, so the tile never flashes back.
       const wash = el(wave, [{ transform: "scale(0)", opacity: 1 }, { transform: "scale(1)", opacity: 1 }], "forwards");
       const settle = () => {
-        tile.style.removeProperty("background-color");
+        skin.style.removeProperty("--skin-bg");
         wash.effect = null;
       };
       wash.onfinish = settle;

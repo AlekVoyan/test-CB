@@ -769,7 +769,7 @@ export function App() {
 
       <div className="bento">
         {/* Voice */}
-        <Tile tone="coral" area="voice" labelledBy="voice-title" className="tile-voice">
+        <Tile tone="coral" area="voice" labelledBy="voice-title" className="tile-voice enter" style={{ "--i": 0 } as CSSProperties}>
           <div className="tile-head">
             <h2 id="voice-title">Ask aloud</h2>
             <LanguageSwitch value={language} onChange={setLanguage} disabled={phase === "listening" || phase === "thinking"} />
@@ -849,7 +849,8 @@ export function App() {
           tone="teal"
           area="docs"
           labelledBy="docs-title"
-          className="tile-docs"
+          className="tile-docs enter"
+          style={{ "--i": 1 } as CSSProperties}
           tab={
             <>
               <FilePdfIcon weight="bold" aria-hidden />
@@ -941,7 +942,7 @@ export function App() {
         </Tile>
 
         {/* Answer, with earlier answers filed behind it */}
-        <div className="stack-area" style={{ gridArea: "answer" }}>
+        <div className="stack-area enter" style={{ gridArea: "answer", "--i": 2 } as CSSProperties}>
           <FolderStack label="Earlier answers" backs={answerBacks} resetKey={answers[0]?.id ?? 0}>
             <Tile
               tone="lime"
@@ -1094,7 +1095,7 @@ export function App() {
         )}
 
         {/* Measurements */}
-        <Tile tone="dark" area="metrics" labelledBy="metrics-title" className="tile-metrics">
+        <Tile tone="dark" area="metrics" labelledBy="metrics-title" className="tile-metrics enter" style={{ "--i": 3 } as CSSProperties}>
           <div className="tile-head">
             <div className="head-title">
               <span className="disc disc-sm">

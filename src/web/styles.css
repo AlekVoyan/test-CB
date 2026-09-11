@@ -852,7 +852,20 @@ body::before {
   }
 }
 .answer-result {
-  animation: file-in 320ms var(--ease-out) both;
+  animation: file-in 320ms var(--ease-out) backwards;
+}
+
+/* first view: the tiles are laid down one by one, rising from below — they gather speed, then settle.
+   Only the start state is keyed and the fill is backwards, so nothing stays pinned once a tile has landed. */
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+.enter {
+  animation: tile-in 520ms var(--ease-in-out) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
 }
 
 .dots {
@@ -919,7 +932,8 @@ body::before {
   align-content: start;
 }
 .proof-item {
-  animation: file-in 280ms var(--ease-out) both;
+  /* backwards, not both: a finished animation would keep transform: none and cancel the hover lift */
+  animation: file-in 280ms var(--ease-out) backwards;
 }
 .proof-item:nth-child(2) {
   animation-delay: 50ms;
@@ -1234,7 +1248,11 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .answer-result,
   .proof-item {
-    animation: fade 200ms ease both;
+    animation: fade 200ms ease backwards;
+  }
+  .enter {
+    animation: fade 240ms ease backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
   }
   .mic[data-state="listening"]::after {
     animation: none;

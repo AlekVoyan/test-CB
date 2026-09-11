@@ -187,6 +187,7 @@ Tiles are 28px-radius rounded rectangles. A tabbed tile drops its top-left radiu
 - **Background:** one pastel role per tile, or Surface for measurements.
 - **Shadow Strategy:** Tile float (see Elevation & Depth).
 - **Internal Padding:** 26px 28px (answer 30px 32px; phones 22px 20px).
+- **Entrance:** on first view the tiles rise 24px and fade in one by one: voice, documents, answer, measurements. Each takes 520ms on the strong ease-in-out curve (gathers speed, then settles), 70ms apart. Under reduced motion they only fade, 40ms apart.
 
 ### Inputs / Fields
 - **Style:** pill, ink wash fill, ink text, no border at rest.
@@ -216,7 +217,7 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 - **Do** keep each pastel to its one role (The One Job Rule).
 - **Do** put data on tabs — status, page, counts — and nothing else.
 - **Do** use drop-shadow filters so tabs and stacked folders share the tile's shadow.
-- **Do** keep UI motion under 300ms with the strong ease-out curve, and ship a reduced-motion variant with every animation.
+- **Do** keep UI motion under 300ms with the strong ease-out curve, and ship a reduced-motion variant with every animation. The one exception is the first-view tile entrance (520ms, ease-in-out), which plays once per load.
 - **Do** theme the browser surfaces: lime selection with ink text, lime caret, dark scrollbars, visible focus.
 - **Do** file extra content behind the front folder (earlier answers, further pages) instead of listing it, and page through it only over the tab strip.
 - **Do** keep related and closest lines in dark folders; sage is for proof only.

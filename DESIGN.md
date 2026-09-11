@@ -187,7 +187,7 @@ Tiles are 28px-radius rounded rectangles. A tabbed tile drops its top-left radiu
 - **Background:** one pastel role per tile, or Surface for measurements.
 - **Shadow Strategy:** Tile float (see Elevation & Depth).
 - **Internal Padding:** 26px 28px (answer 30px 32px; phones 22px 20px).
-- **Entrance:** on first view the tiles rise 64px and fade in one by one: voice, documents, answer, measurements. Each takes 600ms on the strong ease-in-out curve (gathers speed, then settles), 70ms apart. Under reduced motion they only fade, 40ms apart.
+- **Entrance:** on first view the tiles rise and fade in one by one: voice, documents, answer, measurements. They rise 200px on desktop (the 12-column layout, over 1100px wide) and 64px on smaller screens. Each takes 600ms on the strong ease-in-out curve (gathers speed, then settles), 100ms apart. Under reduced motion they only fade, 40ms apart.
 
 ### Inputs / Fields
 - **Style:** pill, ink wash fill, ink text, no border at rest.

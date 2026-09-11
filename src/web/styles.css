@@ -40,6 +40,8 @@
   -webkit-font-smoothing: antialiased;
   caret-color: var(--lime);
   scrollbar-color: var(--surface-2) var(--ground);
+  /* the first-view rise pushes tiles 200px down for a moment; with classic scrollbars the page must not reflow */
+  scrollbar-gutter: stable;
 }
 
 * {
@@ -860,12 +862,19 @@ body::before {
 @keyframes tile-in {
   from {
     opacity: 0;
-    transform: translateY(64px);
+    transform: translateY(var(--rise));
   }
 }
 .enter {
+  --rise: 64px;
   animation: tile-in 600ms var(--ease-in-out) backwards;
-  animation-delay: calc(var(--i, 0) * 70ms);
+  animation-delay: calc(var(--i, 0) * 100ms);
+}
+/* desktop (the 12-column bento): a long rise */
+@media (min-width: 1101px) {
+  .enter {
+    --rise: 200px;
+  }
 }
 
 .dots {

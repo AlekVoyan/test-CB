@@ -26,6 +26,8 @@
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* easeInOutQuad: a parabola each way — even acceleration, even braking to a soft stop */
+  --ease-in-out-quad: cubic-bezier(0.45, 0, 0.55, 1);
 
   --font-display: "Unbounded Variable", "Onest Variable", system-ui, sans-serif;
   --font-ui: "Onest Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -857,7 +859,8 @@ body::before {
   animation: file-in 320ms var(--ease-out) backwards;
 }
 
-/* first view: the tiles are laid down one by one, rising from below — they gather speed, then settle.
+/* first view: the tiles are laid down one by one, rising from below on a quadratic curve — even acceleration,
+   then even braking to a soft stop.
    Only the start state is keyed and the fill is backwards, so nothing stays pinned once a tile has landed. */
 @keyframes tile-in {
   from {
@@ -867,7 +870,7 @@ body::before {
 }
 .enter {
   --rise: 64px;
-  animation: tile-in 600ms var(--ease-in-out) backwards;
+  animation: tile-in 600ms var(--ease-in-out-quad) backwards;
   animation-delay: calc(var(--i, 0) * 100ms);
 }
 /* desktop (the 12-column bento): a long rise */

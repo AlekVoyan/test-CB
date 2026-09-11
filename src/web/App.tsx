@@ -58,6 +58,9 @@ interface QuestionMetrics {
   basis?: AnswerResult["basis"];
   /** "Think harder" actually applied by the model. */
   deep: boolean;
+  answer?: string;
+  /** Validator findings on rejected attempts: why a question needed a second call. */
+  retryReasons: string[];
   sttMs?: number;
   retrievalMs: number;
   evidence: { mode: string; units: number; estimatedTokens: number };
@@ -571,6 +574,8 @@ export function App() {
         status: result.status,
         basis: result.basis,
         deep: result.deep.applied,
+        answer: result.answer,
+        retryReasons: result.validation.retryReasons,
         sttMs: voiceTimes?.speechEndAt && voiceTimes.sttFinalAt ? voiceTimes.sttFinalAt - voiceTimes.speechEndAt : undefined,
         retrievalMs,
         evidence: { mode: selection.mode, units: selection.units.length, estimatedTokens: selection.estimatedTokens },

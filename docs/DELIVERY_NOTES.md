@@ -27,6 +27,8 @@ A browser prototype: upload up to two text-based PDFs (≤ 10 pages total), ask 
 | Second provider: NVIDIA-hosted Nemotron 3 Super (`LLM_PROVIDER=nvidia`) | The Anthropic balance was empty during development; the pipeline sits behind an `LlmClient` interface, so a second adapter was cheap. Reasoning is turned off: with it on, the model's JSON degenerated into whitespace. | The free endpoint is slower and returns 503 at times (handled with retries). Its results are reported separately and priced at a paid provider's list price. |
 | "Think better": inferred answers, related lines, named slips (always on) | Users ask things a manual decides without saying them ("Can Model B run at 40°C?"), misspell or mishear words, and ask about things that aren't there. The model marks such an answer *inferred*, with a one-sentence reason that is shown and read aloud. A not-found answer may add a related line. An assumed slip is named ("Assuming you meant “nozzle”"). Related lines never turn "not in the document" into an answer. | An inference is a new way to be wrong, so a wrong inferred answer counts as a critical failure in the eval. The answer contract grew four fields. On Nemotron some inferences need a retry (+2–4 s). |
 | Think harder: Claude extended thinking, off by default | Lets the target model reason before hard questions. It costs latency and output tokens, so the user opts in. Haiku 4.5 supports only manual thinking (`budget_tokens`, 2,048 here, on top of `max_tokens`). | **Not measured**: the Anthropic balance was empty. With the NVIDIA model the switch is disabled and says why. |
+| The model reads before it decides | Its answer now begins with the restated question and a private `analysis` (which lines bear on the question and what they say), and only then the status. When status came first, a model without reasoning committed to "not in the document" and then wrote a reason that contradicted it. | About 40–60 more output tokens per answer. |
+| Two-column pages read column by column | A CV with a sidebar came out with lines of both columns glued together, which spoiled both the answers and the quotes. An empty vertical band with real text on both sides marks the gutter, and each column is read top to bottom. | Only two columns; small sub-columns inside a column still merge. One-column documents extract byte-identically. |
 | A silent slip fix is named by code | Nemotron corrected "nozzel" in its restated question but never told the user. `slips.ts` names the correction when the corrected word is in the documents, the original is not, and the two differ by a letter or two. | Catches only slips the model itself corrected, and only spelling-level ones. |
 
 ## 3. Reused components and own work
@@ -58,7 +60,7 @@ Questions and expected outcomes: `eval/expected.json`, committed in `f699eb9` be
 
 ## 8. Expected vs actual results
 
-Final run: commit `6f9f76b`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per session, no provider errors. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`; earlier runs are in git history.
+Final run: commit `627aaf7`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per session, no provider errors. The later commits change only two-column extraction, which leaves every fixture byte-identical, and the UI. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`; earlier runs are in git history.
 
 | ID | Type | Question | Expected (status · fact · source) | Passed |
 |---|---|---|---|---|
@@ -68,25 +70,25 @@ Final run: commit `6f9f76b`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per sessi
 | M4 | exception | Is Model B ever allowed to exceed its normal limit? | answered · 15 units, ≤ 5 min, below 20°C · v1 p.3 | 3/3 |
 | M5 | absent fact | What is the battery life of Model A? | not_found · 0 citations | 3/3 |
 | M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 3/3) |
-| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 2/3 (run 2 asked "Which model's limit?" without naming the options) |
-| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | 3/3 |
+| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 3/3 |
+| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | 2/3 (run 1: a mis-cited 12, caught by the validator: "couldn't verify") |
 | R2 | correction | I meant Model B. | answered · 12 units, not "20 units" · v1 p.2 | 3/3 |
 | A1 | conflicting documents | What is the maximum for Model A? (v1 + v2 loaded) | conflict · 20 and 24, both documents cited | 3/3 |
 | A2 | paraphrase | How many units can A handle? | answered · 20 units · v1 p.2 | 3/3 |
 | A3 | distractor | How often should I clean the nozzle on Model B? | answered · 30 days, not 15 · v1 p.3 | 3/3 |
 | A4 | unknown entity | What is the maximum load for Model C? | not_found | 3/3 |
 | A5 | rename (v2 uploaded as manual-v1.pdf) | What is the maximum for Model A? | answered · 24 units | 3/3 |
-| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | **0/3** |
+| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | **1/3** |
 | A7 | speech-recognition error | What's the max load for model bee? | answered · 12 units · v1 p.2 | 3/3 |
 | A8 | history reset (D4) | And what about the other model? (after v1 → v2) | needs_clarification | 3/3 |
 | A9 | document overview | What is this document about? | answered · Kestrel Dosing System · v1 p.1 | 3/3 |
-| X1 | inference from a range | Can Model B run at 40°C? | answered, marked inferred · No, range 5–35°C · v1 p.2 | 2/3 |
+| X1 | inference from a range | Can Model B run at 40°C? | answered, marked inferred · No, range 5–35°C · v1 p.2 | 3/3 |
 | X2 | indirect fact | What's the maximum temperature for Model A? | answered · 35°C · v1 p.2 | 3/3 |
 | X3 | absent fact, related line | How long does Model B run on battery? | not_found · a related line from p.1 or p.3 (power adapter) | 0/3 (not_found 3/3, never a related line) |
 | X4 | slip, one target | How often should I clean the nozzel on Model B? | answered · 30 days · assumption named · v1 p.3 | 3/3 |
-| X5 | slip, model not named (guard) | How often should I clean the nozzel? | needs_clarification · names Model A and Model B | 1/3 (twice declined instead of asking) |
-| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 18/18 |
-| H1–H5 | holdout document | room size, filter intervals, follow-up, night mode, price | see `eval/expected.json` | 12/15 (H3 0/3) |
+| X5 | slip, model not named (guard) | How often should I clean the nozzel? | needs_clarification · names Model A and Model B | 3/3 |
+| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 17/18 (L5 run 3: a mis-cited number, "couldn't verify") |
+| H1–H5 | holdout document | room size, filter intervals, follow-up, night mode, price | see `eval/expected.json` | 15/15 |
 | I1–I3 | input limits | 3 files, 11 pages, PDF without text | rejected with a message | pass (`npm test`) |
 
 How the numbers moved (full runs, 3 runs each):
@@ -99,16 +101,17 @@ How the numbers moved (full runs, 3 runs each):
 | Russian and Ukrainian added | `fc99ba3` | 100% | 88.9% (A6) | 80% (H3) | 100% | — | 0 |
 | Think-better mode, first full run | `ff6dbe6` | 73.3% (M4, R1, R1b) | 88.9% | 60% (H3, H4) | 100% | 53.3% | 0 |
 | Clarifications and inferences steered, spoken text scored | `132f03f` | 86.7% (R1, R1b) | 92.6% | 71.4% (H3, H4 2/3) | 100% | 60.0% | 1 (eval artifact, §13) |
-| **Final** | `6f9f76b` | **96.7%** (R1 2/3) | 88.9% (A6) | 80% (H3) | 100% | 60.0% (X3, X5) | **0** |
+| Think-better mode complete | `6f9f76b` | 96.7% (R1 2/3) | 88.9% (A6) | 80% (H3) | 100% | 60.0% (X3, X5) | 0 |
+| **Final**: the model reads before it decides | `627aaf7` | **96.7%** (R1b 2/3) | **92.6%** (A6 1/3) | **100%** | 94.4% (L5 2/3) | **80.0%** (X3) | **0** |
 
 **Think-better tests, final run:**
-- **X1** ("Can Model B run at 40°C?"): 2/3 answered "No", marked inferred, with the 5–35°C range as the Why line. The third declined.
+- **X1** ("Can Model B run at 40°C?"): 3/3 answered "No", marked inferred, with the 5–35°C range as the Why line. It was 2/3 before the analysis-first change.
 - **X2**: 3/3.
 - **X3** ("How long does Model B run on battery?"): not found 3/3, as expected, but Nemotron never offered a related line, so the reasoning check failed.
 - **X4**: 3/3 with "Assuming you meant “nozzle”". The model corrected the word silently, and `slips.ts` named the correction.
-- **X5**: 1/3. Twice it said the documents don't give the cleaning interval instead of asking which model. That is a wrong decline, not an invented fact.
+- **X5**: 3/3. It was 1/3 before, when the model declined instead of asking which model.
 
-Across all 105 answers the model marked 23 as inferred, and none was wrong. The guards held: A4 and M5 3/3, R1 2/3.
+Across all 105 answers the model marked 18 as inferred, and none was wrong. The guards held: A4, M5 and R1 3/3.
 
 **Russian and Ukrainian (L1–L6, commit `fc99ba3`, 3 runs):** 18/18 passed — answers in the selected language, quotes in English, not-found recognised in both languages. Full run on the same commit: P0 100%, P1 88.9% (A6), holdout 80% (**H3 regressed to 0/3**, see §13), RU/UA 100%, 0 critical failures.
 
@@ -116,16 +119,16 @@ Across all 105 answers the model marked 23 as inferred, and none was wrong. The 
 
 ## 9. Factual accuracy and citation accuracy
 
-Scored separately for every test and run (rules in `eval/expected.json` and ТЗ §8). Final run, commit `6f9f76b`:
+Scored separately for every test and run (rules in `eval/expected.json` and ТЗ §8). Final run, commit `627aaf7`:
 
 | Group | Tests | Scored runs | Factual accuracy | Citation accuracy | Reasoning checks |
 |---|---|---|---|---|---|
-| P0 | 10 | 30 | 98.3% | 100.0% | — |
-| P1 | 9 | 27 | 88.9% | 88.9% | — |
-| Holdout | 5 | 15 | 80.0% | 80.0% | — |
-| RU/UA | 6 | 18 | 100.0% | 100.0% | — |
-| Think better | 5 | 15 | 80.0% | 93.3% | 55.6% |
-| All | 35 | 105 | 91.0% | 93.3% | 55.6% |
+| P0 | 10 | 30 | 96.7% | 96.7% | — |
+| P1 | 9 | 27 | 92.6% | 92.6% | — |
+| Holdout | 5 | 15 | 100.0% | 100.0% | — |
+| RU/UA | 6 | 18 | 94.4% | 94.4% | — |
+| Think better | 5 | 15 | 100.0% | 100.0% | 66.7% |
+| All | 35 | 105 | 96.2% | 96.2% | 66.7% |
 
 **Critical failures** (a plausible answer without support, an answer where the documents have none, or a wrong inferred answer): **0**.
 
@@ -134,7 +137,7 @@ Scored separately for every test and run (rules in `eval/expected.json` and ТЗ
 - basis / assumed / related are reasoning checks, reported separately. A failed check fails the test but does not change factual or citation accuracy.
 - Facts are matched on what the user hears: the answer plus, for an inferred answer, its Why line. Before, only the answer text was matched. The Why line is shown and read aloud, and M4, A6 and X1 put their numbers there.
 
-The two scores differ where a wrong status cites nothing. X5 declined instead of asking: factual 0, citation 1, because a non-answer should cite nothing. R1's clarification without the options scored factual 0.5. The case the two scores are meant to separate — right fact, wrong citation — did occur (R1b and A7 in the `016ee32` run), but the validator rejected those answers before they could be shown or scored as correct.
+In this run the two scores are equal in every group: each failure is a decline or a withheld answer, and those fail both. In `6f9f76b` they differed where X5 declined instead of asking: factual 0, but citation 1, because a non-answer should cite nothing. The case the two scores are meant to separate — right fact, wrong citation — did occur (R1b and A7 in the `016ee32` run, R1b and L5 in this one), but the validator rejected those answers before they could be shown or scored as correct.
 
 ## 10. Latency
 
@@ -143,7 +146,8 @@ The two scores differ where a wrong status cites nothing. X5 declined instead of
 | Ingestion, `manual-v1.pdf` (3 pages), file selected → ready | embedded Chromium, local dev | 274 ms and 447 ms (two loads; pdf.js extraction is almost all of it, indexing 1 ms) |
 | Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
 | Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
-| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 105 questions, final run `6f9f76b` | median 2165 ms, p90 4673 ms, max 11906 ms; first model call median 1686 ms |
+| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 105 questions, final run `627aaf7`, daytime | median 3738 ms, p90 9835 ms, max 27895 ms; first model call median 3561 ms. The same pipeline at night (`6f9f76b`): median 2165 ms |
+| Answer format A/B, same time window | Node, NVIDIA, 12 raw calls per format, interleaved | Status first: median 3.35 s, 133 output tokens. Analysis first: median 3.2 s, 167 output tokens. Three 503s excluded. The format costs ~34 tokens and no measurable time |
 | Question → first audio, inferred answer that needed a retry (X1) | embedded Chromium, typed question, NVIDIA | 5.84 s (two model calls, 2.15 s + 3.61 s); one sample |
 | Question → first audio, not-found answer (battery life) | same | 1.23 s (one model call, 1.12 s); one sample |
 | Ingestion, my own 7-page PDF | Chrome 152 | 157 ms (extract 153 ms, index 1 ms) |
@@ -154,7 +158,7 @@ The two scores differ where a wrong status cites nothing. X5 declined instead of
 | Ingestion, my own 1-page CV | Chrome 152 | 305 ms (extract 256 ms) |
 | Cold start of the deployed function | Vercel | **TBD** |
 
-Almost all of the question latency is the model call; retrieval and validation are ~1 ms. The think-better retry hints add a second call on 19% of questions in the final run (7% before), mostly clarifications and inferences. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
+Almost all of the question latency is the model call; retrieval and validation are ~1 ms. Retry hints add a second call on 6% of questions in the final run: 19% before the analysis-first change, 7% before the think-better mode. Most of a question's time is the free endpoint itself. Its calls ranged from 1.2 to 7 s within the same minute, and one took 29 s. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
 
 ## 11. Cost
 
@@ -163,17 +167,17 @@ Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free
 | Item | Value | Basis |
 |---|---|---|
 | Ingestion | $0 | parsing and indexing run in the browser, no API call |
-| Tokens per question | 2355 in / 122 out (mean, retries included) | measured, final eval `6f9f76b`, 105 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now and retries are more frequent) |
-| Retries | 20 of 105 questions (19.0%) | measured; their tokens are included above |
-| LLM per question, Nemotron 3 Super | mean $0.00025, max $0.00047 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
+| Tokens per question | 2218 in / 164 out (mean, retries included) | measured, final eval `627aaf7`, 105 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
+| Retries | 6 of 105 questions (5.7%) | measured; their tokens are included above |
+| LLM per question, Nemotron 3 Super | mean $0.00025, max $0.00060 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
 | LLM per question, Claude Haiku 4.5 | ≈ $0.0030 | **estimate**: same token counts × $1 / $5 per MTok; Haiku's tokenizer differs — **TBD measured** |
 | Think harder, Claude Haiku 4.5 | up to ≈ +$0.010 per question | **estimate**: a thinking budget of up to 2,048 output tokens × $5/MTok. The budget is a target; easy questions use less. **TBD measured** |
-| One pass over the P0 tests | $0.00249 (Nemotron) | measured |
+| One pass over the P0 tests | $0.00265 (Nemotron) | measured |
 | Speech recognition, prototype | $0 direct | Web Speech API (browser vendor's service, no SLA) |
 | Speech synthesis, prototype | $0 | OS voices |
 | Speech recognition, production (Deepgram Nova-3) | ≈ $0.00032 per question | **assumption**: 7-word mean question ≈ 2.5 s of speech × $0.0077/min |
-| Speech synthesis, production (Deepgram Aura-1) | ≈ $0.0013 per question | measured mean spoken text 87 characters (the answer plus the Why line of inferred answers) × $0.015 per 1,000 |
-| **Total variable cost per question** | prototype: $0.00025 (Nemotron) / ≈ $0.0030 (Haiku est.); production voice: ≈ $0.0019 (Nemotron) / ≈ $0.0046 (Haiku est.); Think harder adds up to ≈ $0.010 on Haiku | sum of the rows above |
+| Speech synthesis, production (Deepgram Aura-1) | ≈ $0.0014 per question | measured mean spoken text 92 characters (the answer plus the Why line of inferred answers) × $0.015 per 1,000 |
+| **Total variable cost per question** | prototype: $0.00025 (Nemotron) / ≈ $0.0030 (Haiku est.); production voice: ≈ $0.0020 (Nemotron) / ≈ $0.0047 (Haiku est.); Think harder adds up to ≈ $0.010 on Haiku | sum of the rows above |
 | Paid intermediaries | $0 | the server calls the provider directly |
 | Hosting (fixed, separate) | $0 / month on Vercel Hobby, within its caps | `docs/pricing.md` |
 
@@ -205,15 +209,15 @@ Known before the eval:
 - The client bundle is ~674 KB, 208 KB gzipped (mostly pdf.js, plus the fonts and icons added in the redesign); not code-split.
 
 Found by the eval (NVIDIA Nemotron 3 Super):
-- **A6 fails 3/3** — "Can Model B run at 15 units when it's 25°C?" gets "The uploaded documents do not specify…" instead of "No, the exception applies only below 20°C". A safe failure (declines, invents nothing, 0 citations), not fixed by two general prompt changes. Not tuned further to avoid fitting the prompt to one test. In the final run, the retry hint that quotes the model's own reason back to it did not change its mind either; the answer ends as "I couldn't verify an answer". **TBD:** result on Claude Haiku 4.5.
-- **X5 1/3** — "How often should I clean the nozzel?" twice got "the documents do not specify how often to clean the nozzle" instead of "which model?". The manual gives an interval for each model, so this is a wrong decline: safe, nothing invented, but wrong.
+- **A6 failed 3/3 until the analysis-first change, 1/3 after it** — "Can Model B run at 15 units when it's 25°C?" gets "The uploaded documents do not specify…" instead of "No, the exception applies only below 20°C". A safe failure (declines, invents nothing, 0 citations), not fixed by two general prompt changes. Not tuned further to avoid fitting the prompt to one test. In the final run, the retry hint that quotes the model's own reason back to it did not change its mind either; the answer ends as "I couldn't verify an answer". **TBD:** result on Claude Haiku 4.5.
+- **X5 1/3 in `6f9f76b`, 3/3 after the analysis-first change** — "How often should I clean the nozzel?" twice got "the documents do not specify how often to clean the nozzle" instead of "which model?". The manual gives an interval for each model, so this is a wrong decline: safe, nothing invented, but wrong.
 - **X3** — Nemotron never offered a related line for the battery question (0/3). In the final run, related lines appeared only for H5 and X5.
 - **Mis-cited numbers** — the model sometimes cites a neighbouring line for a correct number. The validator catches it; since the retry hint (commit `e41c065`) the retry fixes it.
 - **One garbled answer** — "answerModelA: the maximum load is 20 units." (fact and quote correct, so it scored as a pass). The validator checks facts and quotes, not fluency.
 - **Free endpoint** — returns 503 "temporarily overloaded" at times (handled by retries; one unscored provider error in the first run) and its latency varies.
 - **A7 before the fix** — "model bee" was answered with a clarification question; fixed in code by restoring spoken letters after "model".
 - **Seen in the Russian voice test (my CV):** recognition turned "самая сильная сторона" (strongest side) into "самая сильная страна" (strongest country); the app answered "not in the document" instead of inventing a country, and the re-asked question was answered. "Какой самый лучший скилл" (what is the best skill) got "not specified": the CV does not rank skills, so the app declined to conclude — the behaviour the brief asks for.
-- **H3 regression (holdout)** — "And the other one?" after a question about the Compact's filter passed 3/3 before the language work and 0/3 after it: the model asked "Compact or Pro?" instead. The new `<answer_language>` block sat between the conversation and the question; moving it above the conversation brought H3 back to 1/3 (M3 and L2, the other follow-ups, stayed 3/3). Not tuned further, because the holdout must not be used for prompt tuning; still 0/3 in the final run. Retry reasons are now recorded (`validation.retryReasons`), which showed the first attempt returning an empty clarification.
+- **H3 regression (holdout)** — "And the other one?" after a question about the Compact's filter passed 3/3 before the language work and 0/3 after it: the model asked "Compact or Pro?" instead. The new `<answer_language>` block sat between the conversation and the question; moving it above the conversation brought H3 back to 1/3 (M3 and L2, the other follow-ups, stayed 3/3). Not tuned further, because the holdout must not be used for prompt tuning. Still 0/3 in `6f9f76b`, and 3/3 after the analysis-first change (`627aaf7`). That change was made for the CV questions, not for H3: the model now restates the follow-up before it decides. Retry reasons are now recorded (`validation.retryReasons`), which showed the first attempt returning an empty clarification.
 
 Found while building the think-better mode (NVIDIA Nemotron 3 Super):
 - **My own prompt caused a regression.** The first version suggested adding "the rule that governs the topic" as a related line. The model then answered "not in the document" and filed the deciding rule as related: H4 (holdout, "Does the Compact have night mode?") dropped to 0/3. Rewritten to "a line that decides the question is never a related line, it makes the question answered".
@@ -223,6 +227,15 @@ Found while building the think-better mode (NVIDIA Nemotron 3 Super):
 - **Related lines are weak on Nemotron.** It often offers none (X3), or lines its answer never mentions (load limits for a battery question). Those are now dropped, and the retriever's closest passages appear instead, labelled "Closest".
 - **The model fixes slips silently.** "nozzel" became "nozzle" in its restated question with no word to the user. The code names the correction (`slips.ts`); only slips the model itself corrected are caught.
 - **Eval artifact.** A provider 429 on H2 made the harness score H3 against a conversation without H2, and count it critical. Later steps of a session after a provider error are now not scored, and the report lists them.
+
+Found in my own test after the think-better mode (Russian voice questions about my 1-page CV, NVIDIA):
+- **Answers got worse and slower.** "Кем он работал" (what did he work as) and "какой у него опыт работы" (his work experience) were answered "not in the document". Three of six questions needed a second call, 7–12 s to first audio.
+- **Cause 1: status was generated first.** Replaying the conversation showed the model citing the right lines, and even writing in its reason field that the CV lists the jobs, while the status said "not found". The prompt from before the think-better mode failed the same way, so the cause was the order of the answer's fields, not the new prompt text. The retry hint did not change the model's mind. Fixed by making the model write the restated question and a private analysis first.
+- **Cause 2: my morning validator change.** It accepted a not-found answer only if it named a "document", "manual" or "file", so "В резюме не указано…" (the CV does not say) went to a retry. Reverted to the broader check; the unclear-question case it was meant for has its own check.
+- **Cause 3: the CV's two columns were glued together.** Examples: "Budapest, Hungary UI/UX Designer 2021 – 2022" and "Mechanical Design Engineer 2011 – 2015 Icon & illustration generation Systematic". Fixed in `pdf.ts`.
+- **A question with a false premise** ("so he did not work as an engineer at Motor Sich?") was answered correctly but marked "conflict", which is for two documents, and was rejected. The prompt now says to answer and correct the premise.
+- One call took 29 s on the free NVIDIA endpoint. That is the provider, not the pipeline.
+- **After the fixes**, the same six questions (NVIDIA, `c692dbd`) were all answered correctly, with one retry: the false-premise question came back as "conflict" once more and was corrected on the retry. One weak spot remains: "Кем он работал" right after the Motor Sich answer named only Motor Sich.
 
 ## 14. Unfinished parts
 

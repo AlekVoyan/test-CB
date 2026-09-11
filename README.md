@@ -62,7 +62,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 | File | Responsibility |
 |---|---|
 | `src/core/config.ts` | Every limit and tunable: file and page limits, retrieval mode, history length, answer length, model, prices, speech language |
-| `src/core/pdf.ts` | pdf.js text extraction, line grouping, re-joining lines wrapped at the margin |
+| `src/core/pdf.ts` | pdf.js text extraction, line grouping, two-column pages read column by column, re-joining lines wrapped at the margin |
 | `src/core/ingest.ts`, `limits.ts` | Upload checks (2 files, 10 pages, PDF only, text layer present) → extract → index, with timings |
 | `src/core/indexer.ts` | Pages → citable units with ids |
 | `src/core/retriever.ts` | Tokenizer (keeps "Model A"), BM25, `full` / `topk` evidence selection, closest passages |

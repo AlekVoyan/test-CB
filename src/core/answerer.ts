@@ -30,6 +30,20 @@ export interface LlmClient {
 
 export const UNVERIFIED_ANSWER = "I couldn't verify an answer in the uploaded documents.";
 
+const contentWords = (text: string) => new Set(text.toLowerCase().match(/\p{L}{4,}|\p{N}+/gu) ?? []);
+
+/** A related line is shown only when the answer talks about it: they share a word or number the question does not. */
+function answerMentions(answer: string, line: string, question: string): boolean {
+  const asked = contentWords(question);
+  const said = contentWords(answer);
+  return [...contentWords(line)].some((w) => said.has(w) && !asked.has(w));
+}
+
+/** What the user hears (and reads): the answer, then for an inference the rule it rests on. */
+export function spokenAnswer(r: Pick<AnswerResult, "basis" | "answer" | "reason">): string {
+  return r.basis === "inferred" && r.reason ? `${r.answer} ${r.reason}` : r.answer;
+}
+
 export async function answerQuestion(input: {
   question: string;
   history: Turn[];
@@ -91,7 +105,12 @@ export async function answerQuestion(input: {
         reason: inferred ? out.reason.trim() : "",
         // A clarifying question makes no claim, so it shows no quotes.
         citations: out.status === "needs_clarification" ? [] : buildCitations(out.citations, evidenceById),
-        related: out.status === "not_found" ? buildCitations(out.related, evidenceById).slice(0, config.maxRelated) : [],
+        related:
+          out.status === "not_found"
+            ? buildCitations(out.related, evidenceById)
+                .filter((c) => answerMentions(out.answer, c.quote, question))
+                .slice(0, config.maxRelated)
+            : [],
         assumed: isAnswer ? out.assumed.trim() || silentFix || "" : "",
         deep,
         resolvedQuery: out.resolvedQuery,

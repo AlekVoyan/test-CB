@@ -24,7 +24,7 @@ import {
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
 import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
 import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
-import { UNVERIFIED_ANSWER } from "../core/answerer";
+import { spokenAnswer, UNVERIFIED_ANSWER } from "../core/answerer";
 import { config, DEFAULT_LANGUAGE, LANGUAGES, type Language } from "../core/config";
 import { appendTurn, documentSetKey } from "../core/conversation";
 import { llmCostUsd } from "../core/cost";
@@ -119,9 +119,6 @@ const STATUS_META: Record<AnswerStatus, { label: string; icon: ReactNode }> = {
 };
 // An answer that follows from a rule or range rather than from a line that says it.
 const INFERRED_META = { label: "Inferred from the document", icon: <LightbulbIcon weight="bold" aria-hidden /> };
-
-/** What is read aloud: the answer, then for an inference the rule it rests on. */
-const spokenText = (r: AnswerResult) => (r.basis === "inferred" && r.reason ? `${r.answer} ${r.reason}` : r.answer);
 
 // Suggested questions for the synthetic sample manual, in each answer language.
 const EXAMPLES: Record<Language, string[]> = {
@@ -591,7 +588,7 @@ export function App() {
     ]);
 
     setPhase("speaking");
-    const outcome = speakAnswer(spokenText(result), lang, {
+    const outcome = speakAnswer(spokenAnswer(result), lang, {
       onStart: () => {
         const t = performance.now(); // tts_start
         setLog((l) =>
@@ -687,7 +684,7 @@ export function App() {
   function replay() {
     if (!answer) return;
     setPhase("speaking");
-    speakAnswer(spokenText(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
+    speakAnswer(spokenAnswer(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
   }
 
   async function copyMetrics() {

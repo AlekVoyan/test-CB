@@ -24,11 +24,12 @@ export function extractNumbers(text: string): Set<string> {
   return out;
 }
 
-// A not_found answer has to say so in words, not just stay silent. English, Russian and Ukrainian wording.
+// A not_found answer has to say in words that the documents lack the answer. "The question does not specify which
+// limit" is about the question, not the documents: that is a clarification. English, Russian and Ukrainian wording.
 const NEGATION_RE = /\b(not|no|cannot|couldn't|can't|doesn't|don't|isn't|aren't|without|neither|nor)\b/i;
-const ABOUT_DOCS_RE = /(document|manual|guide|uploaded|specif|mention|state|contain|cover|include|information|find|found|list|provide)/i;
+const ABOUT_DOCS_RE = /\b(documents?|manuals?|guides?|files?|pdfs?|uploaded|text)\b/i;
 const NEGATION_CYR_RE = /(?<!\p{L})(не|нет|немає|ні|без|нельзя)(?!\p{L})|отсутств|відсутн/iu;
-const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|указан|вказан|зазнач|упомина|згаду|содерж|міст|описан|информац|інформац|найд|найти|знайд|знайти/iu;
+const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|файл|текст/iu;
 
 // A clarification asks the user to choose: a question, or a request such as "Please specify which model ...".
 const ASKS_RE = /\?|\b(which|specify|clarify)\b|уточн|котор|какой|какая|какое|какую|який|яка|яке|яку|якої|якого/iu;
@@ -81,7 +82,9 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
         );
       } else if (ids.length) errors.push('Status "not_found" must have an empty citations list.');
       if (!saysNotFound(answer))
-        errors.push('A "not_found" answer must say explicitly that the uploaded documents do not contain the answer.');
+        errors.push(
+          'A "not_found" answer must say explicitly that the uploaded documents do not contain the answer. If the question itself is unclear and the documents answer it differently for different options, use "needs_clarification" and ask which one.',
+        );
       break;
     case "needs_clarification":
       // Citations are allowed here only to back numbers in the question; the answerer does not show them.

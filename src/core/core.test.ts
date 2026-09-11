@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
-import { answerQuestion, UNVERIFIED_ANSWER, type LlmClient, type LlmCompletion } from "./answerer.js";
+import { answerQuestion, spokenAnswer, UNVERIFIED_ANSWER, type LlmClient, type LlmCompletion } from "./answerer.js";
 import { AnswerRequestSchema, parseLlmAnswer, type LlmAnswer } from "./contract.js";
 import { buildUserPrompt } from "./prompt.js";
 import { appendTurn, documentSetKey } from "./conversation.js";
@@ -161,6 +161,8 @@ describe("validator", () => {
     expect(check({ status: "not_found", answer: "The manual does not specify it.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/empty citations/);
     expect(check({ status: "not_found", answer: "Twenty units." }).errors.join()).toMatch(/say explicitly/);
     expect(check({ status: "not_found", answer: "The uploaded manual does not specify battery life." }).errors).toEqual([]);
+    // about the question, not the documents: steer to a clarification
+    expect(check({ status: "not_found", answer: "The question does not specify which limit is meant." }).errors.join()).toMatch(/use "needs_clarification"/);
     expect(check({ status: "needs_clarification", answer: "Model A or Model B." }).errors.join()).toMatch(/must ask which option/);
     expect(check({ status: "needs_clarification", answer: "Please specify which model you mean: Model A or Model B." }).errors).toEqual([]);
     expect(check({ status: "conflict", answer: "20 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/two different documents/);
@@ -274,10 +276,17 @@ describe("answerer", () => {
   });
 
   it("files the model's related lines with a not-found answer, never as citations", async () => {
-    const llm = fakeLlm([{ status: "not_found", answer: "The manual does not specify battery life.", related: ["d1:p2:s3"] }]);
+    const answer = "The manual does not specify battery life. Model B's maximum load is 12 units.";
+    const llm = fakeLlm([{ status: "not_found", answer, related: ["d1:p2:s3"] }]);
     const result = await answerQuestion({ question: "How long does Model B run on battery?", history: [], evidence, llm });
     expect(result.citations).toEqual([]);
     expect(result.related.map((c) => c.quote)).toEqual(["Model B: the maximum load is 12 units under normal conditions."]);
+  });
+
+  it("drops a related line the answer never talks about", async () => {
+    const llm = fakeLlm([{ status: "not_found", answer: "The manual does not specify battery life.", related: ["d1:p2:s3"] }]);
+    const result = await answerQuestion({ question: "How long does Model B run on battery?", history: [], evidence, llm });
+    expect(result.related).toEqual([]);
   });
 
   it("accepts a clarifying request and shows no quotes with it", async () => {
@@ -294,6 +303,11 @@ describe("answerer", () => {
     const llm = fakeLlm([{ answer: "Every 30 days.", citations: ["d1:p3:s7"], resolvedQuery: "How often should I clean the nozzle on Model B?" }]);
     const result = await answerQuestion({ question: "How often should I clean the nozzel on Model B?", history: [], evidence: withNozzle, llm });
     expect(result).toMatchObject({ assumed: "nozzle", answer: "Assuming you meant “nozzle”: Every 30 days." });
+  });
+
+  it("speaks the reason after an inferred answer only", () => {
+    expect(spokenAnswer({ basis: "inferred", answer: "No.", reason: "The range is 5°C to 35°C." })).toBe("No. The range is 5°C to 35°C.");
+    expect(spokenAnswer({ basis: "stated", answer: "20 units.", reason: "ignored" })).toBe("20 units.");
   });
 
   it("keeps reasoning marks on answers only", async () => {

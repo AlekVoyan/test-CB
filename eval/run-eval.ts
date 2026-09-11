@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { answerQuestion } from "../src/core/answerer.js";
+import { answerQuestion, spokenAnswer } from "../src/core/answerer.js";
 import { config, LANGUAGES, type Language, type RetrievalMode } from "../src/core/config.js";
 import { appendTurn } from "../src/core/conversation.js";
 import { llmCostUsd, priceFor } from "../src/core/cost.js";
@@ -116,9 +116,11 @@ function languageMismatch(answer: string, language: Language | undefined): strin
 
 function score(result: AnswerResult, expected: Expected, quoteErrors: string[], language?: Language) {
   const statusOk = result.status === expected.status;
-  const forbidden = expected.mustNotInclude.filter((t) => hasTerm(result.answer, t));
-  const missing = expected.mustInclude.filter((group) => !group.some((alt) => hasTerm(result.answer, alt)));
-  const wrongLanguage = languageMismatch(result.answer, language);
+  // Facts are matched on what the user hears: the answer and, for an inference, the reason read right after it.
+  const heard = spokenAnswer(result);
+  const forbidden = expected.mustNotInclude.filter((t) => hasTerm(heard, t));
+  const missing = expected.mustInclude.filter((group) => !group.some((alt) => hasTerm(heard, alt)));
+  const wrongLanguage = languageMismatch(heard, language);
   const factual = !statusOk || forbidden.length || wrongLanguage ? 0 : missing.length ? 0.5 : 1;
 
   let citation: number;

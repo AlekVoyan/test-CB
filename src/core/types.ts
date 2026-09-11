@@ -28,7 +28,17 @@ export interface IndexedDocument {
   pageCount: number;
   pages: PageText[];
   units: EvidenceUnit[];
+  /** Where each unit sits on its page (by unit id), for framing it on the rendered page. Stays in the browser. */
+  boxes: Record<string, Rect[]>;
   timings: { extractMs: number; indexMs: number };
+}
+
+/** A rectangle in PDF page space: points, origin at the bottom left, as pdf.js reports text positions. */
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface Turn {

@@ -197,7 +197,7 @@ Tiles are 28px-radius rounded rectangles. A tabbed tile drops its top-left radiu
 Segmented pill (EN · RU · UA) on an ink wash; the selected language sits on a sliding ink indicator (220ms ease-out) and turns coral. Accessible names are the native language names.
 
 ### Signature: the Proof Folder
-The answer tile is lime with its status on the tab. Earlier answers (up to 8) are filed behind it: each is a deeper shade of the answer lime by age and shows the start of its question on a tab peeking above the front folder's edge. Hovering lifts a filed folder by 8px; clicking brings it to the front, view only — follow-ups keep using the latest answer, and a "Back to latest" button returns. Quotes are filed per page: one sage folder per cited page, tab "Page N · k lines", every line verbatim at 17px with the file name and line ids underneath. More than one page forms a stack of its own, with "Show all" laying the pages out in a grid. When an answer arrives it is filed: 320ms rise from 10px with a 3px blur clearing (cubic-bezier(0.23, 1, 0.32, 1)); quote folders follow with a 50ms stagger. Reduced motion keeps the fade and drops the movement.
+The answer tile is lime with its status on the tab. Earlier answers (up to 8) are filed behind it: each is a deeper shade of the answer lime by age and shows the start of its question on a tab peeking above the front folder's edge. Hovering lifts a filed folder by 8px; clicking brings it to the front, view only — follow-ups keep using the latest answer, and a "Back to latest" button returns. Quotes are filed per source paragraph: one sage sheet per paragraph, tabbed "p.N · <the paragraph's first line>". The cited lines sit in focus at 16.5px behind a 3px ink rule. The paragraph's other lines stay at 74% ink, and the lines just before and after it dissolve through a mask, so the sheet reads as a cut-out of the page. The foot carries the line ids as a range, "k of n lines quoted" and "Open in page". More than one paragraph forms a stack, summarised in its head ("4 passages · page 1 · 26 lines"); "Read all" lays the sheets out in a grid. When an answer arrives it is filed: 320ms rise from 10px with a 3px blur clearing (cubic-bezier(0.23, 1, 0.32, 1)); quote folders follow with a 50ms stagger. Reduced motion keeps the fade and drops the movement.
 
 ### Folder stack
 One front folder with the rest filed behind it. Each filed folder sits 12px higher than the one in front of it (transform only, 240ms ease-out), so their top edges read as stacked folders; their tabs step to the right beside the front tab (from 36% of the stack width in 20% steps; two tabs under 560px, one under 420px). Nearer folders lie on top of farther ones, so no folder body hides a nearer tab. Up to three peek; more show a counter ("2–4 of 7") with ‹ › buttons. The mouse wheel pages through filed folders only over the tab strip, and releases the page at either end. Under reduced motion the folders fade instead of moving.
@@ -207,6 +207,9 @@ An inferred answer says so on its tab: "Inferred from the document", with a ligh
 
 ### Think harder switch
 A 44×26px switch with an ink outline, above the text field in the voice tile, labelled with a brain icon and one line of explanation. When on, it fills with ink and its knob turns coral (200ms ease-out, instant under reduced motion). When the server's model cannot reason first, the switch is disabled at 45% opacity and the line under it says why: "Needs Claude · this server runs …".
+
+### Page viewer
+"Open in page" shows the real PDF page, rendered by pdf.js at the panel's width. The cited paragraph stays lit while the rest of the page sinks under a 42% veil, and each cited line is framed in lime. On desktop the panel slides in from the left (280ms, iOS-like drawer curve), so the answer and its sheets stay in view on the right. On phones it rises as a bottom sheet at 88% of the screen height. Esc, the close button or the backdrop close it, and focus returns to the button that opened it. Under reduced motion it fades.
 
 ### Microphone
 A 104px ink disc with a coral icon. While listening, a ring leaves the disc every 1.6s; while speaking, the Replay button shows a three-bar equalizer. Both stop under reduced motion.
@@ -221,6 +224,7 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 - **Do** theme the browser surfaces: lime selection with ink text, lime caret, dark scrollbars, visible focus.
 - **Do** file extra content behind the front folder (earlier answers, further pages) instead of listing it, and page through it only over the tab strip.
 - **Do** keep related and closest lines in dark folders; sage is for proof only.
+- **Do** show context from the source itself: the real page with frames, never a retyped or redrawn page.
 
 ### Don't:
 - **Don't** use pure black or a neon glow on the ground; the lift and the grain are the material.

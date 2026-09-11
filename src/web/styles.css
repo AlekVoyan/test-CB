@@ -28,6 +28,8 @@
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   /* easeInOutQuad: a parabola each way — even acceleration, even braking to a soft stop */
   --ease-in-out-quad: cubic-bezier(0.45, 0, 0.55, 1);
+  /* iOS-like sheet curve: the cited page slides in and settles */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   --font-display: "Unbounded Variable", "Onest Variable", system-ui, sans-serif;
   --font-ui: "Onest Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -206,6 +208,11 @@ body::before {
   flex: none;
   width: 14px;
   height: 14px;
+}
+.tab-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* the concave fillet that turns the tab's edge into an S-curve */
@@ -980,6 +987,95 @@ body::before {
 .tone-dark .proof-source {
   color: var(--text-3);
 }
+/* a sheet: the cited lines of one paragraph in focus, the rest of it quieter, the lines around it dissolving */
+.passage {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.passage-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.passage-line.is-cited {
+  margin-left: -14px;
+  padding-left: 11px;
+  border-left: 3px solid var(--ink);
+  border-radius: 0;
+  color: var(--ink);
+  font-size: 16.5px;
+  font-weight: 540;
+}
+.passage-line mark {
+  background: none;
+  color: inherit;
+}
+.passage-edge {
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+}
+.passage-edge.is-before {
+  -webkit-mask-image: linear-gradient(to top, #000 15%, transparent);
+  mask-image: linear-gradient(to top, #000 15%, transparent);
+}
+.passage-edge.is-after {
+  -webkit-mask-image: linear-gradient(to bottom, #000 15%, transparent);
+  mask-image: linear-gradient(to bottom, #000 15%, transparent);
+}
+.passage-gap {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+}
+.tone-dark .passage-line,
+.tone-dark .passage-edge,
+.tone-dark .passage-gap {
+  color: var(--text-2);
+}
+.tone-dark .passage-line.is-cited {
+  color: var(--text);
+  border-left-color: var(--teal);
+}
+.passage-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.tone-dark .passage-foot {
+  color: var(--text-3);
+}
+.passage-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.passage-open svg {
+  width: 14px;
+  height: 14px;
+}
+.tone-dark .passage-open {
+  border-color: var(--text-3);
+  color: var(--text);
+}
+.stack-summary {
+  order: -1;
+  margin-right: auto;
+}
+
 /* related lines are context, not proof: dark folder, teal tab text */
 .proof-item.is-related .tile-tab {
   color: var(--teal);
@@ -1154,6 +1250,124 @@ body::before {
   }
 }
 
+/* ---------- the cited page ---------- */
+
+.pv-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(10 11 9 / 0.55);
+  transition: opacity 240ms ease;
+}
+.pv-backdrop[data-state="closed"] {
+  opacity: 0;
+}
+@starting-style {
+  .pv-backdrop {
+    opacity: 0;
+  }
+}
+/* slides in from the left, so the answer and its sheets stay in view on the right */
+.pv {
+  position: fixed;
+  z-index: 41;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(640px, calc(100vw - 24px));
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.4);
+  transition: transform 280ms var(--ease-drawer);
+}
+/* enters from its start state by itself, leaves the way it came */
+.pv[data-state="closed"] {
+  transform: translateX(calc(-100% - 24px));
+}
+@starting-style {
+  .pv {
+    transform: translateX(calc(-100% - 24px));
+  }
+}
+.pv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 10px 22px;
+}
+.pv-head h2 {
+  margin: 0;
+  font: 600 15px/1.3 var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.pv-body {
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px 16px;
+}
+.pv-body:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: -2px;
+}
+.pv-page {
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+}
+.pv-page canvas {
+  display: block;
+}
+/* the passage stays lit; the rest of the page sinks under a veil */
+.pv-spot {
+  position: absolute;
+  border-radius: 10px;
+  box-shadow: 0 0 0 200vmax rgb(22 23 20 / 0.42);
+  pointer-events: none;
+}
+.pv-frame {
+  position: absolute;
+  border: 2px solid color-mix(in oklab, var(--lime) 55%, #3b4a0c);
+  border-radius: 5px;
+  background: rgb(213 234 116 / 0.28);
+  pointer-events: none;
+}
+.pv-note {
+  margin: 24px 6px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.pv-foot {
+  margin: 0;
+  padding: 8px 22px 16px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+@media (max-width: 720px) {
+  .pv {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: 88dvh;
+    border-radius: var(--r-tile) var(--r-tile) 0 0;
+  }
+  .pv[data-state="closed"] {
+    transform: translateY(100%);
+  }
+  @starting-style {
+    .pv {
+      transform: translateY(100%);
+    }
+  }
+}
+
 /* ---------- measurements ---------- */
 
 .tile-metrics .tile-head {
@@ -1265,6 +1479,19 @@ body::before {
   .enter {
     animation: fade 240ms ease backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
+  }
+  .pv {
+    transition: opacity 200ms ease;
+  }
+  .pv[data-state="closed"] {
+    opacity: 0;
+    transform: none;
+  }
+  @starting-style {
+    .pv {
+      opacity: 0;
+      transform: none;
+    }
   }
   .mic[data-state="listening"]::after {
     animation: none;

@@ -69,12 +69,14 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/core/prompt.ts` | System prompt and prompt layout — change answer behaviour here |
 | `src/core/answerer.ts` | LLM call, validation, one retry, fallback; reasoning marks (inferred + why, related lines, assumed slip) and the spoken text |
 | `src/core/validator.ts` | Answer rules, citation building, quote re-check |
+| `src/core/passages.ts` | Files cited lines under the paragraph they come from (one sheet per paragraph, with the lines around it) |
 | `src/core/slips.ts` | Names a slip the model fixed without saying so ("nozzel" → "nozzle"), found by comparing the question with the model's own restatement |
 | `src/core/contract.ts` | JSON schema of the model's answer and of the API request |
 | `src/llm/anthropic.ts` | Anthropic SDK adapter (structured outputs; Think harder = extended thinking) |
 | `src/llm/nvidia.ts`, `src/llm/index.ts` | NVIDIA-hosted model adapter (OpenAI-compatible API) and provider selection from `LLM_PROVIDER` |
 | `src/server/handler.ts`, `api/answer.ts` | `POST /api/answer`, and `GET` for the running model and Think harder availability (Vercel function; the dev server reuses the handler) |
 | `src/web/App.tsx`, `styles.css` | UI (bento layout, language switch, answer and quote folders, measurements) — design system in `DESIGN.md` |
+| `src/web/PageViewer.tsx` | "Open in page": renders the cited PDF page with pdf.js, the paragraph in focus and cited lines framed |
 | `src/web/voice.ts` | Speech recognition (Web Speech API) |
 | `src/web/tts.ts` | Speech output behind a `TtsProvider` interface: browser voices now, a hosted voice can be added in front |
 | `eval/expected.json`, `eval/run-eval.ts` | Test sessions with expected outcomes, and the scorer |

@@ -12,7 +12,8 @@ import { normalizeSpokenQuestion } from "./normalize.js";
 import { extractPdf, type PdfjsLike } from "./pdf.js";
 import { selectEvidence, tokenize } from "./retriever.js";
 import { editDistance, findCorrectedSlip } from "./slips.js";
-import type { EvidenceUnit, IndexedDocument, Turn } from "./types.js";
+import { groupPassages } from "./passages.js";
+import type { Citation, EvidenceUnit, IndexedDocument, Turn } from "./types.js";
 import { validateLlmAnswer, verifyCitations } from "./validator.js";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(path.join(process.cwd(), "fixtures", name)));
@@ -336,6 +337,60 @@ describe("slips", () => {
   it("counts a swap of two letters as one edit", () => {
     expect(editDistance("nozzel", "nozzle")).toBe(1);
     expect(editDistance("kitten", "sitting")).toBe(3);
+  });
+});
+
+describe("page positions", () => {
+  it("gives every unit a box on its page, and a wrapped line one box per physical line", async () => {
+    const doc = await load("manual-v1.pdf");
+    for (const u of doc.units) {
+      const boxes = doc.boxes[u.id]!;
+      expect(boxes.length).toBeGreaterThan(0);
+      for (const b of boxes) {
+        expect(b.width).toBeGreaterThan(0);
+        expect(b.height).toBeGreaterThan(0);
+        expect(b.x).toBeGreaterThanOrEqual(0);
+      }
+    }
+    const exception = doc.units.find((u) => u.text.startsWith("Exception:"))!;
+    expect(doc.boxes[exception.id]).toHaveLength(2);
+  });
+});
+
+describe("passages", () => {
+  const cite = (doc: IndexedDocument, text: string): Citation => {
+    const u = doc.units.find((x) => x.text === text)!;
+    return { documentId: doc.documentId, filename: doc.filename, page: u.page, sentenceId: u.id, quote: u.text };
+  };
+
+  it("files the cited lines of one paragraph on one sheet, titled by its first line", async () => {
+    const doc = await load("manual-v1.pdf");
+    const sheets = groupPassages(
+      [cite(doc, "Model B: the maximum load is 12 units under normal conditions."), cite(doc, "Model A: the maximum load is 20 units.")],
+      [doc],
+    );
+    expect(sheets).toHaveLength(1);
+    const sheet = sheets[0]!;
+    const paragraph = doc.units.filter((u) => u.page === sheet.page && u.paragraph === sheet.paragraph);
+    expect(sheet.title).toBe(paragraph[0]!.text);
+    expect(sheet.lines.filter((l) => l?.cited).map((l) => l!.text)).toEqual([
+      "Model A: the maximum load is 20 units.",
+      "Model B: the maximum load is 12 units under normal conditions.",
+    ]);
+  });
+
+  it("puts lines from different paragraphs on separate sheets, in document order", async () => {
+    const doc = await load("manual-v1.pdf");
+    const sheets = groupPassages([cite(doc, "Clean the dosing nozzle of Model B every 30 days."), cite(doc, "Model A: the maximum load is 20 units.")], [doc]);
+    expect(sheets.map((s) => s.page)).toEqual([2, 3]);
+  });
+
+  it("keeps only the lines next to cited ones in a long paragraph", () => {
+    const units = Array.from({ length: 12 }, (_, i) => unit(`d1:p1:s${i + 1}`, `Line ${i + 1}.`, "doc1", 1));
+    const doc: IndexedDocument = { documentId: "doc1", docKey: "d1", filename: "doc1.pdf", pageCount: 1, pages: [], units, boxes: {}, timings: { extractMs: 0, indexMs: 0 } };
+    const [sheet] = groupPassages([{ documentId: "doc1", filename: "doc1.pdf", page: 1, sentenceId: "d1:p1:s6", quote: "Line 6." }], [doc]);
+    expect(sheet!.lines.map((l) => l?.text ?? null)).toEqual([null, "Line 5.", "Line 6.", "Line 7.", null]);
+    expect(sheet!.total).toBe(12);
   });
 });
 

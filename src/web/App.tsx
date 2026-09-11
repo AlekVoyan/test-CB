@@ -1,4 +1,5 @@
 import {
+  ArrowUpRightIcon,
   ArrowsClockwiseIcon,
   BrainIcon,
   CaretLeftIcon,
@@ -8,12 +9,12 @@ import {
   CopyIcon,
   FilePdfIcon,
   FilesIcon,
+  FileTextIcon,
   GaugeIcon,
   LightbulbIcon,
   MagnifyingGlassIcon,
   MicrophoneIcon,
   QuestionIcon,
-  QuotesIcon,
   ScalesIcon,
   SpeakerHighIcon,
   StopIcon,
@@ -30,10 +31,12 @@ import { appendTurn, documentSetKey } from "../core/conversation";
 import { llmCostUsd } from "../core/cost";
 import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
+import { groupPassages, type Passage } from "../core/passages";
 import { relatedEvidence, selectEvidence } from "../core/retriever";
-import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Turn } from "../core/types";
+import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
 import { verifyCitations } from "../core/validator";
 import { askServer, fetchServerInfo, type ServerInfo } from "./api";
+import { PageViewer } from "./PageViewer";
 import { pdfjs } from "./pdfjs";
 import { speakAnswer, stopSpeaking } from "./tts";
 import { speechRecognitionSupported, startRecognition } from "./voice";
@@ -44,6 +47,8 @@ interface DocEntry {
   filename: string;
   stage: DocStage;
   doc?: IndexedDocument;
+  /** The PDF itself, kept in the tab to render a cited page. */
+  bytes?: Uint8Array;
   ingestMs?: number;
   error?: string;
 }
@@ -92,13 +97,6 @@ type ProofKind = "evidence" | NearbyKind;
 const PROOF_PREFIX: Record<ProofKind, string> = { evidence: "", related: "Related, not the answer · ", closest: "Closest · " };
 const PROOF_NAME: Record<ProofKind, string> = { evidence: "Quote", related: "Related line, not the answer", closest: "Closest passage" };
 const PROOF_AREA: Record<ProofKind, string> = { evidence: "Evidence", related: "Related lines, not the answer", closest: "Closest passages" };
-
-interface PageGroup {
-  key: string;
-  filename: string;
-  page: number;
-  lines: Citation[];
-}
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
 
@@ -167,19 +165,28 @@ const backShade = (depth: number, tone: "sage" | "dark") =>
     ? `color-mix(in oklab, var(--sage) ${100 - (depth + 1) * 9}%, #3d5836)`
     : `color-mix(in oklab, var(--surface-2) ${100 - (depth + 1) * 14}%, #0f100e)`;
 
-/** Quotes are filed per page: one folder holds every cited line of that page. */
-function groupByPage(citations: Citation[]): PageGroup[] {
-  const groups = new Map<string, PageGroup>();
-  for (const c of citations) {
-    const key = `${c.documentId}#${c.page}`;
-    const group = groups.get(key) ?? { key, filename: c.filename, page: c.page, lines: [] };
-    group.lines.push(c);
-    groups.set(key, group);
-  }
-  return [...groups.values()];
+const passageLabel = (p: Passage, withFile: boolean) => `${withFile ? `${p.filename} · ` : ""}p.${p.page} · ${p.title}`;
+
+/** A sheet's line ids, compact: "s55–s61" for a run, otherwise the first few. */
+function idRange(ids: string[]): string {
+  const nums = ids.map((id) => Number(id.split(":s").pop()));
+  if (!nums.length || nums.some(Number.isNaN)) return ids.join(", ");
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (max - min + 1 === nums.length) return nums.length === 1 ? `s${min}` : `s${min}–s${max}`;
+  const shown = nums.slice(0, 3).map((n) => `s${n}`).join(", ");
+  return nums.length > 3 ? `${shown} +${nums.length - 3}` : shown;
 }
-const pageLabel = (g: PageGroup, withFile: boolean) =>
-  `${withFile ? `${g.filename} · ` : ""}Page ${g.page}${g.lines.length > 1 ? ` · ${g.lines.length} lines` : ""}`;
+
+/** Where a stack of sheets comes from: "4 passages · page 1 · 26 lines". */
+function stackSummary(passages: Passage[]): string {
+  const files = new Set(passages.map((p) => p.documentId)).size;
+  const pages = [...new Set(passages.map((p) => p.page))].sort((a, b) => a - b);
+  const pageCount = new Set(passages.map((p) => `${p.documentId}#${p.page}`)).size;
+  const where = files > 1 ? `${pageCount} pages in ${files} files` : pages.length === 1 ? `page ${pages[0]}` : `pages ${pages.join(", ")}`;
+  const lines = passages.reduce((n, p) => n + p.cited.length, 0);
+  return `${passages.length} ${passages.length === 1 ? "passage" : "passages"} · ${where} · ${lines} ${lines === 1 ? "line" : "lines"}`;
+}
 
 type Tone = "lime" | "coral" | "teal" | "sage" | "dark";
 
@@ -339,30 +346,59 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
   );
 }
 
-function ProofFolder(props: { group: PageGroup; kind: ProofKind; withFile: boolean }) {
-  const { group } = props;
+/** One sheet: a paragraph of the source, its cited lines in focus, the rest quieter, the lines around it dissolving. */
+function PassageFolder(props: { passage: Passage; kind: ProofKind; withFile: boolean; onOpen?: () => void }) {
+  const { passage: p } = props;
   return (
     <Tile
       tone={props.kind === "evidence" ? "sage" : "dark"}
       area="auto"
       className={`proof-item${props.kind === "related" ? " is-related" : ""}`}
-      label={`${PROOF_NAME[props.kind]}, ${group.filename}, page ${group.page}`}
+      label={`${PROOF_NAME[props.kind]}, ${p.filename}, page ${p.page}: ${p.title}`}
       tab={
         <>
-          <QuotesIcon weight="fill" aria-hidden />
-          {PROOF_PREFIX[props.kind]}
-          {pageLabel(group, props.withFile)}
+          <FileTextIcon weight="bold" aria-hidden />
+          <span className="tab-text">
+            {PROOF_PREFIX[props.kind]}
+            {passageLabel(p, props.withFile)}
+          </span>
         </>
       }
     >
-      <div className="quote-lines">
-        {group.lines.map((c) => (
-          <blockquote key={c.sentenceId}>{c.quote}</blockquote>
-        ))}
+      <div className="passage">
+        {p.before && (
+          <p className="passage-edge is-before" aria-hidden>
+            {p.before}
+          </p>
+        )}
+        {p.lines.map((l, i) =>
+          l === null ? (
+            <p key={`gap-${i}`} className="passage-gap" aria-hidden>
+              ···
+            </p>
+          ) : (
+            <p key={l.id} className={`passage-line${l.cited ? " is-cited" : ""}`}>
+              {l.cited ? <mark>{l.text}</mark> : l.text}
+            </p>
+          ),
+        )}
+        {p.after && (
+          <p className="passage-edge is-after" aria-hidden>
+            {p.after}
+          </p>
+        )}
       </div>
-      <p className="proof-source">
-        {group.filename} · <span className="mono">{group.lines.map((l) => l.sentenceId).join(", ")}</span>
-      </p>
+      <div className="passage-foot">
+        <span className="mono">{idRange(p.cited)}</span>
+        <span>
+          {p.cited.length} of {p.total} {p.total === 1 ? "line" : "lines"} quoted
+        </span>
+        {props.onOpen && (
+          <button type="button" className="btn-ghost passage-open" onClick={props.onOpen}>
+            Open in page <ArrowUpRightIcon weight="bold" aria-hidden />
+          </button>
+        )}
+      </div>
     </Tile>
   );
 }
@@ -409,6 +445,14 @@ export function App() {
   const [log, setLog] = useState<QuestionMetrics[]>([]);
   const [dragging, setDragging] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewer, setViewer] = useState<{
+    bytes: Uint8Array;
+    filename: string;
+    page: number;
+    cited: Rect[];
+    passage: Rect[];
+    opener: HTMLElement | null;
+  } | null>(null);
 
   const counter = useRef(0);
   const recognizer = useRef<{ stop(): void } | null>(null);
@@ -476,8 +520,8 @@ export function App() {
           onStage: (stage) => update({ stage }),
         });
         const ingestMs = performance.now() - startedAt; // Ready
-        update({ stage: "ready", doc, ingestMs });
-        docsRef.current = docsRef.current.concat({ key, filename: file.name, stage: "ready", doc, ingestMs });
+        update({ stage: "ready", doc, bytes, ingestMs });
+        docsRef.current = docsRef.current.concat({ key, filename: file.name, stage: "ready", doc, bytes, ingestMs });
       } catch (e) {
         update({ stage: "error", error: e instanceof IngestError ? e.message : `Could not load this file: ${String(e)}` });
       }
@@ -495,6 +539,21 @@ export function App() {
 
   function removeDoc(key: string) {
     setDocs((ds) => ds.filter((d) => d.key !== key));
+  }
+
+  /** Opens the cited page with this passage in focus and its cited lines framed. */
+  function openPassage(p: Passage) {
+    const entry = docsRef.current.find((d) => d.doc?.documentId === p.documentId);
+    if (!entry?.doc || !entry.bytes) return;
+    const { boxes, units } = entry.doc;
+    setViewer({
+      bytes: entry.bytes,
+      filename: entry.filename,
+      page: p.page,
+      cited: p.cited.flatMap((id) => boxes[id] ?? []),
+      passage: units.filter((u) => u.page === p.page && u.paragraph === p.paragraph).flatMap((u) => boxes[u.id] ?? []),
+      opener: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    });
   }
 
   /** Bring an earlier answer to the front. View only: follow-ups keep using the latest conversation. */
@@ -732,23 +791,24 @@ export function App() {
         ],
   );
 
-  // Evidence for the answer in front, filed per page. A not-found answer shows nearby lines instead, never as proof.
+  // Evidence for the answer in front, one sheet per source paragraph. A not-found answer shows nearby lines, never as proof.
   const proofs = answer?.result.citations ?? [];
   const proofKind: ProofKind = proofs.length ? "evidence" : (answer?.nearby.kind ?? "closest");
-  const groups = groupByPage(proofs.length ? proofs : (answer?.nearby.lines ?? []));
+  const passages = answer ? groupPassages(proofs.length ? proofs : answer.nearby.lines, readyDocs) : [];
   const proofTone: "sage" | "dark" = proofKind === "evidence" ? "sage" : "dark";
-  const multiDoc = new Set(groups.map((g) => g.filename)).size > 1;
-  const frontGroupIndex = Math.min(proofFront, Math.max(0, groups.length - 1));
-  const proofBacks: BackFolder[] = groups
-    .map((g, i) => ({ g, i }))
-    .filter(({ i }) => i !== frontGroupIndex)
-    .map(({ g, i }, depth) => ({
-      key: g.key,
-      hint: pageLabel(g, multiDoc),
-      aria: `Show ${pageLabel(g, true)}`,
+  const multiDoc = new Set(passages.map((p) => p.documentId)).size > 1;
+  const frontIndex = Math.min(proofFront, Math.max(0, passages.length - 1));
+  const proofBacks: BackFolder[] = passages
+    .map((p, i) => ({ p, i }))
+    .filter(({ i }) => i !== frontIndex)
+    .map(({ p, i }, depth) => ({
+      key: p.key,
+      hint: passageLabel(p, multiDoc),
+      aria: `Show ${passageLabel(p, true)}`,
       bg: backShade(depth, proofTone),
       onOpen: () => setProofFront(i),
     }));
+  const opener = (p: Passage) => (docs.some((d) => d.doc?.documentId === p.documentId && d.bytes) ? () => openPassage(p) : undefined);
 
   // Latency breakdown of the last question, in the order it happened.
   const segments = last
@@ -1061,39 +1121,46 @@ export function App() {
           </FolderStack>
         </div>
 
-        {/* Proof: one folder per cited page */}
-        {answer && groups.length > 0 && (
+        {/* Proof: one sheet per source paragraph, filed as a stack */}
+        {answer && passages.length > 0 && (
           <section className="stack-area proof-area" style={{ gridArea: "proof" }} aria-label={PROOF_AREA[proofKind]} key={answer.id}>
             {proofExpanded ? (
               <>
                 <div className="stack-head">
-                  <span>
-                    {groups.length} {groups.length === 1 ? "page" : "pages"}
-                  </span>
+                  <span className="stack-summary">{stackSummary(passages)}</span>
                   <button type="button" className="link-btn" onClick={() => setProofExpanded(false)}>
                     Collapse
                   </button>
                 </div>
                 <div className="proof">
-                  {groups.map((g) => (
-                    <ProofFolder key={g.key} group={g} kind={proofKind} withFile={multiDoc} />
+                  {passages.map((p) => (
+                    <PassageFolder key={p.key} passage={p} kind={proofKind} withFile={multiDoc} onOpen={opener(p)} />
                   ))}
                 </div>
               </>
             ) : (
               <FolderStack
-                label="More cited pages"
+                label="More cited passages"
                 backs={proofBacks}
                 resetKey={answer.id}
                 extra={
-                  groups.length > 1 ? (
-                    <button type="button" className="link-btn" onClick={() => setProofExpanded(true)}>
-                      Show all {groups.length}
-                    </button>
-                  ) : undefined
+                  <>
+                    <span className="stack-summary">{stackSummary(passages)}</span>
+                    {passages.length > 1 && (
+                      <button type="button" className="link-btn" onClick={() => setProofExpanded(true)}>
+                        Read all {passages.length}
+                      </button>
+                    )}
+                  </>
                 }
               >
-                <ProofFolder key={groups[frontGroupIndex]!.key} group={groups[frontGroupIndex]!} kind={proofKind} withFile={multiDoc} />
+                <PassageFolder
+                  key={passages[frontIndex]!.key}
+                  passage={passages[frontIndex]!}
+                  kind={proofKind}
+                  withFile={multiDoc}
+                  onOpen={opener(passages[frontIndex]!)}
+                />
               </FolderStack>
             )}
           </section>
@@ -1180,6 +1247,8 @@ export function App() {
           <p className="footnote">First audio is measured at the start of speech synthesis, not at the speaker.</p>
         </Tile>
       </div>
+
+      {viewer && <PageViewer {...viewer} onClose={() => setViewer(null)} />}
     </main>
   );
 }

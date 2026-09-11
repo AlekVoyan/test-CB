@@ -37,7 +37,7 @@ export async function ingestPdf(input: {
 
   input.onStage?.("indexing");
   const t1 = performance.now();
-  const { pages, units } = indexDocument(extracted, input);
+  const { pages, units, boxes } = indexDocument(extracted, input);
   const indexMs = performance.now() - t1;
 
   return {
@@ -47,6 +47,7 @@ export async function ingestPdf(input: {
     pageCount: extracted.pageCount,
     pages,
     units,
+    boxes,
     timings: { extractMs, indexMs },
   };
 }

@@ -1,6 +1,6 @@
 import { normalizeText } from "./normalize.js";
-import type { ExtractedPdf } from "./pdf.js";
-import type { EvidenceUnit, PageText } from "./types.js";
+import type { ExtractedPdf, LogicalLine } from "./pdf.js";
+import type { EvidenceUnit, PageText, Rect } from "./types.js";
 
 const LONG_LINE = 200;
 
@@ -17,29 +17,48 @@ function splitSentences(text: string): string[] {
   return out;
 }
 
+/**
+ * The boxes of the physical lines a sentence of a logical line spans. The logical line is its parts joined with
+ * spaces, so each part's offset in the normalized text is known; if the sentence can't be placed, all parts count.
+ */
+function sentenceBoxes(line: LogicalLine, text: string, sentence: string, from: number): { boxes: Rect[]; end: number } {
+  const all = line.parts.map((p) => p.box);
+  const start = text.indexOf(sentence, from);
+  if (start < 0) return { boxes: all, end: from };
+  const end = start + sentence.length;
+  let offset = 0;
+  const boxes: Rect[] = [];
+  for (const part of line.parts) {
+    const length = normalizeText(part.text).length;
+    if (offset < end && offset + length > start) boxes.push(part.box);
+    offset += length + 1;
+  }
+  return { boxes: boxes.length ? boxes : all, end };
+}
+
 export function indexDocument(
   extracted: ExtractedPdf,
   meta: { documentId: string; docKey: string; filename: string },
-): { pages: PageText[]; units: EvidenceUnit[] } {
+): { pages: PageText[]; units: EvidenceUnit[]; boxes: Record<string, Rect[]> } {
   const pages: PageText[] = [];
   const units: EvidenceUnit[] = [];
+  const boxes: Record<string, Rect[]> = {};
   for (const page of extracted.pages) {
     pages.push({ page: page.page, text: normalizeText(page.rawText) });
     let n = 0;
     for (const line of page.lines) {
-      for (const sentence of splitSentences(normalizeText(line.text))) {
+      const text = normalizeText(line.text);
+      let cursor = 0;
+      for (const sentence of splitSentences(text)) {
         if (!sentence) continue;
         n++;
-        units.push({
-          id: `${meta.docKey}:p${page.page}:s${n}`,
-          documentId: meta.documentId,
-          filename: meta.filename,
-          page: page.page,
-          paragraph: line.paragraph,
-          text: sentence,
-        });
+        const id = `${meta.docKey}:p${page.page}:s${n}`;
+        units.push({ id, documentId: meta.documentId, filename: meta.filename, page: page.page, paragraph: line.paragraph, text: sentence });
+        const placed = sentenceBoxes(line, text, sentence, cursor);
+        boxes[id] = placed.boxes;
+        cursor = placed.end;
       }
     }
   }
-  return { pages, units };
+  return { pages, units, boxes };
 }

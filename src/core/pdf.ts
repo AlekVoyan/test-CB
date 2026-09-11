@@ -1,4 +1,5 @@
 // Text extraction with pdf.js. The pdf.js module is injected so the same code runs in the browser and in Node.
+import type { Rect } from "./types.js";
 
 interface TextItemLike {
   str: string;
@@ -32,12 +33,16 @@ interface PhysicalLine {
   y: number;
   /** A gap wider than the font size inside the line: a table row, or a title with a right-aligned date. */
   gapped: boolean;
+  /** Where the line sits on the page, in PDF space. */
+  box: Rect;
 }
 
 export interface LogicalLine {
   text: string;
   /** Paragraph index within the page, 1-based. */
   paragraph: number;
+  /** The physical lines this line was joined from, with their positions. */
+  parts: { text: string; box: Rect }[];
 }
 
 export interface ExtractedPage {
@@ -97,7 +102,12 @@ function joinPieces(pieces: Piece[], size: number): PhysicalLine {
     prevEnd = p.x + p.width;
   }
   const last = pieces[pieces.length - 1]!;
-  return { text: text.trim(), x: pieces[0]!.x, right: last.x + last.width, y: pieces[0]!.y, gapped };
+  const x = pieces[0]!.x;
+  const right = last.x + last.width;
+  // The baseline is y; letters rise about 0.85 of the font size above it and descend about 0.25 below.
+  const bottom = Math.min(...pieces.map((p) => p.y - (p.size || size) * 0.25));
+  const top = Math.max(...pieces.map((p) => p.y + (p.size || size) * 0.85));
+  return { text: text.trim(), x, right, y: pieces[0]!.y, gapped, box: { x, y: bottom, width: right - x, height: top - bottom } };
 }
 
 interface Run {
@@ -234,8 +244,11 @@ function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
       prev.right >= textRight * 0.9 &&
       !/[.!?:;]["')\]]?$/.test(prev.text);
     const last = out[out.length - 1];
-    if (last && prevWrapped) last.text += ` ${line.text}`;
-    else out.push({ text: line.text, paragraph });
+    const part = { text: line.text, box: line.box };
+    if (last && prevWrapped) {
+      last.text += ` ${line.text}`;
+      last.parts.push(part);
+    } else out.push({ text: line.text, paragraph, parts: [part] });
   });
   return out;
 }

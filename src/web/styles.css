@@ -860,7 +860,7 @@ body::before {
 @keyframes tile-in {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(64px);
   }
 }
 .enter {

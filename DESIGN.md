@@ -201,6 +201,12 @@ The answer tile is lime with its status on the tab. Earlier answers (up to 8) ar
 ### Folder stack
 One front folder with the rest filed behind it. Each filed folder sits 12px higher than the one in front of it (transform only, 240ms ease-out), so their top edges read as stacked folders; their tabs step to the right beside the front tab (from 36% of the stack width in 20% steps; two tabs under 560px, one under 420px). Nearer folders lie on top of farther ones, so no folder body hides a nearer tab. Up to three peek; more show a counter ("2–4 of 7") with ‹ › buttons. The mouse wheel pages through filed folders only over the tab strip, and releases the page at either end. Under reduced motion the folders fade instead of moving.
 
+### Reasoning marks
+An inferred answer says so on its tab: "Inferred from the document", with a lightbulb. Its rule sits directly under the answer: a small ink pill "WHY" with its text cut out in the tile's own colour, then one sentence at 16px. The same sentence is read aloud after the answer. A not-found answer may file related lines in a dark folder whose tab reads "Related, not the answer · Page N" in teal. These lines are context, never proof, so they never take the sage of a quote. When the model offers none, the same dark folder holds the retriever's closest passages under "Closest". An assumed slip shows as a static chip beside Replay: "Interpreted as “nozzle”".
+
+### Think harder switch
+A 44×26px switch with an ink outline, above the text field in the voice tile, labelled with a brain icon and one line of explanation. When on, it fills with ink and its knob turns coral (200ms ease-out, instant under reduced motion). When the server's model cannot reason first, the switch is disabled at 45% opacity and the line under it says why: "Needs Claude · this server runs …".
+
 ### Microphone
 A 104px ink disc with a coral icon. While listening, a ring leaves the disc every 1.6s; while speaking, the Replay button shows a three-bar equalizer. Both stop under reduced motion.
 
@@ -213,6 +219,7 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 - **Do** keep UI motion under 300ms with the strong ease-out curve, and ship a reduced-motion variant with every animation.
 - **Do** theme the browser surfaces: lime selection with ink text, lime caret, dark scrollbars, visible focus.
 - **Do** file extra content behind the front folder (earlier answers, further pages) instead of listing it, and page through it only over the tab strip.
+- **Do** keep related and closest lines in dark folders; sage is for proof only.
 
 ### Don't:
 - **Don't** use pure black or a neon glow on the ground; the lift and the grain are the material.
@@ -221,3 +228,4 @@ A 104px ink disc with a coral icon. While listening, a ring leaves the disc ever
 - **Don't** add a tab to a tile that has nothing to say on it.
 - **Don't** give earlier answers new hues; they are deeper shades of the answer lime (The One Job Rule).
 - **Don't** capture the mouse wheel anywhere but a folder stack's tab strip.
+- **Don't** mark an answer as inferred without its Why line.

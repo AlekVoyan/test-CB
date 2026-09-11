@@ -1,6 +1,27 @@
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import {
+  ArrowsClockwiseIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  CopyIcon,
+  FilePdfIcon,
+  FilesIcon,
+  GaugeIcon,
+  MagnifyingGlassIcon,
+  MicrophoneIcon,
+  QuestionIcon,
+  QuotesIcon,
+  ScalesIcon,
+  SpeakerHighIcon,
+  StopIcon,
+  UploadSimpleIcon,
+  WarningCircleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
+import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
+import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
 import { UNVERIFIED_ANSWER } from "../core/answerer";
-import { config } from "../core/config";
+import { config, DEFAULT_LANGUAGE, LANGUAGES, type Language } from "../core/config";
 import { appendTurn, documentSetKey } from "../core/conversation";
 import { llmCostUsd } from "../core/cost";
 import { ingestPdf, type IngestStage } from "../core/ingest";
@@ -10,7 +31,8 @@ import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocumen
 import { verifyCitations } from "../core/validator";
 import { askServer } from "./api";
 import { pdfjs } from "./pdfjs";
-import { speak, speechRecognitionSupported, startRecognition, stopSpeaking } from "./voice";
+import { speakAnswer, stopSpeaking } from "./tts";
+import { speechRecognitionSupported, startRecognition } from "./voice";
 
 type DocStage = "reading" | IngestStage | "ready" | "error";
 interface DocEntry {
@@ -27,6 +49,7 @@ interface QuestionMetrics {
   at: string;
   question: string;
   source: "voice" | "text";
+  language: Language;
   status?: AnswerStatus;
   sttMs?: number;
   retrievalMs: number;
@@ -36,7 +59,7 @@ interface QuestionMetrics {
   validationMs: number;
   submitToFirstAudioMs?: number;
   speechEndToFirstAudioMs?: number;
-  voice?: string | null;
+  tts: { provider: string | null; voice: string | null; note?: string };
   inputTokens: number;
   outputTokens: number;
   attempts: number;
@@ -45,7 +68,9 @@ interface QuestionMetrics {
 }
 
 interface AnswerView {
+  id: number;
   question: string;
+  language: Language;
   result: AnswerResult;
   related: Citation[];
   clientErrors: string[];
@@ -55,17 +80,36 @@ type Phase = "idle" | "listening" | "thinking" | "speaking";
 
 const STAGE_LABEL: Record<DocStage, string> = {
   reading: "Uploading",
-  extracting: "Extracting",
+  extracting: "Extracting text",
   indexing: "Indexing",
   ready: "Ready",
   error: "Not loaded",
 };
-const STATUS_LABEL: Record<AnswerStatus, string> = {
-  answered: "Answered",
-  not_found: "Not in document",
-  needs_clarification: "Needs clarification",
-  conflict: "Documents disagree",
+const STAGE_PROGRESS: Record<DocStage, number> = { reading: 0.2, extracting: 0.55, indexing: 0.85, ready: 1, error: 1 };
+
+const STATUS_META: Record<AnswerStatus, { label: string; icon: ReactNode }> = {
+  answered: { label: "Answered", icon: <CheckCircleIcon weight="bold" aria-hidden /> },
+  not_found: { label: "Not in the document", icon: <MagnifyingGlassIcon weight="bold" aria-hidden /> },
+  needs_clarification: { label: "Needs clarification", icon: <QuestionIcon weight="bold" aria-hidden /> },
+  conflict: { label: "Documents disagree", icon: <ScalesIcon weight="bold" aria-hidden /> },
 };
+
+// Suggested questions for the synthetic sample manual, in each answer language.
+const EXAMPLES: Record<Language, string[]> = {
+  en: ["What is the maximum for Model A?", "How do I set up Model B?", "What is the battery life of Model A?"],
+  ru: ["Какая максимальная нагрузка у модели A?", "Как настроить модель B?", "Сколько работает модель A от батареи?"],
+  uk: ["Яке максимальне навантаження моделі A?", "Як налаштувати модель B?", "Скільки коштує модель A?"],
+};
+
+const LANGUAGE_KEY = "answer-language";
+function readStoredLanguage(): Language {
+  try {
+    const value = localStorage.getItem(LANGUAGE_KEY);
+    return value === "en" || value === "ru" || value === "uk" ? value : DEFAULT_LANGUAGE;
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
 
 const toCitation = (u: EvidenceUnit): Citation => ({
   documentId: u.documentId,
@@ -74,14 +118,56 @@ const toCitation = (u: EvidenceUnit): Citation => ({
   sentenceId: u.id,
   quote: u.text,
 });
-const fmtMs = (x?: number) => (x === undefined ? "—" : `${Math.round(x)} ms`);
+const fmtMs = (x?: number) => (x === undefined ? "—" : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(2)} s`);
+const fmtUsd = (x: number) => (Number.isFinite(x) ? `$${x.toFixed(5)}` : "no price set");
+
+type Tone = "lime" | "coral" | "teal" | "sage" | "dark";
+
+function Tile(props: { tone: Tone; area: string; tab?: ReactNode; labelledBy?: string; label?: string; className?: string; children: ReactNode }) {
+  return (
+    <section
+      className={`tile tone-${props.tone}${props.tab ? " has-tab" : ""}${props.className ? ` ${props.className}` : ""}`}
+      style={{ gridArea: props.area }}
+      aria-labelledby={props.labelledBy}
+      aria-label={props.label}
+    >
+      {props.tab && <div className="tile-tab">{props.tab}</div>}
+      <div className="tile-body">{props.children}</div>
+    </section>
+  );
+}
+
+function LanguageSwitch(props: { value: Language; onChange: (l: Language) => void; disabled: boolean }) {
+  const order: Language[] = ["en", "ru", "uk"];
+  const index = order.indexOf(props.value);
+  return (
+    <div className="lang" role="group" aria-label="Answer language">
+      <span className="lang-indicator" style={{ "--i": index } as CSSProperties} aria-hidden />
+      {order.map((l) => (
+        <button
+          key={l}
+          type="button"
+          aria-pressed={props.value === l}
+          aria-label={LANGUAGES[l].nativeName}
+          title={LANGUAGES[l].nativeName}
+          disabled={props.disabled}
+          onClick={() => props.onChange(l)}
+        >
+          {LANGUAGES[l].label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function App() {
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [history, setHistory] = useState<Turn[]>([]);
+  const [language, setLanguage] = useState<Language>(readStoredLanguage);
   const [phase, setPhase] = useState<Phase>("idle");
   const [interim, setInterim] = useState("");
   const [typed, setTyped] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
   const [answer, setAnswer] = useState<AnswerView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -100,6 +186,15 @@ export function App() {
   const busy = docs.some((d) => d.stage === "reading" || d.stage === "extracting" || d.stage === "indexing");
   const voiceSupported = speechRecognitionSupported();
   const activeEntities = history[history.length - 1]?.activeEntities ?? [];
+  const loadedPages = readyDocs.reduce((sum, d) => sum + d.pageCount, 0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_KEY, language);
+    } catch {
+      // storage blocked: the choice lasts for this tab only
+    }
+  }, [language]);
 
   // Decision D4: a different document set starts a fresh conversation.
   const setKey = documentSetKey(readyDocs);
@@ -146,6 +241,15 @@ export function App() {
     }
   }
 
+  async function addSample(url: string, filename: string) {
+    try {
+      const blob = await (await fetch(url)).blob();
+      await addFiles([new File([blob], filename, { type: "application/pdf" })]);
+    } catch {
+      setError("Could not load the sample manual.");
+    }
+  }
+
   function removeDoc(key: string) {
     setDocs((ds) => ds.filter((d) => d.key !== key));
   }
@@ -155,12 +259,14 @@ export function App() {
     if (!question) return;
     const ready = docsRef.current.flatMap((d) => (d.stage === "ready" && d.doc ? [d.doc] : []));
     if (!ready.length) {
-      setError("Upload a PDF first.");
+      setError("Upload a PDF first — or load a sample manual.");
       return;
     }
+    const lang = language;
     stopSpeaking();
     setError(null);
     setNotice(null);
+    setPending(question);
     setPhase("thinking");
 
     const submitAt = performance.now();
@@ -171,8 +277,9 @@ export function App() {
     const requestAt = performance.now();
     let result: AnswerResult;
     try {
-      result = await askServer({ question, history: turns, evidence: selection.units });
+      result = await askServer({ question, history: turns, evidence: selection.units, language: lang });
     } catch (e) {
+      setPending(null);
       setPhase("idle");
       setError(e instanceof Error ? e.message : String(e));
       return;
@@ -184,7 +291,9 @@ export function App() {
     if (clientErrors.length) result = { ...result, status: "not_found", answer: UNVERIFIED_ANSWER, citations: [] };
     const related = result.status === "not_found" ? relatedEvidence(selection).map(toCitation) : [];
 
-    setAnswer({ question, result, related, clientErrors });
+    const id = Date.now();
+    setPending(null);
+    setAnswer({ id, question, language: lang, result, related, clientErrors });
     setHistory((h) =>
       appendTurn(h, {
         question,
@@ -194,14 +303,13 @@ export function App() {
         activeEntities: result.activeEntities,
       }),
     );
-
-    const id = Date.now();
     setLog((l) => [
       {
         id,
         at: new Date().toISOString(),
         question,
         source,
+        language: lang,
         status: result.status,
         sttMs: voiceTimes?.speechEndAt && voiceTimes.sttFinalAt ? voiceTimes.sttFinalAt - voiceTimes.speechEndAt : undefined,
         retrievalMs,
@@ -209,18 +317,18 @@ export function App() {
         requestMs,
         llmMs: result.timings.llmMs,
         validationMs: result.timings.validationMs,
+        tts: { provider: null, voice: null },
         inputTokens: result.usage.inputTokens,
         outputTokens: result.usage.outputTokens,
         attempts: result.validation.attempts,
         costUsd: llmCostUsd(result.usage),
-        clientCheck: clientErrors.length ? `failed: ${clientErrors.join("; ")}` : "all quotes found on their pages",
+        clientCheck: clientErrors.length ? `failed: ${clientErrors.join("; ")}` : "every quote found on its page",
       },
       ...l,
     ]);
 
     setPhase("speaking");
-    const voice = speak(result.answer, {
-      lang: config.speechLang,
+    const outcome = speakAnswer(result.answer, lang, {
       onStart: () => {
         const t = performance.now(); // tts_start
         setLog((l) =>
@@ -241,7 +349,13 @@ export function App() {
         if (result.status === "needs_clarification" && source === "voice") startListening();
       },
     });
-    setLog((l) => l.map((m) => (m.id === id ? { ...m, voice } : m)));
+    setLog((l) =>
+      l.map((m) =>
+        m.id === id
+          ? { ...m, tts: "reason" in outcome ? { provider: null, voice: null, note: outcome.reason } : { provider: outcome.provider, voice: outcome.voice } }
+          : m,
+      ),
+    );
   }
 
   function toggleMic() {
@@ -259,7 +373,7 @@ export function App() {
     let speechEndAt: number | undefined;
     let lastInterimAt: number | undefined;
     recognizer.current = startRecognition({
-      lang: config.speechLang,
+      lang: LANGUAGES[language].locale,
       onInterim: (text) => {
         lastInterimAt = performance.now();
         setInterim(text);
@@ -290,6 +404,11 @@ export function App() {
     setTyped("");
   }
 
+  function askExample(q: string) {
+    setInterim(q);
+    void ask(q, "text");
+  }
+
   function onDrop(e: DragEvent) {
     e.preventDefault();
     setDragging(false);
@@ -302,241 +421,394 @@ export function App() {
     if (files.length) void addFiles(replacing ? files.slice(0, 1) : files, replacing);
   }
 
+  function replay() {
+    if (!answer) return;
+    setPhase("speaking");
+    speakAnswer(answer.result.answer, answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
+  }
+
   async function copyMetrics() {
     const payload = {
       ingestion: docs.filter((d) => d.doc).map((d) => ({ file: d.filename, pages: d.doc!.pageCount, totalMs: d.ingestMs, ...d.doc!.timings })),
       questions: log,
       userAgent: navigator.userAgent,
     };
-    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("The browser blocked clipboard access.");
+    }
   }
 
   const micLabel =
-    phase === "listening" ? "Listening… tap to stop" : phase === "thinking" ? "Finding the answer…" : phase === "speaking" ? "Speaking…" : "Tap and ask";
+    phase === "listening" ? "Listening… tap to stop" : phase === "thinking" ? "Finding the answer" : phase === "speaking" ? "Speaking" : "Tap and ask";
   const last = log[0];
+  const status = answer ? STATUS_META[answer.result.status] : null;
+  const proofs = answer?.result.citations ?? [];
+  const closest = answer && !proofs.length ? answer.related : [];
+
+  // Latency breakdown of the last question, in the order it happened.
+  const segments = last
+    ? [
+        { key: "stt", label: "Speech → text", ms: last.sttMs },
+        { key: "retrieval", label: "Retrieval", ms: last.retrievalMs },
+        { key: "model", label: "Model + validation", ms: last.requestMs },
+        {
+          key: "speech",
+          label: "Start of speech",
+          ms: last.submitToFirstAudioMs !== undefined ? Math.max(0, last.submitToFirstAudioMs - last.retrievalMs - last.requestMs) : undefined,
+        },
+      ].filter((s): s is { key: string; label: string; ms: number } => s.ms !== undefined)
+    : [];
+  const segmentTotal = segments.reduce((sum, s) => sum + s.ms, 0) || 1;
 
   return (
     <main className="page">
       <header className="masthead">
         <h1>Ask your documents</h1>
-        <p>Upload an equipment manual, ask a question out loud, and hear a short answer with the exact quote and page it came from.</p>
+        <p>Upload a manual, ask out loud, and hear a short answer — with the exact line and page it came from.</p>
       </header>
 
-      <section className="panel" aria-labelledby="docs-title">
-        <h2 id="docs-title">1. Documents</h2>
-        <label
-          className={`dropzone${dragging ? " is-dragging" : ""}`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-        >
-          <input type="file" accept="application/pdf,.pdf" multiple onChange={(e) => onPick(e)} />
-          <strong>Upload PDF</strong>
-          <span>
-            Drop files here or click to choose · up to {config.maxFiles} text-based PDFs, {config.maxTotalPages} pages in total
-          </span>
-        </label>
-
-        {docs.length > 0 && (
-          <ul className="doc-list">
-            {docs.map((d) => (
-              <li key={d.key} className={`doc doc-${d.stage}`}>
-                <div className="doc-main">
-                  <span className="doc-name">{d.filename}</span>
-                  <span className="doc-meta">
-                    <span className={`pill pill-${d.stage}`}>{STAGE_LABEL[d.stage]}</span>
-                    {d.doc && <span>{d.doc.pageCount} pages</span>}
-                    {d.ingestMs !== undefined && <span>ready in {Math.round(d.ingestMs)} ms</span>}
-                  </span>
-                  {d.error && <span className="doc-error">{d.error}</span>}
-                </div>
-                <div className="doc-actions">
-                  {d.stage === "ready" && (
-                    <label className="btn btn-quiet">
-                      Replace
-                      <input type="file" accept="application/pdf,.pdf" onChange={(e) => onPick(e, d.key)} />
-                    </label>
-                  )}
-                  <button type="button" className="btn btn-quiet" onClick={() => removeDoc(d.key)}>
-                    {d.stage === "error" ? "Dismiss" : "Remove"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="panel ask" aria-labelledby="ask-title">
-        <h2 id="ask-title">2. Ask</h2>
-        {!voiceSupported && (
-          <p className="banner" role="status">
-            Voice input isn't supported in this browser — use Chrome or Edge, or type your question below.
-          </p>
-        )}
-        <div className="mic-row">
-          <button
-            type="button"
-            className={`mic mic-${phase}`}
-            onClick={toggleMic}
-            disabled={!voiceSupported || !readyDocs.length || busy || phase === "thinking"}
-            aria-label={micLabel}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" />
-            </svg>
-          </button>
-          <div className="mic-text" aria-live="polite">
-            <span className="mic-state">{readyDocs.length ? micLabel : "Upload a PDF to start"}</span>
-            {interim && <span className="transcript">“{interim}”</span>}
+      <div className="bento">
+        {/* Voice */}
+        <Tile tone="coral" area="voice" labelledBy="voice-title" className="tile-voice">
+          <div className="tile-head">
+            <h2 id="voice-title">Ask aloud</h2>
+            <LanguageSwitch value={language} onChange={setLanguage} disabled={phase === "listening" || phase === "thinking"} />
           </div>
-        </div>
 
-        {readyDocs.length > 0 && (
-          <p className="context-chip">
-            Using: {readyDocs.map((d) => d.filename).join(", ")}
-            {activeEntities.length > 0 && <> · {activeEntities.join(", ")}</>}
-          </p>
-        )}
-
-        <form className="typed" onSubmit={onTyped}>
-          <label htmlFor="typed-q" className="sr-only">
-            Type a question
-          </label>
-          <input
-            id="typed-q"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            placeholder={voiceSupported ? "…or type a question" : "Type a question"}
-            disabled={!readyDocs.length || phase === "thinking"}
-          />
-          <button type="submit" className="btn" disabled={!typed.trim() || !readyDocs.length || phase === "thinking"}>
-            Ask
-          </button>
-        </form>
-
-        {notice && <p className="notice">{notice}</p>}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-      </section>
-
-      {answer && (
-        <section className="panel answer" aria-live="polite" aria-labelledby="answer-title">
-          <h2 id="answer-title" className="sr-only">
-            Answer
-          </h2>
-          <p className="asked">You asked: “{answer.question}”</p>
-          <div className="answer-head">
-            <span className={`status status-${answer.result.status}`}>{STATUS_LABEL[answer.result.status]}</span>
+          <div className="mic-stage">
             <button
               type="button"
-              className="btn btn-quiet"
-              onClick={() => speak(answer.result.answer, { lang: config.speechLang, onEnd: () => setPhase("idle") })}
+              className="mic"
+              data-state={phase}
+              onClick={toggleMic}
+              disabled={!voiceSupported || !readyDocs.length || busy || phase === "thinking"}
+              aria-label={readyDocs.length ? micLabel : "Upload a PDF to start"}
             >
-              ▶ Replay
+              {phase === "listening" ? <StopIcon weight="fill" aria-hidden /> : <MicrophoneIcon weight="fill" aria-hidden />}
+            </button>
+            <div className="mic-copy" aria-live="polite">
+              <p className="mic-state">{readyDocs.length ? micLabel : "Add a document to start"}</p>
+              <p className="mic-sub">
+                {interim ? `“${interim}”` : `Answers in ${LANGUAGES[language].nativeName}. Quotes stay in the document's language.`}
+              </p>
+            </div>
+          </div>
+
+          {!voiceSupported && (
+            <p className="inline-note" role="status">
+              <WarningCircleIcon weight="bold" aria-hidden /> Voice input needs Chrome or Edge. Type your question below.
+            </p>
+          )}
+
+          <form className="typed" onSubmit={onTyped}>
+            <label htmlFor="typed-q" className="sr-only">
+              Type a question
+            </label>
+            <input
+              id="typed-q"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={voiceSupported ? "…or type a question" : "Type a question"}
+              disabled={!readyDocs.length || phase === "thinking"}
+              autoComplete="off"
+            />
+            <button type="submit" className="btn" disabled={!typed.trim() || !readyDocs.length || phase === "thinking"}>
+              Ask
+            </button>
+          </form>
+        </Tile>
+
+        {/* Documents */}
+        <Tile
+          tone="teal"
+          area="docs"
+          labelledBy="docs-title"
+          className="tile-docs"
+          tab={
+            <>
+              <FilePdfIcon weight="bold" aria-hidden />
+              {readyDocs.length} of {config.maxFiles} files · {loadedPages} of {config.maxTotalPages} pages
+            </>
+          }
+        >
+          <div className="tile-head">
+            <div className="head-title">
+              <span className="disc disc-sm">
+                <FilesIcon weight="bold" aria-hidden />
+              </span>
+              <h2 id="docs-title">Documents</h2>
+            </div>
+            <p className="hint">Text-based PDFs</p>
+          </div>
+
+          <label
+            className={`drop${dragging ? " is-dragging" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+          >
+            <input type="file" accept="application/pdf,.pdf" multiple onChange={(e) => onPick(e)} />
+            <span className="disc">
+              <UploadSimpleIcon weight="bold" aria-hidden />
+            </span>
+            <span className="drop-copy">
+              <strong>Drop PDFs here</strong> or choose files
+            </span>
+          </label>
+
+          <div className="samples">
+            <span>Synthetic sample manuals</span>
+            <button type="button" className="btn-ghost" onClick={() => void addSample(sampleV1Url, "manual-v1.pdf")} disabled={busy}>
+              Manual v1
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => void addSample(sampleV2Url, "manual-v2.pdf")} disabled={busy}>
+              Manual v2 · revised
             </button>
           </div>
-          <p className="answer-text">{answer.result.answer}</p>
 
-          {answer.result.citations.length > 0 && (
-            <div className="evidence">
-              {answer.result.citations.map((c) => (
-                <figure key={c.sentenceId} className="quote">
-                  <blockquote>{c.quote}</blockquote>
-                  <figcaption>
-                    {c.filename} · <strong>Page {c.page}</strong>
-                  </figcaption>
-                </figure>
+          {docs.length > 0 && (
+            <ul className="doc-list">
+              {docs.map((d) => (
+                <li key={d.key} className={`doc doc-${d.stage}`}>
+                  <span className="disc disc-sm">
+                    {d.stage === "error" ? <WarningCircleIcon weight="bold" aria-hidden /> : <FilePdfIcon weight="bold" aria-hidden />}
+                  </span>
+                  <div className="doc-main">
+                    <span className="doc-name">{d.filename}</span>
+                    {d.error ? (
+                      <span className="doc-error">{d.error}</span>
+                    ) : (
+                      <>
+                        <span className="doc-meta">
+                          {STAGE_LABEL[d.stage]}
+                          {d.doc && ` · ${d.doc.pageCount} pages`}
+                          {d.ingestMs !== undefined && ` · ready in ${fmtMs(d.ingestMs)}`}
+                        </span>
+                        <span className="progress" aria-hidden>
+                          <span style={{ "--p": STAGE_PROGRESS[d.stage] } as CSSProperties} />
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="doc-actions">
+                    {d.stage === "ready" && (
+                      <label className="icon-btn" title="Replace">
+                        <ArrowsClockwiseIcon weight="bold" aria-hidden />
+                        <span className="sr-only">Replace {d.filename}</span>
+                        <input type="file" accept="application/pdf,.pdf" onChange={(e) => onPick(e, d.key)} />
+                      </label>
+                    )}
+                    <button type="button" className="icon-btn" onClick={() => removeDoc(d.key)} title={d.stage === "error" ? "Dismiss" : "Remove"}>
+                      <XIcon weight="bold" aria-hidden />
+                      <span className="sr-only">
+                        {d.stage === "error" ? "Dismiss" : "Remove"} {d.filename}
+                      </span>
+                    </button>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
+        </Tile>
 
-          {answer.related.length > 0 && (
-            <details className="related">
-              <summary>Closest passages (not an answer)</summary>
-              {answer.related.map((c) => (
-                <figure key={c.sentenceId} className="quote quote-muted">
-                  <blockquote>{c.quote}</blockquote>
-                  <figcaption>
-                    {c.filename} · Page {c.page}
-                  </figcaption>
-                </figure>
-              ))}
-            </details>
-          )}
-          {answer.clientErrors.length > 0 && <p className="error">A quote could not be found on its page, so the answer was withheld.</p>}
-        </section>
-      )}
-
-      <details className="panel metrics">
-        <summary>Measurements</summary>
-        <div className="metrics-body">
-          <table>
-            <tbody>
-              {docs
-                .filter((d) => d.doc)
-                .map((d) => (
-                  <tr key={d.key}>
-                    <th>Ingestion · {d.filename}</th>
-                    <td>
-                      {fmtMs(d.ingestMs)} (extract {fmtMs(d.doc!.timings.extractMs)}, index {fmtMs(d.doc!.timings.indexMs)})
-                    </td>
-                  </tr>
-                ))}
-              {last && (
+        {/* Answer */}
+        <div className="answer-area" style={{ gridArea: "answer" }}>
+          <span className="stack-layer layer-far" aria-hidden />
+          <span className="stack-layer layer-near" aria-hidden />
+          <Tile
+            tone="lime"
+            area="auto"
+            label="Answer"
+            className="tile-answer"
+            tab={
+              pending ? (
                 <>
-                  <tr>
-                    <th>End of speech → final transcript (STT; end = speechend or last interim result)</th>
-                    <td>{fmtMs(last.sttMs)}</td>
-                  </tr>
-                  <tr>
-                    <th>Retrieval</th>
-                    <td>
-                      {fmtMs(last.retrievalMs)} ({last.evidence.mode}, {last.evidence.units} lines)
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Server round trip</th>
-                    <td>
-                      {fmtMs(last.requestMs)} (LLM {last.llmMs.map((x) => fmtMs(x)).join(" + ")}, {last.attempts} attempt
-                      {last.attempts > 1 ? "s" : ""})
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Submit → first audio (proxy: utterance start)</th>
-                    <td>{fmtMs(last.submitToFirstAudioMs)}</td>
-                  </tr>
-                  <tr>
-                    <th>Speech end → first audio</th>
-                    <td>{fmtMs(last.speechEndToFirstAudioMs)}</td>
-                  </tr>
-                  <tr>
-                    <th>Tokens · estimated LLM cost</th>
-                    <td>
-                      {last.inputTokens} in / {last.outputTokens} out · ${last.costUsd.toFixed(5)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Quote check in browser</th>
-                    <td>{last.clientCheck}</td>
-                  </tr>
+                  <span className="dots" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  Finding the answer
                 </>
+              ) : status ? (
+                <>
+                  {status.icon}
+                  {status.label}
+                </>
+              ) : (
+                <>No question yet</>
+              )
+            }
+          >
+            <div aria-live="polite">
+              {pending ? (
+                <div className="answer-pending">
+                  <p className="asked">“{pending}”</p>
+                  <p className="answer-text is-muted">Reading the document…</p>
+                </div>
+              ) : answer ? (
+                <div className="answer-result" key={answer.id}>
+                  <p className="asked">You asked: “{answer.question}”</p>
+                  <p className="answer-text" lang={answer.language}>
+                    {answer.result.answer}
+                  </p>
+                  <div className="answer-actions">
+                    <button type="button" className={`btn${phase === "speaking" ? " is-speaking" : ""}`} onClick={replay}>
+                      {phase === "speaking" ? (
+                        <span className="eq" aria-hidden>
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      ) : (
+                        <SpeakerHighIcon weight="bold" aria-hidden />
+                      )}
+                      {phase === "speaking" ? "Speaking" : "Replay"}
+                    </button>
+                    {readyDocs.length > 0 && (
+                      <span className="chip-static">
+                        Using {readyDocs.map((d) => d.filename).join(", ")}
+                        {activeEntities.length > 0 && ` · ${activeEntities.join(", ")}`}
+                      </span>
+                    )}
+                  </div>
+                  {answer.clientErrors.length > 0 && (
+                    <p className="inline-note">A quote could not be found on its page, so the answer was withheld.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="answer-empty">
+                  <p className="answer-text">{readyDocs.length ? "Ask about the manual." : "Load a manual, then ask."}</p>
+                  <p className="asked">Try one of these with the sample manual:</p>
+                  <div className="chips">
+                    {EXAMPLES[language].map((q) => (
+                      <button key={q} type="button" className="chip" onClick={() => askExample(q)} disabled={!readyDocs.length || phase === "thinking"} lang={language}>
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
-          <button type="button" className="btn btn-quiet" onClick={() => void copyMetrics()} disabled={!docs.length}>
-            {copied ? "Copied" : "Copy measurements JSON"}
-          </button>
+              {notice && <p className="inline-note">{notice}</p>}
+              {error && (
+                <p className="inline-note is-error" role="alert">
+                  <WarningCircleIcon weight="bold" aria-hidden /> {error}
+                </p>
+              )}
+            </div>
+          </Tile>
         </div>
-      </details>
+
+        {/* Proof */}
+        {(proofs.length > 0 || closest.length > 0) && (
+          <section className="proof" style={{ gridArea: "proof" }} aria-label={proofs.length ? "Evidence" : "Closest passages"} key={answer?.id}>
+            {(proofs.length ? proofs : closest).map((c, i) => (
+              <Tile
+                key={c.sentenceId}
+                tone={proofs.length ? "sage" : "dark"}
+                area="auto"
+                className="proof-item"
+                label={`${proofs.length ? "Quote" : "Closest passage"}, ${c.filename}, page ${c.page}`}
+                tab={
+                  <>
+                    <QuotesIcon weight="fill" aria-hidden />
+                    {proofs.length ? `Page ${c.page}` : `Closest · page ${c.page}`}
+                  </>
+                }
+              >
+                <blockquote style={{ "--n": i } as CSSProperties}>{c.quote}</blockquote>
+                <p className="proof-source">
+                  {c.filename} · <span className="mono">{c.sentenceId}</span>
+                </p>
+              </Tile>
+            ))}
+          </section>
+        )}
+
+        {/* Measurements */}
+        <Tile tone="dark" area="metrics" labelledBy="metrics-title" className="tile-metrics">
+          <div className="tile-head">
+            <div className="head-title">
+              <span className="disc disc-sm">
+                <GaugeIcon weight="bold" aria-hidden />
+              </span>
+              <h2 id="metrics-title">Measurements</h2>
+            </div>
+            <button type="button" className="icon-btn" onClick={() => void copyMetrics()} disabled={!docs.length} title="Copy measurements JSON">
+              {copied ? <CheckIcon weight="bold" aria-hidden /> : <CopyIcon weight="bold" aria-hidden />}
+              <span className="sr-only">{copied ? "Copied" : "Copy measurements JSON"}</span>
+            </button>
+          </div>
+
+          {last ? (
+            <>
+              <div className="lat-bar" role="img" aria-label={segments.map((s) => `${s.label} ${fmtMs(s.ms)}`).join(", ")}>
+                {segments.map((s) => (
+                  <span key={s.key} className={`seg seg-${s.key}`} style={{ width: `${(s.ms / segmentTotal) * 100}%` }} />
+                ))}
+              </div>
+              <ul className="lat-legend">
+                {segments.map((s) => (
+                  <li key={s.key}>
+                    <i className={`swatch seg-${s.key}`} aria-hidden />
+                    <span>{s.label}</span>
+                    <span className="mono">{fmtMs(s.ms)}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="hint">Timings, tokens and cost appear after the first question.</p>
+          )}
+
+          <dl className="facts">
+            {docs
+              .filter((d) => d.doc)
+              .map((d) => (
+                <div key={d.key}>
+                  <dt>Ingestion · {d.filename}</dt>
+                  <dd className="mono">{fmtMs(d.ingestMs)}</dd>
+                </div>
+              ))}
+            {last && (
+              <>
+                <div>
+                  <dt>Question → first audio</dt>
+                  <dd className="mono">{fmtMs(last.submitToFirstAudioMs)}</dd>
+                </div>
+                <div>
+                  <dt>Model · attempts</dt>
+                  <dd className="mono">
+                    {last.llmMs.map((x) => fmtMs(x)).join(" + ")} · {last.attempts}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Tokens · cost</dt>
+                  <dd className="mono">
+                    {last.inputTokens}/{last.outputTokens} · {fmtUsd(last.costUsd)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Voice</dt>
+                  <dd>{last.tts.provider ? `${last.tts.voice ?? "default"} · ${LANGUAGES[last.language].label}` : (last.tts.note ?? "—")}</dd>
+                </div>
+                <div>
+                  <dt>Quote check</dt>
+                  <dd>{last.clientCheck}</dd>
+                </div>
+              </>
+            )}
+          </dl>
+          <p className="footnote">First audio is measured at the start of speech synthesis, not at the speaker.</p>
+        </Tile>
+      </div>
     </main>
   );
 }

@@ -16,3 +16,5 @@ Budget: 8 focused hours. Clock started 2026-09-10 16:50 CEST.
 | 6b | Retry hint, permission rule, final NVIDIA eval | 19:31 | 19:42 | Targeted rerun: R1b, A7 3/3. Final full run (e41c065): P0 100%, P1 87.5% (A6 0/3), holdout 100%, 0 critical |
 | 8b | Worked AI-output check, delivery notes | 19:36 | 19:45 | `npm run verify-example` |
 | 7 | Voice test with the user's own PDF; fixes | 19:45 | 19:55 | Overview question got not_found → prompt rule + test A9 (3/3); STT timing read 0 ms → measured from the last interim result |
+| — | Discussion: multilingual TTS plan (Chatterbox) | 20:00 | 20:20 | Chosen: EN/RU/UA through the browser, TTS behind an interface; Chatterbox documented, not integrated |
+| 9 | Languages (plan B) and redesign | 01:40 (Sep 11) | 02:30 | Core + tests L1–L6 (18/18); bento/folder redesign with impeccable, animate, emil-design-eng; H3 holdout regression found and partly fixed |

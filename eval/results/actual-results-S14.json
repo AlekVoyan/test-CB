@@ -1,0 +1,716 @@
+{
+  "generatedAt": "2026-09-11T00:11:04.521Z",
+  "commit": "fc99ba3 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H1",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "What room size is the Pro designed for?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "mustInclude": [
+          [
+            "60"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          }
+        ],
+        "resolvedQuery": "What room size is the Pro designed for?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 1.987374999999929,
+        "llmAttempts": [
+          1378.499792
+        ],
+        "validation": 0.6472499999999854,
+        "total": 1383.90525
+      },
+      "usage": {
+        "inputTokens": 998,
+        "outputTokens": 68,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011203
+    },
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H2",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "How often should I replace the filter on the Compact?",
+      "expected": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "mustInclude": [
+          [
+            "6 months",
+            "six months"
+          ]
+        ],
+        "mustNotInclude": [
+          "12 months"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Replace the HEPA filter of Nimbus Compact every 6 months."
+          }
+        ],
+        "resolvedQuery": "How often should I replace the filter on the Nimbus Compact?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.17412500000000364,
+        "llmAttempts": [
+          973.6838329999996
+        ],
+        "validation": 2.117541000000074,
+        "total": 978.575542
+      },
+      "usage": {
+        "inputTokens": 1032,
+        "outputTokens": 70,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011572000000000001
+    },
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H3",
+      "type": "holdout follow-up",
+      "priority": "holdout",
+      "question": "And the other one?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro: replace the HEPA filter every 12 months.",
+        "mustInclude": [
+          [
+            "12 months",
+            "twelve months"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Which model are you asking about: Nimbus Compact or Nimbus Pro?",
+        "citations": [],
+        "resolvedQuery": "And the other one?",
+        "validation": {
+          "passed": true,
+          "attempts": 2,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (needs_clarification): The answer is empty.",
+            "attempt 1 (needs_clarification): A \"needs_clarification\" answer must be a question."
+          ]
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status needs_clarification ≠ answered",
+          "missing: 12 months/twelve months"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.5192090000000462,
+        "llmAttempts": [
+          5499.9778750000005,
+          999.6600830000007
+        ],
+        "validation": 1.0093750000014552,
+        "total": 6504.902709000001
+      },
+      "usage": {
+        "inputTokens": 2215,
+        "outputTokens": 88,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000223475
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H1",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "What room size is the Pro designed for?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "mustInclude": [
+          [
+            "60"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          }
+        ],
+        "resolvedQuery": "What room size is the Pro designed for?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 1.1223750000008295,
+        "llmAttempts": [
+          1890.5311660000007
+        ],
+        "validation": 0.14683400000103575,
+        "total": 1893.1691250000003
+      },
+      "usage": {
+        "inputTokens": 998,
+        "outputTokens": 68,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011203
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H2",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "How often should I replace the filter on the Compact?",
+      "expected": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "mustInclude": [
+          [
+            "6 months",
+            "six months"
+          ]
+        ],
+        "mustNotInclude": [
+          "12 months"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Replace the HEPA filter of Nimbus Compact every 6 months."
+          }
+        ],
+        "resolvedQuery": "How often should I replace the filter on the Compact?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.21124999999847205,
+        "llmAttempts": [
+          1830.5169999999998
+        ],
+        "validation": 0.044083999999202206,
+        "total": 1831.219165999999
+      },
+      "usage": {
+        "inputTokens": 1032,
+        "outputTokens": 67,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011452000000000001
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H3",
+      "type": "holdout follow-up",
+      "priority": "holdout",
+      "question": "And the other one?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro: replace the HEPA filter every 12 months.",
+        "mustInclude": [
+          [
+            "12 months",
+            "twelve months"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Do you mean the Nimbus Compact or the Nimbus Pro?",
+        "citations": [],
+        "resolvedQuery": "And the other one?",
+        "validation": {
+          "passed": true,
+          "attempts": 2,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (needs_clarification): The answer is empty.",
+            "attempt 1 (needs_clarification): A \"needs_clarification\" answer must be a question."
+          ]
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status needs_clarification ≠ answered",
+          "missing: 12 months/twelve months"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.1424170000009326,
+        "llmAttempts": [
+          704.6332500000008,
+          729.9556670000002
+        ],
+        "validation": 0.3321249999989959,
+        "total": 1436.1967080000013
+      },
+      "usage": {
+        "inputTokens": 2215,
+        "outputTokens": 86,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000222675
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H1",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "What room size is the Pro designed for?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "mustInclude": [
+          [
+            "60"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          }
+        ],
+        "resolvedQuery": "What room size is the Pro designed for?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.1329170000008162,
+        "llmAttempts": [
+          837.2710000000006
+        ],
+        "validation": 0.7945419999996375,
+        "total": 838.9770420000023
+      },
+      "usage": {
+        "inputTokens": 998,
+        "outputTokens": 68,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011203
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H2",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "How often should I replace the filter on the Compact?",
+      "expected": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "mustInclude": [
+          [
+            "6 months",
+            "six months"
+          ]
+        ],
+        "mustNotInclude": [
+          "12 months"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Replace the HEPA filter of Nimbus Compact every 6 months."
+          }
+        ],
+        "resolvedQuery": "How often should I replace the filter on the Compact?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.16683300000113377,
+        "llmAttempts": [
+          2614.3556659999995
+        ],
+        "validation": 0.1117500000000291,
+        "total": 2615.426499000001
+      },
+      "usage": {
+        "inputTokens": 1032,
+        "outputTokens": 67,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00011452000000000001
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H3",
+      "type": "holdout follow-up",
+      "priority": "holdout",
+      "question": "And the other one?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro: replace the HEPA filter every 12 months.",
+        "mustInclude": [
+          [
+            "12 months",
+            "twelve months"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "answer": "Which model are you asking about: Nimbus Compact or Nimbus Pro?",
+        "citations": [],
+        "resolvedQuery": "And the other one?",
+        "validation": {
+          "passed": true,
+          "attempts": 2,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (needs_clarification): The answer is empty.",
+            "attempt 1 (needs_clarification): A \"needs_clarification\" answer must be a question."
+          ]
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status needs_clarification ≠ answered",
+          "missing: 12 months/twelve months"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.1837919999998121,
+        "llmAttempts": [
+          918.7970419999983,
+          2942.3399580000005
+        ],
+        "validation": 0.2292090000009921,
+        "total": 3863.987874999999
+      },
+      "usage": {
+        "inputTokens": 2215,
+        "outputTokens": 88,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000223475
+    }
+  ],
+  "apiErrors": [],
+  "ingestions": [
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 396.16770799999995,
+      "indexMs": 0.3326250000000073
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 12.098625000000538,
+      "indexMs": 0.06883399999969697
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 12.338541999999507,
+      "indexMs": 0.05716700000084529
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        14.759749999997439,
+        10.272082999999839,
+        6.807875000002241,
+        9.287291999997251,
+        8.37683300000208
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        8.075582999998005,
+        5.091334000000643,
+        4.636833000000479,
+        4.236541000002035,
+        3.8269580000014685
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        2.5020000000004075,
+        2.166625000001659,
+        2.3746659999997064,
+        5.429374999999709,
+        9.514124999997875
+      ]
+    }
+  ]
+}

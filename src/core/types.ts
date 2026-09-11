@@ -59,7 +59,8 @@ export interface AnswerResult {
   citations: Citation[];
   resolvedQuery: string;
   activeEntities: string[];
-  validation: { passed: boolean; attempts: number; errors: string[]; warnings: string[] };
+  /** retryReasons: validator findings of every rejected attempt (kept even when a retry succeeds). */
+  validation: { passed: boolean; attempts: number; errors: string[]; warnings: string[]; retryReasons: string[] };
   usage: Usage & { model: string };
   timings: { llmMs: number[]; validationMs: number; totalMs: number };
 }

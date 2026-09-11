@@ -1,3 +1,6 @@
+import "@fontsource-variable/unbounded";
+import "@fontsource-variable/onest";
+import "@fontsource-variable/jetbrains-mono";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";

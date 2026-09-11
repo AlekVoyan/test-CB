@@ -52,5 +52,6 @@ export function formatHistory(history: Turn[]): string {
 }
 
 export function buildUserPrompt(question: string, history: Turn[], evidence: EvidenceUnit[], language: Language = "en"): string {
-  return `<evidence>\n${formatEvidence(evidence)}\n</evidence>\n\n<conversation>\n${formatHistory(history)}\n</conversation>\n\n<answer_language>${LANGUAGES[language].name}</answer_language>\n\n<question>${question}</question>`;
+  // The question follows the conversation directly, so follow-ups ("and the other one?") stay tied to it.
+  return `<evidence>\n${formatEvidence(evidence)}\n</evidence>\n\n<answer_language>${LANGUAGES[language].name}</answer_language>\n\n<conversation>\n${formatHistory(history)}\n</conversation>\n\n<question>${question}</question>`;
 }

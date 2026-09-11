@@ -66,7 +66,9 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/core/contract.ts` | JSON schema of the model's answer and of the API request |
 | `src/llm/anthropic.ts` | Anthropic SDK adapter (structured outputs) |
 | `src/server/handler.ts`, `api/answer.ts` | `POST /api/answer` (Vercel function; the dev server reuses the handler) |
-| `src/web/App.tsx`, `voice.ts` | UI, speech recognition and synthesis, measurements panel |
+| `src/web/App.tsx`, `styles.css` | UI (bento layout, language switch, answer and quote folders, measurements) — design system in `DESIGN.md` |
+| `src/web/voice.ts` | Speech recognition (Web Speech API) |
+| `src/web/tts.ts` | Speech output behind a `TtsProvider` interface: browser voices now, a hosted voice can be added in front |
 | `eval/expected.json`, `eval/run-eval.ts` | Test sessions with expected outcomes, and the scorer |
 | `fixtures/source/*.txt`, `scripts/make-fixtures.ts` | Fixture text and the PDF generator |
 
@@ -77,6 +79,18 @@ UI ◄─ quote re-check against page text ◄───────────�
 - **Ingestion:** file selected → document ready, shown on each document card and in the Measurements panel.
 - **Question to first audio:** submit → `speechSynthesis` utterance start. This is a proxy for the first audible sound, not the physical speaker onset. The panel also shows speech end → transcript and speech end → first audio.
 - "Copy measurements JSON" in the panel exports the numbers.
+
+## Voice and languages
+
+Pick the answer language with the EN · RU · UA switch. Recognition, the answer and speech follow it; quotes stay in the document's language, because they are copied from it. English is the evaluated language; Russian and Ukrainian have their own tests (L1–L6).
+
+| Language | Recognition locale | Speech (browser voice, macOS example) | Tested |
+|---|---|---|---|
+| English | en-US | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
+| Russian | ru-RU | Milena | eval (L1–L3); voice test pending |
+| Ukrainian | uk-UA | Lesya | eval (L4–L6); voice test pending |
+
+If the browser has no voice for the language, the answer stays on screen and the Measurements panel says so. Chatterbox Multilingual was considered as a higher-quality voice and not integrated: its language list has no Ukrainian, it needs a Python/GPU service that Vercel can't host, and it would add generation time before the first audio. `tts.ts` is the place to add such a provider.
 
 ## Deploy (Vercel)
 

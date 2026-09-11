@@ -50,6 +50,7 @@ export async function answerQuestion(input: {
   let model = "";
   let errors: string[] = [];
   let warnings: string[] = [];
+  const retryReasons: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const completion = await input.llm.complete({ system: SYSTEM_PROMPT, messages });
@@ -79,13 +80,14 @@ export async function answerQuestion(input: {
         citations: buildCitations(out.citations, evidenceById),
         resolvedQuery: out.resolvedQuery,
         activeEntities: out.activeEntities,
-        validation: { passed: true, attempts: attempt, errors: [], warnings },
+        validation: { passed: true, attempts: attempt, errors: [], warnings, retryReasons },
         usage: { inputTokens, outputTokens, model },
         timings: { llmMs, validationMs, totalMs: performance.now() - started },
       };
     }
 
     // Retry once with the validator's findings.
+    retryReasons.push(...errors.map((e) => `attempt ${attempt} (${completion.parsed?.status ?? "unparsed"}): ${e}`));
     messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
     messages.push({
       role: "user",
@@ -100,7 +102,7 @@ export async function answerQuestion(input: {
     citations: [],
     resolvedQuery: input.question,
     activeEntities: [],
-    validation: { passed: false, attempts: maxAttempts, errors, warnings },
+    validation: { passed: false, attempts: maxAttempts, errors, warnings, retryReasons },
     usage: { inputTokens, outputTokens, model },
     timings: { llmMs, validationMs, totalMs: performance.now() - started },
   };

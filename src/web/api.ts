@@ -1,6 +1,12 @@
+import type { Language } from "../core/config";
 import type { AnswerResult, EvidenceUnit, Turn } from "../core/types";
 
-export async function askServer(body: { question: string; history: Turn[]; evidence: EvidenceUnit[] }): Promise<AnswerResult> {
+export async function askServer(body: {
+  question: string;
+  history: Turn[];
+  evidence: EvidenceUnit[];
+  language: Language;
+}): Promise<AnswerResult> {
   let response: Response;
   try {
     response = await fetch("/api/answer", {

@@ -20,6 +20,9 @@ A browser prototype: upload up to two text-based PDFs (≤ 10 pages total), ask 
 | Auto-submit the final transcript | Faster; the transcript stays visible and a spoken correction ("I meant Model B") works. | A misrecognised question is sent before the user can fix it. |
 | No embeddings, no OCR | Not needed for ≤ 10 text pages; the brief excludes scans. | Scanned PDFs are rejected with a message. |
 | Claude Haiku 4.5 | Fastest and cheapest current Claude model; the task is extraction from a short text. | Weaker on subtle reasoning than larger models. |
+| Answers in English, Russian or Ukrainian | A small extension beyond the brief's "one language": the reviewer's and the tester's languages. The whole chain follows one switch (recognition locale, answer language, voice); quotes stay verbatim in the document's language. English stays the evaluated language. | Six more tests (L1–L6); the validator learned Russian/Ukrainian "not found" wording; recognition quality depends on the browser. |
+| Browser speech behind a `TtsProvider` interface; Chatterbox not integrated | Browser voices start at once and cost $0; macOS has Russian (Milena) and Ukrainian (Lesya) voices. Chatterbox Multilingual was checked: no Ukrainian in its language list, needs a Python/GPU service that Vercel can't host, adds generation time before first audio, and watermarks its output. | Voice quality depends on the OS. A hosted voice can be added in front of the browser provider without touching the app. |
+| Redesign: bento layout with folder-tab tiles (user-pinned brief) | The answer and its proof read as one object: the status sits on the answer's tab, each quote is a folder whose tab names its page. Documented in `DESIGN.md`. | More CSS than a plain layout; checked at desktop and 375px. |
 | Second provider: NVIDIA-hosted Nemotron 3 Super (`LLM_PROVIDER=nvidia`) | The Anthropic balance was empty during development; the pipeline sits behind an `LlmClient` interface, so a second adapter was cheap. Reasoning is turned off: with it on, the model's JSON degenerated into whitespace. | The free endpoint is slower and returns 503 at times (handled with retries). Its results are reported separately and priced at a paid provider's list price. |
 
 ## 3. Reused components and own work
@@ -82,7 +85,9 @@ How the numbers moved (full runs, 3 runs each):
 | After A6/A7 fixes | `016ee32` | 96.7% (R1b mis-cite, caught) | 83.3% | 100% | 0 |
 | After retry hint + permission rule | `e41c065` | 100% | 87.5% (A6 fails) | 100% | 0 |
 
-`expected.json` was not changed after the first run except for one added test, in its own commit: **A9, "What is this document about?"** (session S18). Asking my own 7-page PDF "about what is document" by voice returned `not_found`: the prompt handled specific facts but not questions about the document as a whole. The prompt now answers those from the title, headings and introduction, and A9 checks it on the fixture manual.
+**Russian and Ukrainian (L1–L6, commit `fc99ba3`, 3 runs):** 18/18 passed — answers in the selected language, quotes in English, not-found recognised in both languages. Full run on the same commit: P0 100%, P1 88.9% (A6), holdout 80% (**H3 regressed to 0/3**, see §13), RU/UA 100%, 0 critical failures.
+
+`expected.json` was not changed after the first run except for added tests, each in its own commit (L1–L6 before their first run, and this one): **A9, "What is this document about?"** (session S18). Asking my own 7-page PDF "about what is document" by voice returned `not_found`: the prompt handled specific facts but not questions about the document as a whole. The prompt now answers those from the title, headings and introduction, and A9 checks it on the fixture manual.
 
 ## 9. Factual accuracy and citation accuracy
 
@@ -178,6 +183,7 @@ Found by the eval (NVIDIA Nemotron 3 Super):
 - **One garbled answer** — "answerModelA: the maximum load is 20 units." (fact and quote correct, so it scored as a pass). The validator checks facts and quotes, not fluency.
 - **Free endpoint** — returns 503 "temporarily overloaded" at times (handled by retries; one unscored provider error in the first run) and its latency varies.
 - **A7 before the fix** — "model bee" was answered with a clarification question; fixed in code by restoring spoken letters after "model".
+- **H3 regression (holdout)** — "And the other one?" after a question about the Compact's filter passed 3/3 before the language work and 0/3 after it: the model asked "Compact or Pro?" instead. The new `<answer_language>` block sat between the conversation and the question; moving it above the conversation brought H3 back to 1/3 (M3 and L2, the other follow-ups, stayed 3/3). Not tuned further, because the holdout must not be used for prompt tuning. Retry reasons are now recorded (`validation.retryReasons`), which showed the first attempt returning an empty clarification.
 
 ## 14. Unfinished parts
 
@@ -193,7 +199,7 @@ See `docs/TIME_LOG.md`.
 ## 16. What I would improve next
 
 1. **Faster first audio:** stream the model's output and start speaking the first sentence once it validates, instead of waiting for the whole answer.
-2. **Production speech:** a streaming STT/TTS provider (priced in §11) for all browsers, stable voices and measured speaker latency; keep the browser path as a free fallback.
+2. **Production speech:** a streaming STT/TTS provider (priced in §11) for all browsers, stable voices and measured speaker latency, added in front of the browser provider in `tts.ts`; the browser stays the fallback. Chatterbox Multilingual is a candidate for English and Russian only (no Ukrainian) and needs its own GPU service.
 3. **Reasoning over stated rules (A6):** try Haiku first; if it still declines, add a small rule-evaluation step for "is it allowed" questions rather than more prompt text.
 4. **Answer quality checks beyond facts:** a cheap fluency check (one garbled answer passed), and an LLM-judge pass in the eval for partial answers.
 5. **Show the page:** open the cited page with the quote highlighted, so the reviewer sees the evidence in context.

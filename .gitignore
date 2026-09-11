@@ -9,4 +9,5 @@ dist/
 
 # review tooling and private planning docs (not part of the submission)
 .lavish/
+.impeccable/
 ТЗ_*

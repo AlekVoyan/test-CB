@@ -43,6 +43,19 @@ export const config = {
   speechLang: "en-US",
 } as const;
 
+export type Language = "en" | "ru" | "uk";
+
+/**
+ * Languages for questions, answers and speech. English is the evaluated language; Russian and Ukrainian are
+ * additional. Quotes always stay in the document's own language.
+ */
+export const LANGUAGES: Record<Language, { label: string; name: string; nativeName: string; locale: string }> = {
+  en: { label: "EN", name: "English", nativeName: "English", locale: "en-US" },
+  ru: { label: "RU", name: "Russian", nativeName: "Русский", locale: "ru-RU" },
+  uk: { label: "UA", name: "Ukrainian", nativeName: "Українська", locale: "uk-UA" },
+};
+export const DEFAULT_LANGUAGE: Language = "en";
+
 export interface Price {
   inputUsdPerMTok: number;
   outputUsdPerMTok: number;

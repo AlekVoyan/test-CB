@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { answerQuestion } from "../src/core/answerer.js";
-import { config, type RetrievalMode } from "../src/core/config.js";
+import { config, LANGUAGES, type Language, type RetrievalMode } from "../src/core/config.js";
 import { appendTurn } from "../src/core/conversation.js";
 import { llmCostUsd, priceFor } from "../src/core/cost.js";
 import { ingestPdf } from "../src/core/ingest.js";
@@ -41,7 +41,7 @@ type UploadSpec = string | { file: string; as: string };
 type Step =
   | { upload: UploadSpec[] }
   | { remove: string[] }
-  | { ask: string; testId?: string; type?: string; priority?: string; expected?: Expected };
+  | { ask: string; testId?: string; type?: string; priority?: string; language?: Language; expected?: Expected };
 interface Session {
   id: string;
   steps: Step[];
@@ -92,11 +92,21 @@ function hasTerm(text: string, term: string): boolean {
 const CITING = new Set<AnswerStatus>(["answered", "conflict"]);
 const sourceKey = (s: Source) => `${s.file}#${s.page}`;
 
-function score(result: AnswerResult, expected: Expected, quoteErrors: string[]) {
+// An answer in the wrong language fails the question, whatever its facts.
+function languageMismatch(answer: string, language: Language | undefined): string | null {
+  if (!language || language === "en") return null;
+  if (!/[Ѐ-ӿ]/.test(answer)) return `answer is not in ${LANGUAGES[language].name}`;
+  if (language === "uk" && /[ыэъё]/i.test(answer)) return "answer uses Russian-only letters";
+  if (language === "ru" && /[іїєґ]/i.test(answer)) return "answer uses Ukrainian-only letters";
+  return null;
+}
+
+function score(result: AnswerResult, expected: Expected, quoteErrors: string[], language?: Language) {
   const statusOk = result.status === expected.status;
   const forbidden = expected.mustNotInclude.filter((t) => hasTerm(result.answer, t));
   const missing = expected.mustInclude.filter((group) => !group.some((alt) => hasTerm(result.answer, alt)));
-  const factual = !statusOk || forbidden.length ? 0 : missing.length ? 0.5 : 1;
+  const wrongLanguage = languageMismatch(result.answer, language);
+  const factual = !statusOk || forbidden.length || wrongLanguage ? 0 : missing.length ? 0.5 : 1;
 
   let citation: number;
   const cited = new Set(result.citations.map((c) => sourceKey({ file: c.filename, page: c.page })));
@@ -116,6 +126,7 @@ function score(result: AnswerResult, expected: Expected, quoteErrors: string[]) 
     !statusOk && `status ${result.status} ≠ ${expected.status}`,
     missing.length && `missing: ${missing.map((g) => g.join("/")).join(", ")}`,
     forbidden.length && `forbidden: ${forbidden.join(", ")}`,
+    wrongLanguage,
     ...quoteErrors,
   ].filter(Boolean) as string[];
   return { factual, citation, pass: factual === 1 && citation === 1, critical, notes };
@@ -183,7 +194,7 @@ for (let run = 1; run <= runs; run++) {
         const retrievalMs = performance.now() - t0;
         let result: AnswerResult;
         try {
-          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm });
+          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm, language: step.language });
         } catch (error) {
           // Provider outage (after the adapter's own retries): record it, don't score it, keep going.
           const message = error instanceof Error ? error.message : String(error);
@@ -202,13 +213,13 @@ for (let run = 1; run <= runs; run++) {
 
         if (step.testId && step.expected) {
           answersByTest.set(step.testId, result.answer);
-          const scores = score(result, step.expected, quoteErrors);
+          const scores = score(result, step.expected, quoteErrors, step.language);
           const baseline = answersByTest.get(`${step.testId}-baseline`);
           records.push({
             run,
             session: session.id,
             testId: step.testId,
-            type: step.type ?? "",
+            type: `${step.type ?? ""}${step.language && step.language !== "en" ? ` (${LANGUAGES[step.language].label})` : ""}`,
             priority: step.priority ?? "",
             question: step.ask,
             expected: step.expected,
@@ -272,6 +283,7 @@ const groups = [
   { name: "P0", match: (r: Record_) => r.priority === "P0" },
   { name: "P1", match: (r: Record_) => r.priority === "P1" },
   { name: "holdout", match: (r: Record_) => r.priority === "holdout" },
+  { name: "RU/UA", match: (r: Record_) => r.priority === "lang" },
   { name: "all", match: () => true },
 ];
 

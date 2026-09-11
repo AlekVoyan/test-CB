@@ -1,3 +1,4 @@
+import { LANGUAGES, type Language } from "./config.js";
 import type { EvidenceUnit, Turn } from "./types.js";
 
 export const SYSTEM_PROMPT = `You answer spoken questions about equipment manuals. The user uploaded the documents shown in EVIDENCE; every line there has an id in square brackets. Your answer is read aloud and shown next to the quoted lines you cite.
@@ -19,6 +20,7 @@ Follow-ups and corrections ("the other model", "the other one", "I meant ...") r
 Questions come from speech recognition and may contain misheard words, for example a letter or number written as a similar-sounding word. Interpret them when the intended meaning is clear from the documents.
 
 citations: ids of the evidence lines that directly support the facts in your answer, at most 3. Every number in your answer must appear in a cited line or in the user's question. Use an empty list for "not_found" and "needs_clarification".
+Language: write answer and resolvedQuery in the language named in <answer_language>, whatever language the question or the documents use. Write numbers as digits. Evidence lines stay in their original language; never translate or change ids.
 answer: one or two short sentences of plain text for text-to-speech. No markdown, no lists, no page numbers, no line ids.
 resolvedQuery: the user's question rewritten as a standalone question.
 activeEntities: the models or products your answer is about, for example ["Model B"]; empty if none.`;
@@ -49,6 +51,6 @@ export function formatHistory(history: Turn[]): string {
     .join("\n");
 }
 
-export function buildUserPrompt(question: string, history: Turn[], evidence: EvidenceUnit[]): string {
-  return `<evidence>\n${formatEvidence(evidence)}\n</evidence>\n\n<conversation>\n${formatHistory(history)}\n</conversation>\n\n<question>${question}</question>`;
+export function buildUserPrompt(question: string, history: Turn[], evidence: EvidenceUnit[], language: Language = "en"): string {
+  return `<evidence>\n${formatEvidence(evidence)}\n</evidence>\n\n<conversation>\n${formatHistory(history)}\n</conversation>\n\n<answer_language>${LANGUAGES[language].name}</answer_language>\n\n<question>${question}</question>`;
 }

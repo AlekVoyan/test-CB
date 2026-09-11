@@ -1,4 +1,4 @@
-import { config } from "./config.js";
+import { config, DEFAULT_LANGUAGE, type Language } from "./config.js";
 import type { LlmAnswer } from "./contract.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
 import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt.js";
@@ -32,13 +32,16 @@ export async function answerQuestion(input: {
   history: Turn[];
   evidence: EvidenceUnit[];
   llm: LlmClient;
+  language?: Language;
   maxAttempts?: number;
 }): Promise<AnswerResult> {
   const started = performance.now();
   const maxAttempts = input.maxAttempts ?? config.maxAttempts;
   const evidenceById = new Map(input.evidence.map((u) => [u.id, u]));
   const question = normalizeSpokenQuestion(input.question);
-  const messages: LlmMessage[] = [{ role: "user", content: buildUserPrompt(question, input.history, input.evidence) }];
+  const messages: LlmMessage[] = [
+    { role: "user", content: buildUserPrompt(question, input.history, input.evidence, input.language ?? DEFAULT_LANGUAGE) },
+  ];
 
   const llmMs: number[] = [];
   let validationMs = 0;

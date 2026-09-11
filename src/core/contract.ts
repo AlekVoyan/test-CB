@@ -64,5 +64,7 @@ export const AnswerRequestSchema = z.object({
   question: z.string().trim().min(1).max(500),
   history: z.array(TurnSchema).max(config.historyTurns),
   evidence: z.array(EvidenceUnitSchema).min(1).max(3000),
+  /** Language of the answer (and of speech). Quotes stay in the document's language. */
+  language: z.enum(["en", "ru", "uk"]).default("en"),
 });
 export type AnswerRequest = z.infer<typeof AnswerRequestSchema>;

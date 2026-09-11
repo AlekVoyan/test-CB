@@ -3,7 +3,8 @@ import path from "node:path";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
 import { answerQuestion, UNVERIFIED_ANSWER, type LlmClient, type LlmCompletion } from "./answerer.js";
-import { parseLlmAnswer, type LlmAnswer } from "./contract.js";
+import { AnswerRequestSchema, parseLlmAnswer, type LlmAnswer } from "./contract.js";
+import { buildUserPrompt } from "./prompt.js";
 import { appendTurn, documentSetKey } from "./conversation.js";
 import { ingestPdf } from "./ingest.js";
 import { SCANNED_MESSAGE } from "./limits.js";
@@ -224,5 +225,24 @@ describe("parseLlmAnswer", () => {
   it("rejects text and objects that break the contract", () => {
     expect(parseLlmAnswer("The answer is 20 units.")).toBeNull();
     expect(parseLlmAnswer(JSON.stringify({ ...valid, status: "maybe" }))).toBeNull();
+  });
+});
+
+describe("languages", () => {
+  it("accepts a not-found answer in Russian and Ukrainian, and still demands that it says so", () => {
+    expect(check({ status: "not_found", answer: "В загруженных документах это не указано." }).errors).toEqual([]);
+    expect(check({ status: "not_found", answer: "У завантажених документах цього не зазначено." }).errors).toEqual([]);
+    expect(check({ status: "not_found", answer: "Двадцать единиц." }).errors.join()).toMatch(/say explicitly/);
+  });
+  it("tokenizes Cyrillic questions and keeps model letters", () => {
+    const tokens = tokenize("Какая максимальная нагрузка у модели A?");
+    expect(tokens).toContain("model_a");
+    expect(tokens).toContain("нагрузка");
+    expect(tokenize("Яке навантаження моделі Б?")).toContain("model_b");
+  });
+  it("names the answer language in the prompt and defaults requests to English", () => {
+    expect(buildUserPrompt("Q?", [], evidence, "uk")).toContain("<answer_language>Ukrainian</answer_language>");
+    const parsed = AnswerRequestSchema.parse({ question: "Q?", history: [], evidence });
+    expect(parsed.language).toBe("en");
   });
 });

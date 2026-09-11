@@ -24,9 +24,15 @@ export function extractNumbers(text: string): Set<string> {
   return out;
 }
 
-// A not_found answer has to say so in words, not just stay silent.
+// A not_found answer has to say so in words, not just stay silent. English, Russian and Ukrainian wording.
 const NEGATION_RE = /\b(not|no|cannot|couldn't|can't|doesn't|don't|isn't|aren't|without|neither|nor)\b/i;
 const ABOUT_DOCS_RE = /(document|manual|guide|uploaded|specif|mention|state|contain|cover|include|information|find|found|list|provide)/i;
+const NEGATION_CYR_RE = /(?<!\p{L})(не|нет|немає|ні|без|нельзя)(?!\p{L})|отсутств|відсутн/iu;
+const ABOUT_DOCS_CYR_RE = /документ|руководств|посібник|инструкц|інструкц|указан|вказан|зазнач|упомина|згаду|содерж|міст|описан|информац|інформац|найд|найти|знайд|знайти/iu;
+
+function saysNotFound(answer: string): boolean {
+  return (NEGATION_RE.test(answer) && ABOUT_DOCS_RE.test(answer)) || (NEGATION_CYR_RE.test(answer) && ABOUT_DOCS_CYR_RE.test(answer));
+}
 
 export interface ValidationContext {
   question: string;
@@ -65,7 +71,7 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
       break;
     case "not_found":
       if (ids.length) errors.push('Status "not_found" must have an empty citations list.');
-      if (!(NEGATION_RE.test(answer) && ABOUT_DOCS_RE.test(answer)))
+      if (!saysNotFound(answer))
         errors.push('A "not_found" answer must say explicitly that the uploaded documents do not contain the answer.');
       break;
     case "needs_clarification":

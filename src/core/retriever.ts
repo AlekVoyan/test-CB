@@ -13,6 +13,8 @@ const STOPWORDS = new Set(
 
 // Speech recognition often writes a spoken letter as a word ("model bee").
 const LETTER_ALIASES: Record<string, string> = { ay: "a", eh: "a", bee: "b", be: "b", see: "c", sea: "c", cee: "c", dee: "d" };
+// Cyrillic letters that stand for Latin model letters in Russian/Ukrainian speech ("модель Б").
+const CYRILLIC_LETTERS: Record<string, string> = { а: "a", б: "b", с: "c", д: "d" };
 
 /**
  * Lowercased tokens without stopwords. "Model X" becomes the entity token "model_x", and a lone capital
@@ -21,10 +23,12 @@ const LETTER_ALIASES: Record<string, string> = { ay: "a", eh: "a", bee: "b", be:
 export function tokenize(text: string): string[] {
   let t = normalizeText(text);
   t = t.replace(/\bmodel\s+([a-z0-9]+)\b/gi, (_m, id: string) => ` model_${LETTER_ALIASES[id.toLowerCase()] ?? id.toLowerCase()} `);
+  // "модель A" / "моделі B" (Russian, Ukrainian) — Latin or Cyrillic letter
+  t = t.replace(/(?<!\p{L})модел\p{L}*\s+([A-Za-zАБСДабсд0-9])(?!\p{L})/giu, (_m, id: string) => ` model_${CYRILLIC_LETTERS[id.toLowerCase()] ?? id.toLowerCase()} `);
   t = t.replace(/([^.!?]\s)([A-HJ-Z])(?=[\s?!.,;:)]|$)/g, (_m, pre: string, letter: string) => `${pre}model_${letter.toLowerCase()} `);
   return t
     .toLowerCase()
-    .split(/[^a-z0-9_]+/)
+    .split(/[^\p{L}\p{N}_]+/u)
     .filter((tok) => tok.length > 0 && !STOPWORDS.has(tok));
 }
 

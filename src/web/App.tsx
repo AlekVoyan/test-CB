@@ -38,7 +38,8 @@ import { verifyCitations } from "../core/validator";
 import { askServer, fetchServerInfo, type ServerInfo } from "./api";
 import { PageViewer } from "./PageViewer";
 import { pdfjs } from "./pdfjs";
-import { primeAudio, speakAnswer, stopSpeaking, type SpeakInfo, type SpeechTicket } from "./tts";
+import { deviceVoiceState, loadDeviceVoice, onDeviceVoice, type DeviceVoiceState } from "./deviceVoice";
+import { primeAudio, speakAnswer, stopSpeaking, type SpeakInfo, type SpeechTicket, type VoiceMode } from "./tts";
 import { speechRecognitionSupported, startRecognition } from "./voice";
 
 type DocStage = "reading" | IngestStage | "ready" | "error";
@@ -78,7 +79,9 @@ interface QuestionMetrics {
     provider: string | null;
     voice: string | null;
     model?: string;
-    /** Hosted voice: request → first audio byte in the page, and the voice service's own share of it. */
+    /** WebGPU or WebAssembly, for the on-device voice. */
+    backend?: string;
+    /** Until the first audio data (first byte, or first sentence synthesized), and the voice service's own share of it. */
     firstByteMs?: number;
     upstreamMs?: number;
     /** Why the hosted voice did not speak and the browser voice did. */
@@ -163,6 +166,16 @@ function readStoredDeep(): boolean {
   }
 }
 
+const VOICE_KEY = "voice";
+function readStoredVoice(): VoiceMode {
+  try {
+    const value = localStorage.getItem(VOICE_KEY);
+    return value === "browser" || value === "elevenlabs" || value === "device" ? value : "elevenlabs";
+  } catch {
+    return "elevenlabs";
+  }
+}
+
 const toCitation = (u: EvidenceUnit): Citation => ({
   documentId: u.documentId,
   filename: u.filename,
@@ -183,15 +196,16 @@ function voiceMetrics(info: SpeakInfo, text: string): QuestionMetrics["tts"] {
     upstreamMs: info.upstreamMs,
     fallback: info.fallback,
     chars: text.length,
-    costUsd: info.model ? ttsCostUsd(info.model, text.length) : 0,
+    backend: info.backend,
+    costUsd: info.provider === "ElevenLabs" && info.model ? ttsCostUsd(info.model, text.length) : 0,
   };
 }
 
 function voiceLabel(m: QuestionMetrics): string {
   const { provider, voice, fallback, note } = m.tts;
   if (!provider) return note ?? "—";
-  const who = [provider === "Browser speech" ? "Browser" : provider, voice ?? "default voice", LANGUAGES[m.language].label].join(" · ");
-  return fallback ? `${who} (hosted voice: ${fallback})` : who;
+  const who = [provider === "Browser speech" ? "Browser" : provider, voice ?? "default voice", m.tts.backend, LANGUAGES[m.language].label].filter(Boolean).join(" · ");
+  return fallback ? `${who} (instead: ${fallback})` : who;
 }
 
 // A folder keeps its colour wherever it sits in a stack. Older answers are deeper shades of the answer lime;
@@ -607,11 +621,65 @@ function LanguageSwitch(props: { value: Language; onChange: (l: Language) => voi
   );
 }
 
+const VOICES: { mode: VoiceMode; label: string }[] = [
+  { mode: "browser", label: "Built-in" },
+  { mode: "elevenlabs", label: "ElevenLabs" },
+  { mode: "device", label: "On device" },
+];
+
+function VoiceSwitch(props: { value: VoiceMode; onChange: (mode: VoiceMode) => void; elevenAvailable: boolean }) {
+  const index = VOICES.findIndex((v) => v.mode === props.value);
+  return (
+    <div className="lang voice-switch" role="group" aria-labelledby="voice-pick-label">
+      <span className="lang-indicator" style={{ "--i": index } as CSSProperties} aria-hidden />
+      {VOICES.map((v) => {
+        const off = v.mode === "elevenlabs" && !props.elevenAvailable;
+        return (
+          <button
+            key={v.mode}
+            type="button"
+            aria-pressed={props.value === v.mode}
+            disabled={off}
+            title={off ? "This server has no ElevenLabs key" : undefined}
+            onClick={() => props.onChange(v.mode)}
+          >
+            {v.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** What the chosen voice costs and where it runs, or how far its download is. */
+function voiceHint(mode: VoiceMode, device: DeviceVoiceState, server: ServerInfo | null): string {
+  if (mode === "browser") return "Your system's voice · starts at once, free · sounds different on every computer";
+  if (mode === "elevenlabs") {
+    if (server && !server.voice) return "Not set up on this server · the built-in voice speaks";
+    return `${server?.voice ? `${server.voice.name} · ` : ""}neural voice in the cloud · ~0.3 s, about $0.005 an answer`;
+  }
+  const mb = Math.round(config.deviceVoice.downloadBytes / 1e6);
+  switch (device.status) {
+    case "idle":
+      return `Supertonic 3 in this browser · free · ${mb} MB download, once`;
+    case "loading":
+      return `Downloading the voice model · ${Math.min(99, Math.floor((100 * device.loaded) / device.total))}% of ${mb} MB · the built-in voice speaks meanwhile`;
+    case "ready":
+      return device.backend === "WebGPU"
+        ? "Supertonic 3 · runs on this device (WebGPU) · free, the audio is made here"
+        : "Supertonic 3 · runs on this device without WebGPU, so slowly: several seconds an answer";
+    case "failed":
+      return `Could not load: ${device.message} · the built-in voice speaks`;
+  }
+}
+
 export function App() {
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [history, setHistory] = useState<Turn[]>([]);
   const [language, setLanguage] = useState<Language>(readStoredLanguage);
   const [deep, setDeep] = useState(readStoredDeep);
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>(readStoredVoice);
+  const [device, setDevice] = useState<DeviceVoiceState>(deviceVoiceState);
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [interim, setInterim] = useState("");
@@ -650,15 +718,25 @@ export function App() {
   const answer = answers[viewIndex] ?? null;
   const deepAvailable = serverInfo?.deep === true;
   const thinkHarder = deep && deepAvailable;
+  // ElevenLabs needs the server's key; without it the built-in voice speaks.
+  const elevenAvailable = serverInfo === null || Boolean(serverInfo.voice);
+  const speakMode: VoiceMode = voiceMode === "elevenlabs" && !elevenAvailable ? "browser" : voiceMode;
 
   useEffect(() => {
     try {
       localStorage.setItem(LANGUAGE_KEY, language);
       localStorage.setItem(DEEP_KEY, deep ? "1" : "0");
+      localStorage.setItem(VOICE_KEY, voiceMode);
     } catch {
       // storage blocked: the choice lasts for this tab only
     }
-  }, [language, deep]);
+  }, [language, deep, voiceMode]);
+
+  // Choosing the on-device voice starts its download; after the first time it loads from the browser's cache.
+  useEffect(() => onDeviceVoice(setDevice), []);
+  useEffect(() => {
+    if (voiceMode === "device") loadDeviceVoice();
+  }, [voiceMode]);
 
   useEffect(() => {
     void fetchServerInfo().then(setServerInfo);
@@ -857,7 +935,7 @@ export function App() {
         },
         onSilent: (reason) => patch({ tts: { provider: null, voice: null, note: reason } }),
       },
-      speech,
+      { mode: speakMode, ticket: speech },
     );
   }
 
@@ -932,7 +1010,7 @@ export function App() {
     if (!answer) return;
     primeAudio();
     setPhase("speaking");
-    speakAnswer(spokenAnswer(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) }, answer.speech);
+    speakAnswer(spokenAnswer(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) }, { mode: speakMode, ticket: answer.speech });
   }
 
   async function copyMetrics() {
@@ -1063,6 +1141,26 @@ export function App() {
               <WarningCircleIcon weight="bold" aria-hidden /> Voice input needs Chrome or Edge. Type your question below.
             </p>
           )}
+
+          <div className="voice-pick">
+            <span id="voice-pick-label" className="think-label">
+              <SpeakerHighIcon weight="bold" aria-hidden /> Voice
+            </span>
+            <VoiceSwitch value={voiceMode} onChange={setVoiceMode} elevenAvailable={elevenAvailable} />
+            {voiceMode === "device" && device.status === "loading" && (
+              <span
+                className="progress"
+                role="progressbar"
+                aria-label="Voice model download"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.floor((100 * device.loaded) / device.total)}
+              >
+                <span style={{ "--p": Math.min(1, device.loaded / device.total) } as CSSProperties} />
+              </span>
+            )}
+            <span className="think-sub">{voiceHint(voiceMode, device, serverInfo)}</span>
+          </div>
 
           <label className="think">
             <button
@@ -1440,7 +1538,7 @@ export function App() {
                 </div>
                 {last.tts.firstByteMs !== undefined && (
                   <div>
-                    <dt>Voice first byte · cost</dt>
+                    <dt>Voice ready · cost</dt>
                     <dd className="mono">
                       {fmtMs(last.tts.firstByteMs)} · {fmtUsd(last.tts.costUsd ?? Number.NaN)}
                     </dd>
@@ -1453,7 +1551,7 @@ export function App() {
               </>
             )}
           </dl>
-          <p className="footnote">First audio: when the first sound of the answer is due at the audio output (hosted voice) or the browser starts speaking (its own voice), not at the speaker.</p>
+          <p className="footnote">First audio: when the first sound of the answer is due at the audio output (ElevenLabs or on-device voice) or the browser starts speaking (built-in voice), not at the speaker.</p>
         </Tile>
       </div>
 

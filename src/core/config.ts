@@ -60,6 +60,31 @@ export const config = {
     /** Without audio by then, the browser voice speaks instead. */
     firstByteTimeoutMs: 2500,
   },
+  /**
+   * On-device voice: Supertonic 3 by Supertone (weights under OpenRAIL-M), run in the browser with ONNX Runtime Web.
+   * The files come from Hugging Face the first time it is chosen and stay in the browser's Cache Storage.
+   */
+  deviceVoice: {
+    repo: "supertone-oss-archive/supertonic-3",
+    /** The archive revision its SDK examples pin. */
+    revision: "aafc6e32416a594460b32413efc49d7fe4ce6d46",
+    voice: "F1",
+    /** Denoising steps (the example's default) and speaking rate. */
+    steps: 8,
+    speed: 1.05,
+    /** Text is synthesized sentence by sentence, in pieces of up to this many characters, so the first plays sooner. */
+    chunkChars: 100,
+    /**
+     * Inputs are padded (and masked out) to multiples of these lengths: WebGPU builds its kernels per input shape, and a
+     * new shape cost about a second on its own in the benchmark.
+     */
+    textBucket: 32,
+    frameBucket: 16,
+    /** Pause between those pieces. */
+    pauseSec: 0.3,
+    /** Size of the model files, for the progress bar. */
+    downloadBytes: 398_600_000,
+  },
 } as const;
 
 export type Language = "en" | "ru" | "uk";

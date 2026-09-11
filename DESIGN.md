@@ -208,6 +208,9 @@ An inferred answer shows a lightbulb on its tab and opens with "Inferred from th
 ### Think harder switch
 A 44×26px switch with an ink outline, above the text field in the voice tile, labelled with a brain icon and one line of explanation. When on, it fills with ink and its knob turns coral (200ms ease-out, instant under reduced motion). When the server's model cannot reason first, the switch is disabled at 45% opacity and the line under it says why: "Needs Claude · this server runs …".
 
+### Voice switch
+Above Think harder in the voice tile: a label with a speaker icon, then three pill segments on the ink wash, built like the language switch (the ink indicator slides in 220ms ease-out, the chosen label turns coral): Built-in · ElevenLabs · On device. One line under it says what the chosen voice costs and where it runs. While the on-device model downloads, a 4px ink progress bar sits above that line, which gives the percentage and says the built-in voice speaks meanwhile. ElevenLabs is disabled at 45% when the server has no key, and its title says why.
+
 ### Page viewer
 "Open in page" shows the real PDF page, rendered by pdf.js at the panel's width. The cited paragraph stays lit while the rest of the page sinks under a 42% veil, and each cited line is framed in lime. On desktop the panel slides in from the left (280ms, iOS-like drawer curve), so the answer and its sheets stay in view on the right. On phones it rises as a bottom sheet at 88% of the screen height. Esc, the close button or the backdrop close it, and focus returns to the button that opened it. Under reduced motion it fades. Zoom runs from 100% (fit to width) to 300% in steps. The level sits between − and + in the panel's head and resets to fit on click. The keyboard (+, −, 0), a pinch, or Ctrl/⌘ with scroll zoom around the point under the pointer: the page scales at once and is rendered sharp when the gesture rests.
 

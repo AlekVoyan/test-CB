@@ -596,6 +596,29 @@ body::before {
   opacity: 0.55;
 }
 
+/* the voice: three sources side by side; the line under them says what each costs and where it runs */
+.voice-pick {
+  display: grid;
+  gap: 8px;
+  margin: auto 0 18px;
+}
+.voice-pick + .think {
+  margin-top: 0;
+}
+.voice-switch {
+  display: grid;
+}
+.voice-switch button {
+  padding: 8px 6px;
+  letter-spacing: 0.02em;
+}
+.voice-switch button:disabled {
+  opacity: 0.45;
+}
+.voice-pick .progress {
+  margin-top: 0;
+}
+
 /* think harder: a quiet switch above the text field, not a mode screen */
 .think {
   display: flex;

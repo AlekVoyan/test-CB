@@ -49,8 +49,10 @@ PDF ─► ingest (pdf.js) ─► index: one unit per line ─► in-memory inde
 mic ─► Web Speech STT ─► question ─► retriever ─► POST /api/answer ─► prompt → Claude (JSON schema)
                                                                        → validator (retry once) → citations
 UI ◄─ quote re-check against page text ◄──────────────────────────── response + speech ticket
- └─► POST /api/tts (ticketed text) ──────────────────────────────► ElevenLabs Flash v2.5
-     Web Audio plays the PCM stream as it arrives ◄──────────────── (browser voice if it fails)
+ └─► voice, picked in the voice tile:
+       ElevenLabs  POST /api/tts (ticketed text) ──────────────────► ElevenLabs Flash v2.5, PCM stream
+       On device   Supertonic 3 in a Web Worker (WebGPU), model from Hugging Face, kept in the browser's cache
+       Built-in    speechSynthesis, also the fallback for the other two
 ```
 
 - **Documents stay in the browser.** The server only holds the API key, builds the prompt and validates the answer, so it runs on any serverless host and viewers never see each other's files.
@@ -59,6 +61,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 - **Statuses:** `answered`, `not_found`, `needs_clarification` (asks which model when it matters), `conflict` (two documents disagree; both are cited).
 - **Reasoning is labelled as reasoning.** Some answers follow from a stated rule or range rather than from a line that says them. For example, "Can Model B run at 40°C?" → "No", from the 5–35°C operating range. Such answers are marked *Inferred from the document* and carry a one-sentence **Why**, shown under the answer and read aloud after it. A not-found answer may add a related line ("Related, not the answer"); the line is kept only if the answer actually talks about it. An obvious slip ("nozzel") is answered with the assumption named ("Assuming you meant “nozzle”"). A question that fits more than one thing gets a clarifying question instead, and a question about something the documents don't contain stays not found.
 - **Think harder** (a switch in the voice tile) lets Claude reason before answering: extended thinking with a 2,048-token budget. It is disabled, with the reason shown, when the server runs a model that can't do it (the NVIDIA model). `GET /api/answer` reports which model is running.
+- **Three voices, one switch.** *Built-in* is the system voice: instant and free, but it sounds different on every computer. *ElevenLabs* runs in the cloud: about 0.3 s to first sound and about $0.005 an answer. *On device* is Supertonic 3 run in the browser with ONNX Runtime Web: free, and the audio is made on the user's machine. The model is a 399 MB download the first time it is chosen and comes from the browser's cache after that. The choice is remembered. A voice that cannot speak yet (not set up, still downloading, failed) hands over to the built-in voice, and the Measurements panel says why.
 - **The voice speaks only answers this server produced.** `/api/answer` returns the text to speak with an HMAC ticket, and `/api/tts` speaks only ticketed text, so a public deployment is not a free text-to-speech proxy. The audio streams back as 16-bit PCM and Web Audio starts on its first chunk. If the voice service fails or sends nothing within 2.5 s, the browser's own voice speaks, and the panel says why.
 - **Follow-ups** use the last four turns. Changing the set of loaded documents resets the conversation so values from a replaced document cannot leak into answers.
 
@@ -84,7 +87,8 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/web/App.tsx`, `styles.css` | UI (bento layout, language switch, answer and quote folders, measurements) — design system in `DESIGN.md` |
 | `src/web/PageViewer.tsx` | "Open in page": renders the cited PDF page with pdf.js, the paragraph in focus and cited lines framed; zoom to 300% by buttons, keys, pinch or Ctrl/⌘-scroll |
 | `src/web/voice.ts` | Speech recognition (Web Speech API) |
-| `src/web/tts.ts`, `pcm.ts` | Speech output: the hosted voice streamed into Web Audio (`pcm.ts` decodes the chunks), the browser's own voice as the fallback. Which service stands behind `/api/tts` is a server setting |
+| `src/web/tts.ts`, `pcm.ts` | Speech output in the chosen voice: the hosted voice streamed into Web Audio (`pcm.ts` decodes the chunks), the on-device voice, and the browser's own voice as the fallback. Which service stands behind `/api/tts` is a server setting |
+| `src/web/deviceVoice.ts`, `supertonic.worker.ts`, `supertonicText.ts` | On-device voice. The worker downloads Supertonic 3 from Hugging Face (a pinned revision) into Cache Storage, runs it with ONNX Runtime Web on WebGPU (WebAssembly as the last resort) and returns audio sentence by sentence. Inputs are padded to a few fixed lengths so WebGPU reuses its kernels. `supertonicText.ts` is the text preparation, ported from Supertonic's MIT-licensed example |
 | `eval/expected.json`, `eval/run-eval.ts` | Test sessions with expected outcomes, and the scorer |
 | `fixtures/source/*.txt`, `scripts/make-fixtures.ts` | Fixture text and the PDF generator |
 
@@ -93,7 +97,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 ## Measurements
 
 - **Ingestion:** file selected → document ready, shown on each document card and in the Measurements panel.
-- **Question to first audio:** submit → the moment the first sound of the answer is due at the audio output. For the hosted voice that is the first chunk's start on the Web Audio clock plus the output latency; for the browser's voice, the utterance start. Not the speaker itself. The panel also shows the voice's first byte and cost, speech end → transcript and speech end → first audio.
+- **Question to first audio:** submit → the moment the first sound of the answer is due at the audio output. For the hosted voice that is the first chunk's start on the Web Audio clock plus the output latency; for the browser's voice, the utterance start. Not the speaker itself. The panel also shows when the voice was ready (ElevenLabs: its first audio byte; on device: the first sentence synthesized) and its cost, speech end → transcript and speech end → first audio.
 - "Copy measurements JSON" in the panel exports the numbers.
 
 ## Voice and languages
@@ -102,11 +106,11 @@ Pick the answer language with the EN · RU · UA switch. Recognition, the answer
 
 | Language | Recognition locale | Voice | Fallback voice (macOS example) | Tested |
 |---|---|---|---|---|
-| English | en-US | ElevenLabs Flash v2.5, Matilda | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
-| Russian | ru-RU | ElevenLabs Flash v2.5, Matilda | Milena | eval (L1–L3) + Chrome voice test |
-| Ukrainian | uk-UA | ElevenLabs Flash v2.5, Matilda | Lesya | eval (L4–L6) + Chrome voice test |
+| English | en-US | ElevenLabs Matilda, or Supertonic 3 F1 on the device | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
+| Russian | ru-RU | ElevenLabs Matilda, or Supertonic 3 F1 on the device | Milena | eval (L1–L3) + Chrome voice test |
+| Ukrainian | uk-UA | ElevenLabs Matilda, or Supertonic 3 F1 on the device | Lesya | eval (L4–L6) + Chrome voice test |
 
-The voice was picked in a blind listening test on the same sentences in three languages: ElevenLabs Flash v2.5 and v3, two voices each, against the macOS voices. Flash was chosen: it starts in ~0.2 s instead of ~0.75 s and costs half as much. On the free ElevenLabs plan the API offers only ElevenLabs' own voices; voices from the library, including ones verified for Russian and Ukrainian, need a paid plan. Chatterbox Multilingual was considered and not used: no Ukrainian, and it needs a GPU service. If neither voice can speak, the answer stays on screen and the Measurements panel says so.
+The voice was picked in a blind listening test on the same sentences in three languages: ElevenLabs Flash v2.5 and v3, two voices each, against the macOS voices. Flash was chosen: it starts in ~0.2 s instead of ~0.75 s and costs half as much. On the free ElevenLabs plan the API offers only ElevenLabs' own voices; voices from the library, including ones verified for Russian and Ukrainian, need a paid plan. The free option is Supertonic 3 (Supertone): one open model with Russian and Ukrainian that runs in a browser. Its weights are under the OpenRAIL-M license, whose use restrictions apply; the app downloads them from Hugging Face and does not redistribute them. Its GitHub repository was archived on 2026-09-09, and the pinned weights stay usable. Chatterbox Multilingual was considered and not used: no Ukrainian, and it needs a GPU service. If neither voice can speak, the answer stays on screen and the Measurements panel says so.
 
 ## Deploy (Vercel)
 
@@ -121,7 +125,7 @@ Vercel detects Vite and serves `api/answer.ts` and `api/tts.ts` as functions. Se
 
 ## Browser support
 
-Voice input needs the Web Speech API (Chrome or Edge on desktop; HTTPS or localhost). In Chrome, recognition audio is processed by Google's speech service. Other browsers get a visible notice and the text box. Speech output streams from ElevenLabs through the server and plays with Web Audio in any current browser; the operating system's voices are the fallback.
+Voice input needs the Web Speech API (Chrome or Edge on desktop; HTTPS or localhost). In Chrome, recognition audio is processed by Google's speech service. Other browsers get a visible notice and the text box. Speech output streams from ElevenLabs through the server and plays with Web Audio in any current browser; the operating system's voices are the fallback. The on-device voice needs WebGPU to be quick (Chrome and Edge on desktop, Safari 26). Without it, it runs on WebAssembly and takes several seconds an answer.
 
 ## Scope and limits
 

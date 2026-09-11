@@ -44,6 +44,9 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
   return {
     plugins: [react(), apiDevServer()],
+    // ONNX Runtime Web (the on-device voice) loads its WebAssembly itself; pre-bundling would break its paths.
+    optimizeDeps: { exclude: ["onnxruntime-web"] },
+    worker: { format: "es" },
     test: {
       include: ["src/**/*.test.ts"],
     },

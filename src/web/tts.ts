@@ -1,8 +1,13 @@
-// Speech output. A hosted neural voice (ElevenLabs behind /api/tts) speaks when the server issued a ticket for the
-// text; otherwise, or when it fails before its first sound, the browser's own voice does. Which service stands behind
-// /api/tts is a server setting: the page knows only the endpoint and 16-bit PCM.
+// Speech output in three voices, chosen in the voice tile:
+// - "elevenlabs": a hosted neural voice behind /api/tts, used when the server issued a ticket for exactly this text;
+// - "device": Supertonic 3 synthesized in this browser (deviceVoice.ts);
+// - "browser": the system's own voice, which is also the fallback when either of the others cannot speak.
+// The two neural voices play through Web Audio and report the moment their first sound is due at the output.
 import { config, LANGUAGES, type Language } from "../core/config";
+import { deviceVoiceState, synthesizeOnDevice } from "./deviceVoice";
 import { pcm16ToFloat32 } from "./pcm";
+
+export type VoiceMode = "browser" | "elevenlabs" | "device";
 
 /** Issued by /api/answer: the server's permission to have exactly this text spoken by the hosted voice. */
 export interface SpeechTicket {
@@ -14,29 +19,32 @@ export interface SpeechTicket {
 export interface SpeakInfo {
   provider: string;
   voice: string | null;
-  /** Hosted voice model id. */
+  /** Neural voice model id. */
   model?: string;
-  /** Hosted voice: request → first audio byte in the page. */
+  /** WebGPU or WebAssembly, for the on-device voice. */
+  backend?: string;
+  /** Until the first audio data: the first byte from ElevenLabs, or the first sentence synthesized on the device. */
   firstByteMs?: number;
   /** Of that, the voice service's time to respond, as the server measured it. */
   upstreamMs?: number;
   /** From the start event until the first sound reaches the audio output. */
   audibleInMs?: number;
-  /** Why the hosted voice did not speak. */
+  /** Why the chosen voice did not speak. */
   fallback?: string;
 }
 
 export interface SpeakEvents {
-  /** First audio: the first chunk is due at the output (hosted voice) or the utterance started (browser). */
+  /** First audio: the first piece is due at the output (neural voices) or the utterance started (system voice). */
   onStart?: (info: SpeakInfo) => void;
   onEnd?: () => void;
   /** Nothing could speak; the answer stays on screen. */
   onSilent?: (reason: string) => void;
 }
 
-// ---------- the browser's own voice (fallback) ----------
+// ---------- the system's own voice (also the fallback) ----------
 
 const BROWSER = "Browser speech";
+const DEVICE = "On device";
 const hasSynthesis = () => typeof window !== "undefined" && "speechSynthesis" in window;
 const normalizeLang = (lang: string) => lang.replace("_", "-").toLowerCase();
 
@@ -65,7 +73,7 @@ function speakInBrowser(text: string, language: Language, events: SpeakEvents, f
   const loaded = hasSynthesis() ? window.speechSynthesis.getVoices().length > 0 : false;
   if (!hasSynthesis() || (loaded && voicesFor(language).length === 0)) {
     const none = `No ${LANGUAGES[language].name} voice in this browser`;
-    events.onSilent?.(fallback ? `${none}; hosted voice: ${fallback}` : none);
+    events.onSilent?.(fallback ? `${none}; chosen voice: ${fallback}` : none);
     events.onEnd?.();
     return;
   }
@@ -80,7 +88,7 @@ function speakInBrowser(text: string, language: Language, events: SpeakEvents, f
   window.speechSynthesis.speak(utterance);
 }
 
-// ---------- the hosted voice ----------
+// ---------- Web Audio playback, shared by the neural voices ----------
 
 let audio: AudioContext | null = null;
 
@@ -94,13 +102,58 @@ export function primeAudio(): void {
   if (audio.state === "suspended") void audio.resume().catch(() => {});
 }
 
+async function unlockedAudio(): Promise<AudioContext | string> {
+  const ctx = audio;
+  if (!ctx) return "audio was not unlocked by a tap";
+  if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+  return ctx.state === "running" ? ctx : "the browser blocked audio";
+}
+
+interface Playback {
+  ctx: AudioContext;
+  next: number;
+  last: AudioBufferSourceNode | null;
+  sources: Set<AudioBufferSourceNode>;
+}
+
+/** Queues samples right after what is already queued, after an optional pause; returns their start time. */
+function schedule(p: Playback, samples: Float32Array, rate: number, pause = 0): number {
+  const buffer = p.ctx.createBuffer(1, samples.length, rate);
+  buffer.getChannelData(0).set(samples);
+  const source = p.ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(p.ctx.destination);
+  // Pieces are scheduled back to back on the audio clock, so they join without gaps.
+  const at = Math.max(p.ctx.currentTime + 0.03, p.next + (p.last ? pause : 0));
+  source.start(at);
+  p.next = at + buffer.duration;
+  p.last = source;
+  p.sources.add(source);
+  source.onended = () => p.sources.delete(source);
+  return at;
+}
+
+/** Milliseconds until a sound scheduled at `at` reaches the audio output. */
+const audibleIn = (ctx: AudioContext, at: number) => (at - ctx.currentTime + (ctx.outputLatency || ctx.baseLatency || 0)) * 1000;
+
+function whenPlayed(p: Playback, done: () => void): void {
+  const final = p.last;
+  // A slow source can finish after its last piece has already played.
+  if (!final || p.next <= p.ctx.currentTime) done();
+  else
+    final.onended = () => {
+      p.sources.delete(final);
+      done();
+    };
+}
+
 /** Each call to speakAnswer is a session; a newer one, or stopSpeaking, silences the older. */
 let session = 0;
-let playing: { controller: AbortController; sources: Set<AudioBufferSourceNode> } | null = null;
+let playing: { controller?: AbortController; sources: Set<AudioBufferSourceNode> } | null = null;
 
-function stopHosted(): void {
+function stopPlayback(): void {
   if (!playing) return;
-  playing.controller.abort();
+  playing.controller?.abort();
   for (const source of playing.sources) {
     source.onended = null;
     try {
@@ -117,20 +170,20 @@ const header = (response: Response, name: string) => {
   return value === null ? undefined : decodeURIComponent(value);
 };
 
-/** Streams the hosted voice into Web Audio. Resolves with a reason when the browser voice should speak instead. */
+// ---------- ElevenLabs, streamed through /api/tts ----------
+
+/** Resolves with a reason when the system voice should speak instead. */
 async function speakHosted(ticket: SpeechTicket, language: Language, events: SpeakEvents, id: number): Promise<string | null> {
-  const ctx = audio;
-  if (!ctx) return "audio was not unlocked by a tap";
-  if (ctx.state === "suspended") await ctx.resume().catch(() => {});
-  if (ctx.state !== "running") return "the browser blocked audio";
+  const ctx = await unlockedAudio();
+  if (typeof ctx === "string") return ctx;
+  if (id !== session) return null;
 
   const controller = new AbortController();
-  const sources = new Set<AudioBufferSourceNode>();
-  playing = { controller, sources };
+  const p: Playback = { ctx, next: 0, last: null, sources: new Set() };
+  playing = { controller, sources: p.sources };
   const startedAt = performance.now();
-  const late = `no audio within ${config.tts.firstByteTimeoutMs / 1000} s`;
+  const late = `ElevenLabs sent no audio within ${config.tts.firstByteTimeoutMs / 1000} s`;
   const timer = setTimeout(() => controller.abort(), config.tts.firstByteTimeoutMs);
-  let last: AudioBufferSourceNode | null = null;
 
   try {
     let response: Response;
@@ -142,9 +195,9 @@ async function speakHosted(ticket: SpeechTicket, language: Language, events: Spe
         signal: controller.signal,
       });
     } catch {
-      return id !== session ? null : controller.signal.aborted ? late : "voice service unreachable";
+      return id !== session ? null : controller.signal.aborted ? late : "ElevenLabs could not be reached";
     }
-    if (!response.ok || !response.body) return `voice service error ${response.status}`;
+    if (!response.ok || !response.body) return `ElevenLabs error ${response.status}`;
     const rate = Number(response.headers.get("X-Sample-Rate")) || config.tts.sampleRate;
     const info: SpeakInfo = {
       provider: header(response, "X-Voice-Provider") ?? "Hosted voice",
@@ -155,14 +208,13 @@ async function speakHosted(ticket: SpeechTicket, language: Language, events: Spe
 
     const reader = response.body.getReader();
     let carry: number | null = null;
-    let next = 0;
     for (;;) {
       let chunk: ReadableStreamReadResult<Uint8Array>;
       try {
         chunk = await reader.read();
       } catch {
         // Stopped by a newer session, cut by the timer before any sound, or broken mid-answer.
-        return id !== session || last ? null : late;
+        return id !== session || p.last ? null : late;
       }
       if (id !== session) {
         void reader.cancel().catch(() => {});
@@ -172,65 +224,88 @@ async function speakHosted(ticket: SpeechTicket, language: Language, events: Spe
       const decoded = pcm16ToFloat32(chunk.value, carry);
       carry = decoded.carry;
       if (!decoded.samples.length) continue;
-      const buffer = ctx.createBuffer(1, decoded.samples.length, rate);
-      buffer.getChannelData(0).set(decoded.samples);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      // Chunks are scheduled back to back on the audio clock, so they join without gaps.
-      const at = Math.max(ctx.currentTime + 0.03, next);
-      source.start(at);
-      next = at + buffer.duration;
-      sources.add(source);
-      source.onended = () => sources.delete(source);
-      if (!last) {
+      const first = !p.last;
+      const at = schedule(p, decoded.samples, rate);
+      if (first) {
         clearTimeout(timer);
-        const outputMs = (ctx.outputLatency || ctx.baseLatency || 0) * 1000;
-        events.onStart?.({
-          ...info,
-          firstByteMs: Math.round(performance.now() - startedAt),
-          audibleInMs: (at - ctx.currentTime) * 1000 + outputMs,
-        });
+        events.onStart?.({ ...info, firstByteMs: Math.round(performance.now() - startedAt), audibleInMs: audibleIn(ctx, at) });
       }
-      last = source;
     }
-    if (!last) return "voice service sent no audio";
-    const final: AudioBufferSourceNode = last;
-    const done = () => {
-      sources.delete(final);
+    if (!p.last) return "ElevenLabs sent no audio";
+    whenPlayed(p, () => {
       if (id !== session) return;
       playing = null;
       events.onEnd?.();
-    };
-    // A slow stream can finish after its last chunk has already played.
-    if (next <= ctx.currentTime) done();
-    else final.onended = done;
+    });
     return null;
   } catch {
-    return last ? null : "hosted voice failed";
+    return p.last ? null : "ElevenLabs failed";
   } finally {
     clearTimeout(timer);
   }
 }
 
+// ---------- Supertonic 3 on this device ----------
+
+async function speakOnDevice(text: string, language: Language, events: SpeakEvents, id: number): Promise<string | null> {
+  const model = deviceVoiceState();
+  if (model.status === "loading") return `the on-device voice is still loading (${Math.floor((100 * model.loaded) / model.total)}%)`;
+  if (model.status === "failed") return `the on-device voice did not load: ${model.message}`;
+  if (model.status !== "ready") return "the on-device voice is not loaded";
+  const ctx = await unlockedAudio();
+  if (typeof ctx === "string") return ctx;
+  if (id !== session) return null;
+
+  const p: Playback = { ctx, next: 0, last: null, sources: new Set() };
+  playing = { sources: p.sources };
+  const startedAt = performance.now();
+  try {
+    await synthesizeOnDevice(text, language, (samples, rate) => {
+      if (id !== session || !samples.length) return;
+      const first = !p.last;
+      const at = schedule(p, samples, rate, config.deviceVoice.pauseSec);
+      if (first)
+        events.onStart?.({
+          provider: DEVICE,
+          voice: `Supertonic 3 · ${config.deviceVoice.voice}`,
+          model: "supertonic-3",
+          backend: model.backend,
+          firstByteMs: Math.round(performance.now() - startedAt),
+          audibleInMs: audibleIn(ctx, at),
+        });
+    });
+  } catch (error) {
+    return id !== session || p.last ? null : `the on-device voice failed: ${error instanceof Error ? error.message : String(error)}`;
+  }
+  if (id !== session) return null;
+  if (!p.last) return "the on-device voice made no audio";
+  whenPlayed(p, () => {
+    if (id !== session) return;
+    playing = null;
+    events.onEnd?.();
+  });
+  return null;
+}
+
+// ---------- entry points ----------
+
 /**
- * Speaks an answer: with the hosted voice when the ticket is for this text, else (or when it fails before its first
- * sound) with the browser's voice. Never throws; without any voice the answer stays on screen.
+ * Speaks an answer in the chosen voice; when that voice cannot (not set up, still loading, failed before its first
+ * sound), the system voice speaks and the reason is reported. Never throws; without any voice the answer stays text.
  */
-export function speakAnswer(text: string, language: Language, events: SpeakEvents, ticket?: SpeechTicket): void {
+export function speakAnswer(text: string, language: Language, events: SpeakEvents, options: { mode: VoiceMode; ticket?: SpeechTicket }): void {
   stopSpeaking();
   const id = session;
-  if (!ticket || ticket.text !== text) {
-    speakInBrowser(text, language, events);
-    return;
-  }
-  void speakHosted(ticket, language, events, id).then((fallback) => {
-    if (fallback !== null && id === session) speakInBrowser(text, language, events, fallback);
-  });
+  const orBrowser = (reason: string | null) => {
+    if (reason !== null && id === session) speakInBrowser(text, language, events, reason);
+  };
+  if (options.mode === "device") void speakOnDevice(text, language, events, id).then(orBrowser);
+  else if (options.mode === "elevenlabs" && options.ticket?.text === text) void speakHosted(options.ticket, language, events, id).then(orBrowser);
+  else speakInBrowser(text, language, events, options.mode === "elevenlabs" ? "no voice ticket for this text" : undefined);
 }
 
 export function stopSpeaking(): void {
   session++;
-  stopHosted();
+  stopPlayback();
   if (hasSynthesis()) window.speechSynthesis.cancel();
 }

@@ -28,7 +28,7 @@ import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
 import { spokenAnswer, UNVERIFIED_ANSWER } from "../core/answerer";
 import { config, DEFAULT_LANGUAGE, LANGUAGES, type Language } from "../core/config";
 import { appendTurn, documentSetKey } from "../core/conversation";
-import { llmCostUsd } from "../core/cost";
+import { llmCostUsd, ttsCostUsd } from "../core/cost";
 import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
 import { groupPassages, type Passage } from "../core/passages";
@@ -38,7 +38,7 @@ import { verifyCitations } from "../core/validator";
 import { askServer, fetchServerInfo, type ServerInfo } from "./api";
 import { PageViewer } from "./PageViewer";
 import { pdfjs } from "./pdfjs";
-import { speakAnswer, stopSpeaking } from "./tts";
+import { primeAudio, speakAnswer, stopSpeaking, type SpeakInfo, type SpeechTicket } from "./tts";
 import { speechRecognitionSupported, startRecognition } from "./voice";
 
 type DocStage = "reading" | IngestStage | "ready" | "error";
@@ -74,7 +74,20 @@ interface QuestionMetrics {
   validationMs: number;
   submitToFirstAudioMs?: number;
   speechEndToFirstAudioMs?: number;
-  tts: { provider: string | null; voice: string | null; note?: string };
+  tts: {
+    provider: string | null;
+    voice: string | null;
+    model?: string;
+    /** Hosted voice: request → first audio byte in the page, and the voice service's own share of it. */
+    firstByteMs?: number;
+    upstreamMs?: number;
+    /** Why the hosted voice did not speak and the browser voice did. */
+    fallback?: string;
+    /** Why nothing was spoken. */
+    note?: string;
+    chars?: number;
+    costUsd?: number;
+  };
   inputTokens: number;
   outputTokens: number;
   attempts: number;
@@ -90,6 +103,8 @@ interface AnswerView {
   /** Lines shown with a not-found answer: the model's related lines, or the retriever's closest when it chose none. */
   nearby: { kind: NearbyKind; lines: Citation[] };
   clientErrors: string[];
+  /** The server's ticket to have the answer spoken by the hosted voice; Replay uses it too. */
+  speech?: SpeechTicket;
 }
 
 type NearbyKind = "related" | "closest";
@@ -157,6 +172,27 @@ const toCitation = (u: EvidenceUnit): Citation => ({
 });
 const fmtMs = (x?: number) => (x === undefined ? "—" : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(2)} s`);
 const fmtUsd = (x: number) => (Number.isFinite(x) ? `$${x.toFixed(5)}` : "no price set");
+
+/** What the Measurements panel and the JSON record about the voice that spoke. */
+function voiceMetrics(info: SpeakInfo, text: string): QuestionMetrics["tts"] {
+  return {
+    provider: info.provider,
+    voice: info.voice,
+    model: info.model,
+    firstByteMs: info.firstByteMs,
+    upstreamMs: info.upstreamMs,
+    fallback: info.fallback,
+    chars: text.length,
+    costUsd: info.model ? ttsCostUsd(info.model, text.length) : 0,
+  };
+}
+
+function voiceLabel(m: QuestionMetrics): string {
+  const { provider, voice, fallback, note } = m.tts;
+  if (!provider) return note ?? "—";
+  const who = [provider === "Browser speech" ? "Browser" : provider, voice ?? "default voice", LANGUAGES[m.language].label].join(" · ");
+  return fallback ? `${who} (hosted voice: ${fallback})` : who;
+}
 
 // A folder keeps its colour wherever it sits in a stack. Older answers are deeper shades of the answer lime;
 // the sheets of a stack deepen their tone by their place in it.
@@ -733,8 +769,9 @@ export function App() {
 
     const requestAt = performance.now();
     let result: AnswerResult;
+    let speech: SpeechTicket | undefined;
     try {
-      result = await askServer({ question, history: turns, evidence: selection.units, language: lang, deep: thinkHarder });
+      ({ speech, ...result } = await askServer({ question, history: turns, evidence: selection.units, language: lang, deep: thinkHarder }));
     } catch (e) {
       setPending(null);
       setPhase("idle");
@@ -756,7 +793,7 @@ export function App() {
 
     const id = Date.now();
     setPending(null);
-    setAnswers((list) => [{ id, question, language: lang, result, nearby, clientErrors }, ...list].slice(0, HISTORY_LIMIT));
+    setAnswers((list) => [{ id, question, language: lang, result, nearby, clientErrors, speech }, ...list].slice(0, HISTORY_LIMIT));
     setViewIndex(0);
     setProofFront(0);
     setProofExpanded(false);
@@ -798,37 +835,35 @@ export function App() {
     ]);
 
     setPhase("speaking");
-    const outcome = speakAnswer(spokenAnswer(result), lang, {
-      onStart: () => {
-        const t = performance.now(); // tts_start
-        setLog((l) =>
-          l.map((m) =>
-            m.id === id
-              ? {
-                  ...m,
-                  submitToFirstAudioMs: t - submitAt,
-                  speechEndToFirstAudioMs: voiceTimes?.speechEndAt ? t - voiceTimes.speechEndAt : undefined,
-                }
-              : m,
-          ),
-        );
+    const spoken = spokenAnswer(result);
+    const patch = (change: Partial<QuestionMetrics>) => setLog((l) => l.map((m) => (m.id === id ? { ...m, ...change } : m)));
+    speakAnswer(
+      spoken,
+      lang,
+      {
+        onStart: (info) => {
+          // First audio: when the first sound is due at the audio output, not when the request left.
+          const t = performance.now() + (info.audibleInMs ?? 0);
+          patch({
+            submitToFirstAudioMs: t - submitAt,
+            speechEndToFirstAudioMs: voiceTimes?.speechEndAt ? t - voiceTimes.speechEndAt : undefined,
+            tts: voiceMetrics(info, spoken),
+          });
+        },
+        onEnd: () => {
+          setPhase((p) => (p === "speaking" ? "idle" : p));
+          // A spoken clarification question: listen for the reply right away.
+          if (result.status === "needs_clarification" && source === "voice") startListening();
+        },
+        onSilent: (reason) => patch({ tts: { provider: null, voice: null, note: reason } }),
       },
-      onEnd: () => {
-        setPhase((p) => (p === "speaking" ? "idle" : p));
-        // A spoken clarification question: listen for the reply right away.
-        if (result.status === "needs_clarification" && source === "voice") startListening();
-      },
-    });
-    setLog((l) =>
-      l.map((m) =>
-        m.id === id
-          ? { ...m, tts: "reason" in outcome ? { provider: null, voice: null, note: outcome.reason } : { provider: outcome.provider, voice: outcome.voice } }
-          : m,
-      ),
+      speech,
     );
   }
 
   function toggleMic() {
+    // The answer is spoken seconds later; this tap is what lets the page play sound then.
+    primeAudio();
     if (phase === "listening") {
       recognizer.current?.stop();
       return;
@@ -869,12 +904,14 @@ export function App() {
 
   function onTyped(e: FormEvent) {
     e.preventDefault();
+    primeAudio();
     setInterim(typed);
     void ask(typed, "text");
     setTyped("");
   }
 
   function askExample(q: string) {
+    primeAudio();
     setInterim(q);
     void ask(q, "text");
   }
@@ -893,8 +930,9 @@ export function App() {
 
   function replay() {
     if (!answer) return;
+    primeAudio();
     setPhase("speaking");
-    speakAnswer(spokenAnswer(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
+    speakAnswer(spokenAnswer(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) }, answer.speech);
   }
 
   async function copyMetrics() {
@@ -1398,8 +1436,16 @@ export function App() {
                 </div>
                 <div>
                   <dt>Voice</dt>
-                  <dd>{last.tts.provider ? `${last.tts.voice ?? "default"} · ${LANGUAGES[last.language].label}` : (last.tts.note ?? "—")}</dd>
+                  <dd>{voiceLabel(last)}</dd>
                 </div>
+                {last.tts.firstByteMs !== undefined && (
+                  <div>
+                    <dt>Voice first byte · cost</dt>
+                    <dd className="mono">
+                      {fmtMs(last.tts.firstByteMs)} · {fmtUsd(last.tts.costUsd ?? Number.NaN)}
+                    </dd>
+                  </div>
+                )}
                 <div>
                   <dt>Quote check</dt>
                   <dd>{last.clientCheck}</dd>
@@ -1407,7 +1453,7 @@ export function App() {
               </>
             )}
           </dl>
-          <p className="footnote">First audio is measured at the start of speech synthesis, not at the speaker.</p>
+          <p className="footnote">First audio: when the first sound of the answer is due at the audio output (hosted voice) or the browser starts speaking (its own voice), not at the speaker.</p>
         </Tile>
       </div>
 

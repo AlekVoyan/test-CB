@@ -16,12 +16,12 @@ A browser prototype: upload up to two text-based PDFs (≤ 10 pages total), ask 
 | Validator + one retry, never speak an unverified answer | Enforces status rules and "every number in the answer appears in a cited line or the question". | A second failure degrades to "I couldn't verify an answer"; retries cost tokens (§11). |
 | Documents and index in the browser, stateless server | Works on serverless hosting; no cross-user document leaks; ingestion costs $0. | Documents disappear on reload. |
 | Conversation resets when the document set changes | Stops "20 units" from Manual v1 leaking into answers after switching to v2. | Follow-ups don't carry across a replacement (tested: A8). |
-| Browser speech (Web Speech + speechSynthesis) | $0 and no extra latency hop for a prototype. | Chrome/Edge only for input; recognition audio goes to the browser vendor's service; voice quality depends on the OS. Production alternative priced in `docs/pricing.md`. |
+| Browser speech recognition (Web Speech API) | $0 and no extra latency hop for a prototype. | Chrome/Edge only; recognition audio goes to the browser vendor's service. A hosted recognizer is priced in `docs/pricing.md`. |
 | Auto-submit the final transcript | Faster; the transcript stays visible and a spoken correction ("I meant Model B") works. | A misrecognised question is sent before the user can fix it. |
 | No embeddings, no OCR | Not needed for ≤ 10 text pages; the brief excludes scans. | Scanned PDFs are rejected with a message. |
 | Claude Haiku 4.5 | Fastest and cheapest current Claude model; the task is extraction from a short text. | Weaker on subtle reasoning than larger models. |
 | Answers in English, Russian or Ukrainian | A small extension beyond the brief's "one language": the reviewer's and the tester's languages. The whole chain follows one switch (recognition locale, answer language, voice); quotes stay verbatim in the document's language. English stays the evaluated language. | Six more tests (L1–L6); the validator learned Russian/Ukrainian "not found" wording; recognition quality depends on the browser. |
-| Browser speech behind a `TtsProvider` interface; Chatterbox not integrated | Browser voices start at once and cost $0; macOS has Russian (Milena) and Ukrainian (Lesya) voices. Chatterbox Multilingual was checked: no Ukrainian in its language list, needs a Python/GPU service that Vercel can't host, adds generation time before first audio, and watermarks its output. | Voice quality depends on the OS. A hosted voice can be added in front of the browser provider without touching the app. |
+| Neural voice: ElevenLabs Flash v2.5 through `/api/tts`, the browser's voice as the fallback | The OS voices sound robotic and differ by machine; a reviewer on Windows may have no Russian or Ukrainian voice at all. I compared hosted and open voices on the three languages (few cover Ukrainian well), then ran a blind listening test: ElevenLabs Flash v2.5 and v3, two voices each, against the macOS voices. Flash won on latency (~0.2 s to the first byte against ~0.75 s) at half v3's price. The key stays on the server, and the endpoint speaks only answer text that `/api/answer` signed, so the public demo is not a free text-to-speech proxy. The audio streams as PCM into Web Audio and starts on the first chunk. | It adds the voice's time to the first audio (§10) and is the largest variable cost per question (§11). On the free plan the API offers only ElevenLabs' own voices; a voice verified for Russian and Ukrainian needs a paid plan. Chatterbox Multilingual was rejected: no Ukrainian, and it needs a GPU service. |
 | Redesign: bento layout with folder-tab tiles (user-pinned brief) | The answer and its proof read as one object: the status sits on the answer's tab, each quote is a folder whose tab names its page. Documented in `DESIGN.md`. | More CSS than a plain layout; checked at desktop and 375px. |
 | Earlier answers and quotes as folder stacks | The comparison question cited 7–10 lines and produced a wall of cards; quotes are now filed one folder per page, stacked with "Show all". Earlier answers (last 8) are filed behind the current one with their question on the tab, view only, so follow-ups stay predictable. Colours are shades of the answer lime by age, keeping one colour per role. Tabs keep their places: bringing a folder forward changes only its depth and spreads its colour from its tab, so nothing reshuffles and each colour stays with its folder. | The mouse wheel is captured only over the tab strip and released at the ends; ‹ › buttons and the keyboard cover the rest. Tabs in fixed places are narrower than one front tab, so a long question is cut on its tab; the card repeats it in full. |
 | Second provider: NVIDIA-hosted Nemotron 3 Super (`LLM_PROVIDER=nvidia`) | The Anthropic balance was empty during development; the pipeline sits behind an `LlmClient` interface, so a second adapter was cheap. Reasoning is turned off: with it on, the model's JSON degenerated into whitespace. | The free endpoint is slower and returns 503 at times (handled with retries). Its results are reported separately and priced at a paid provider's list price. |
@@ -42,7 +42,7 @@ Own code: everything under `src/` (ingestion, wrapped-line joining, indexer, tok
 - **Development:** Claude Code (desktop app) running Claude Opus 5 (`claude-opus-5`) — wrote the spec review, code, tests and docs under my direction. Lavish Editor (`lavish-axi`) was used to review the implementation plan visually. **👤 add:** any other AI tools used to draft the first version of the spec.
 - **Runtime:** Claude Haiku 4.5 via the Anthropic API (`claude-haiku-4-5`), temperature 0, JSON schema output. During development, before the Anthropic balance was topped up: NVIDIA Nemotron 3 Super 120B A12B (`nvidia/nemotron-3-super-120b-a12b`) on NVIDIA's hosted API, temperature 0, JSON schema, reasoning off. Models tried and rejected in a probe with the real prompt: Mistral Large 2 and Llama 3.1 Nemotron 70B (not available to the account), Nemotron 3.5 Lightning (ignored the schema, 92 s), gpt-oss-20b (timed out).
 - **Think harder:** Claude Haiku 4.5 with extended thinking (`thinking: {type: "enabled", budget_tokens: 2048}`, default temperature, because thinking does not take a changed one). The parameters come from Anthropic's extended-thinking documentation (checked 2026-09-11): Haiku 4.5 has no adaptive thinking, the budget must be ≥ 1,024 and below `max_tokens`, and thinking tokens are billed as output. Never run: no balance.
-- **Speech:** Web Speech API recognition in Chrome (Google speech service); `speechSynthesis` with the macOS voice "Aaron" in the Chrome test.
+- **Speech:** Web Speech API recognition in Chrome (Google speech service). Speech output: ElevenLabs Flash v2.5 (`eleven_flash_v2_5`), voice Matilda, with `language_code` set to the answer's language; the browser's `speechSynthesis` as the fallback (macOS voice "Aaron" in the earlier Chrome test).
 
 ## 5. How to run
 
@@ -53,6 +53,7 @@ See `README.md` (install, `.env`, `npm run dev`, `npm test`, `npm run eval`, dep
 - macOS 15 (Darwin 24.6), Node 22.19.
 - Text flow (upload, ask, answer card, quotes, replace, limits, measurements) checked in the Chromium-based browser embedded in the Claude desktop app, desktop and 375 px widths.
 - Voice flow: Google Chrome 152 on macOS. English with the local voice "Aaron" on my own 7-page PDF; Russian (voice "Милена") and Ukrainian ("Леся") on the sample manual and on my own 1-page CV. Neither of my own documents is in the repo.
+- Neural voice: headless Chromium (Playwright) on the local dev server, six questions in English, Russian and Ukrainian, plus one with the voice service forced to fail (the browser's voice took over and the panel named the reason).
 
 ## 7. Test files and questions
 
@@ -157,9 +158,12 @@ In this run the two scores are equal in every group: each failure is a decline o
 | Speech end → first audio | same 8 questions | median 2.07 s (1.10–4.00 s) |
 | Submit → first audio | same 8 questions | median 1.96 s (1.06–3.92 s); almost all of it is the model call on the free endpoint |
 | Ingestion, my own 1-page CV | Chrome 152 | 305 ms (extract 256 ms) |
+| Voice: request → first audio byte in the page (ElevenLabs Flash v2.5, local dev server) | headless Chromium, 6 answers (EN, RU, UA), NVIDIA | median 285 ms (177–431 ms), of which ElevenLabs' own time to respond is 277 ms |
+| Voice: answer received → first sound due at the audio output | same | median 349 ms (241–499 ms). The browser's own voice starts at once, but sounds robotic |
+| Voice listening test, straight to ElevenLabs from my Mac | 9 phrases per model | Flash v2.5: first byte median 208 ms (172–562 ms), whole phrase 0.3–0.7 s. v3: first byte 749 ms (697–806 ms), whole phrase 2.5–3.8 s |
 | Cold start of the deployed function | Vercel | **TBD** |
 
-Almost all of the question latency is the model call; retrieval and validation are ~1 ms. Retry hints add a second call on 6% of questions in the final run: 19% before the analysis-first change, 7% before the think-better mode. Most of a question's time is the free endpoint itself. Its calls ranged from 1.2 to 7 s within the same minute, and one took 29 s. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
+Almost all of the question latency is the model call; retrieval and validation are ~1 ms, and the neural voice adds about a third of a second. Retry hints add a second call on 6% of questions in the final run: 19% before the analysis-first change, 7% before the think-better mode. Most of a question's time is the free endpoint itself. Its calls ranged from 1.2 to 7 s within the same minute, and one took 29 s. These are measurements on NVIDIA's free endpoint, whose latency varies; Claude Haiku 4.5 numbers are **TBD**.
 
 ## 11. Cost
 
@@ -175,14 +179,13 @@ Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free
 | Think harder, Claude Haiku 4.5 | up to ≈ +$0.010 per question | **estimate**: a thinking budget of up to 2,048 output tokens × $5/MTok. The budget is a target; easy questions use less. **TBD measured** |
 | One pass over the P0 tests | $0.00265 (Nemotron) | measured |
 | Speech recognition, prototype | $0 direct | Web Speech API (browser vendor's service, no SLA) |
-| Speech synthesis, prototype | $0 | OS voices |
+| Speech synthesis (ElevenLabs Flash v2.5) | ≈ $0.0046 per question | measured mean spoken text 92 characters (the answer plus the Why line of inferred answers) × $0.05 per 1,000. In the browser test: 41–140 characters, $0.002–0.007. $0 when the browser's voice speaks |
 | Speech recognition, production (Deepgram Nova-3) | ≈ $0.00032 per question | **assumption**: 7-word mean question ≈ 2.5 s of speech × $0.0077/min |
-| Speech synthesis, production (Deepgram Aura-1) | ≈ $0.0014 per question | measured mean spoken text 92 characters (the answer plus the Why line of inferred answers) × $0.015 per 1,000 |
-| **Total variable cost per question** | prototype: $0.00025 (Nemotron) / ≈ $0.0030 (Haiku est.); production voice: ≈ $0.0020 (Nemotron) / ≈ $0.0047 (Haiku est.); Think harder adds up to ≈ $0.010 on Haiku | sum of the rows above |
+| **Total variable cost per question** | with the neural voice: ≈ $0.0049 (Nemotron) / ≈ $0.0076 (Haiku est.); with a hosted recognizer as well: ≈ $0.0052 / ≈ $0.0079; Think harder adds up to ≈ $0.010 on Haiku | sum of the rows above |
 | Paid intermediaries | $0 | the server calls the provider directly |
 | Hosting (fixed, separate) | $0 / month on Vercel Hobby, within its caps | `docs/pricing.md` |
 
-At these volumes the spoken answer (TTS) would cost more than the reasoning with Nemotron, and less than half as much as Haiku.
+The voice is now the largest variable cost: about 18 times the reasoning on Nemotron and 1.5 times on Haiku.
 
 ## 12. One concrete check of AI output
 
@@ -204,7 +207,8 @@ Reproduce with `npm run verify-example` (uses whichever provider `LLM_PROVIDER` 
 
 Known before the eval:
 - Voice input works only where the Web Speech API exists (Chrome/Edge).
-- "First audio" is measured at utterance start, not at the speaker.
+- "First audio" is when the first sound is due at the audio output (the Web Audio clock plus the output latency), not the speaker itself; with the browser's voice it is the utterance start.
+- The neural voice needs a round trip through the server, and the free ElevenLabs plan allows only ElevenLabs' own voices through the API.
 - Rate limiting is best effort per server instance; the real protection is the spend limit on the API key.
 - Wrapped-line joining and the "not found must say so" check are heuristics tuned on clean PDFs.
 - The client bundle is ~674 KB, 208 KB gzipped (mostly pdf.js, plus the fonts and icons added in the redesign); not code-split.
@@ -253,7 +257,7 @@ See `docs/TIME_LOG.md`.
 ## 16. What I would improve next
 
 1. **Faster first audio:** stream the model's output and start speaking the first sentence once it validates, instead of waiting for the whole answer.
-2. **Production speech:** a streaming STT/TTS provider (priced in §11) for all browsers, stable voices and measured speaker latency, added in front of the browser provider in `tts.ts`; the browser stays the fallback. Chatterbox Multilingual is a candidate for English and Russian only (no Ukrainian) and needs its own GPU service.
+2. **Production speech:** a streaming recognizer for all browsers (for example ElevenLabs Scribe v2 or Soniox, both with Russian and Ukrainian) with temporary keys issued by the server, the browser's recognizer as the fallback; and a voice verified for Russian and Ukrainian (a paid ElevenLabs plan).
 3. **Reasoning over stated rules (A6, X1):** run Haiku with and without Think harder first. If it still declines, add a small rule-evaluation step for "is it allowed" and range questions rather than more prompt text. The retry hint that quotes the model's own reason back to it already turns some of Nemotron's declines into answers, at the cost of a second call.
 4. **Answer quality checks beyond facts:** a cheap fluency check (one garbled answer passed), and an LLM-judge pass in the eval for partial answers.
 5. **The page viewer:** let the reader page through the document from the cited page.

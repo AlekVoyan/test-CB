@@ -45,6 +45,21 @@ export const config = {
 
   // Voice
   speechLang: "en-US",
+  /**
+   * Hosted voice, on when the server has ELEVENLABS_API_KEY; the browser's own voice is the fallback.
+   * Env overrides: ELEVENLABS_MODEL, ELEVENLABS_VOICE_ID (ELEVENLABS_VOICE_NAME labels it).
+   */
+  tts: {
+    /** Chosen in a blind listening test against v3 and the macOS voices: half v3's price, ~0.2 s to the first byte. */
+    model: "eleven_flash_v2_5",
+    voice: { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda" },
+    /** 16-bit mono PCM at this rate plays through Web Audio in every browser as it arrives. */
+    sampleRate: 24000,
+    /** Longest text the endpoint will speak; answers are one or two sentences. */
+    maxChars: 600,
+    /** Without audio by then, the browser voice speaks instead. */
+    firstByteTimeoutMs: 2500,
+  },
 } as const;
 
 export type Language = "en" | "ru" | "uk";
@@ -78,4 +93,13 @@ export const PRICES: Record<string, Price> = {
     outputUsdPerMTok: 0.4,
     note: "OpenRouter paid list price for the same model, checked 2026-09-10 (called via NVIDIA's free endpoint)",
   },
+};
+
+/** ElevenLabs API price in USD per 1,000 characters, by model id prefix (elevenlabs.io/pricing/api, checked 2026-09-11). */
+export const TTS_PRICES: Record<string, number> = {
+  eleven_flash: 0.05,
+  eleven_turbo: 0.05,
+  eleven_v3_conversational: 0.05,
+  eleven_v3: 0.1,
+  eleven_multilingual: 0.1,
 };

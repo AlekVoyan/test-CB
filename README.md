@@ -8,7 +8,7 @@ Prerequisites: Node 20+ and Chrome or Edge (for voice input).
 
 ```bash
 npm install
-cp .env.example .env   # set ANTHROPIC_API_KEY
+cp .env.example .env   # set ANTHROPIC_API_KEY, and ELEVENLABS_API_KEY for the neural voice
 npm run dev            # http://localhost:5173
 ```
 
@@ -18,7 +18,7 @@ Upload `fixtures/manual-v1.pdf`, press the microphone and ask "What is the maxim
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | App plus `POST /api/answer` on the Vite dev server |
+| `npm run dev` | App plus `/api/answer` and `/api/tts` on the Vite dev server |
 | `npm run build` | Type-check and production build to `dist/` |
 | `npm test` | Unit tests — ingestion, limits, retriever, validator, answerer (no API key needed) |
 | `npm run eval` | Runs every session in `eval/expected.json` against the real PDFs and the LLM; writes `eval/results/` (needs the key). Options: `-- --session S5`, `-- --runs 1`, `-- --deep` (Think harder, Claude only) |
@@ -34,6 +34,9 @@ Upload `fixtures/manual-v1.pdf`, press the microphone and ask "What is the maxim
 | `LLM_MODEL` | `claude-haiku-4-5` | Claude model used for answers |
 | `NVIDIA_API_KEY` | — | Required with `LLM_PROVIDER=nvidia` |
 | `NVIDIA_MODEL` | `nvidia/nemotron-3-super-120b-a12b` | NVIDIA model used for answers |
+| `ELEVENLABS_API_KEY` | — | Turns on the neural voice (ElevenLabs). Without it the browser's own voice speaks. The key needs only Text to Speech access |
+| `ELEVENLABS_MODEL` | `eleven_flash_v2_5` | ElevenLabs model |
+| `ELEVENLABS_VOICE_ID` | Matilda, `XrExE9yKIg1WjnnlVkGX` | One voice for all three languages; `ELEVENLABS_VOICE_NAME` labels a custom one |
 | `EVAL_DEEP` | — | `1` runs the eval with Think harder (same as `--deep`) |
 | `RETRIEVAL_MODE` | `full` | `full` sends the whole corpus (≤ 10 pages) to the model; `topk` sends the BM25 top-k paragraphs (eval only; the app uses `config.ts`) |
 | `EVAL_RUNS` | `3` | Repetitions of every eval session |
@@ -45,8 +48,9 @@ Browser                                                   Server (stateless)
 PDF ─► ingest (pdf.js) ─► index: one unit per line ─► in-memory index
 mic ─► Web Speech STT ─► question ─► retriever ─► POST /api/answer ─► prompt → Claude (JSON schema)
                                                                        → validator (retry once) → citations
-UI ◄─ quote re-check against page text ◄──────────────────────────── response
- └─► speechSynthesis reads the answer
+UI ◄─ quote re-check against page text ◄──────────────────────────── response + speech ticket
+ └─► POST /api/tts (ticketed text) ──────────────────────────────► ElevenLabs Flash v2.5
+     Web Audio plays the PCM stream as it arrives ◄──────────────── (browser voice if it fails)
 ```
 
 - **Documents stay in the browser.** The server only holds the API key, builds the prompt and validates the answer, so it runs on any serverless host and viewers never see each other's files.
@@ -55,6 +59,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 - **Statuses:** `answered`, `not_found`, `needs_clarification` (asks which model when it matters), `conflict` (two documents disagree; both are cited).
 - **Reasoning is labelled as reasoning.** Some answers follow from a stated rule or range rather than from a line that says them. For example, "Can Model B run at 40°C?" → "No", from the 5–35°C operating range. Such answers are marked *Inferred from the document* and carry a one-sentence **Why**, shown under the answer and read aloud after it. A not-found answer may add a related line ("Related, not the answer"); the line is kept only if the answer actually talks about it. An obvious slip ("nozzel") is answered with the assumption named ("Assuming you meant “nozzle”"). A question that fits more than one thing gets a clarifying question instead, and a question about something the documents don't contain stays not found.
 - **Think harder** (a switch in the voice tile) lets Claude reason before answering: extended thinking with a 2,048-token budget. It is disabled, with the reason shown, when the server runs a model that can't do it (the NVIDIA model). `GET /api/answer` reports which model is running.
+- **The voice speaks only answers this server produced.** `/api/answer` returns the text to speak with an HMAC ticket, and `/api/tts` speaks only ticketed text, so a public deployment is not a free text-to-speech proxy. The audio streams back as 16-bit PCM and Web Audio starts on its first chunk. If the voice service fails or sends nothing within 2.5 s, the browser's own voice speaks, and the panel says why.
 - **Follow-ups** use the last four turns. Changing the set of loaded documents resets the conversation so values from a replaced document cannot leak into answers.
 
 ## Code map
@@ -74,11 +79,12 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/core/contract.ts` | JSON schema of the model's answer and of the API request |
 | `src/llm/anthropic.ts` | Anthropic SDK adapter (structured outputs; Think harder = extended thinking) |
 | `src/llm/nvidia.ts`, `src/llm/index.ts` | NVIDIA-hosted model adapter (OpenAI-compatible API) and provider selection from `LLM_PROVIDER` |
-| `src/server/handler.ts`, `api/answer.ts` | `POST /api/answer`, and `GET` for the running model and Think harder availability (Vercel function; the dev server reuses the handler) |
+| `src/server/handler.ts`, `api/answer.ts` | `POST /api/answer` (with a speech ticket when a voice is configured), and `GET` for the running model, Think harder availability and the voice (Vercel function; the dev server reuses the handler). Best-effort per-address limits in `rateLimit.ts` |
+| `src/server/tts.ts`, `api/tts.ts` | `POST /api/tts`: checks the ticket, calls ElevenLabs with the answer's language pinned, streams 16-bit PCM back |
 | `src/web/App.tsx`, `styles.css` | UI (bento layout, language switch, answer and quote folders, measurements) — design system in `DESIGN.md` |
 | `src/web/PageViewer.tsx` | "Open in page": renders the cited PDF page with pdf.js, the paragraph in focus and cited lines framed; zoom to 300% by buttons, keys, pinch or Ctrl/⌘-scroll |
 | `src/web/voice.ts` | Speech recognition (Web Speech API) |
-| `src/web/tts.ts` | Speech output behind a `TtsProvider` interface: browser voices now, a hosted voice can be added in front |
+| `src/web/tts.ts`, `pcm.ts` | Speech output: the hosted voice streamed into Web Audio (`pcm.ts` decodes the chunks), the browser's own voice as the fallback. Which service stands behind `/api/tts` is a server setting |
 | `eval/expected.json`, `eval/run-eval.ts` | Test sessions with expected outcomes, and the scorer |
 | `fixtures/source/*.txt`, `scripts/make-fixtures.ts` | Fixture text and the PDF generator |
 
@@ -87,34 +93,35 @@ UI ◄─ quote re-check against page text ◄───────────�
 ## Measurements
 
 - **Ingestion:** file selected → document ready, shown on each document card and in the Measurements panel.
-- **Question to first audio:** submit → `speechSynthesis` utterance start. This is a proxy for the first audible sound, not the physical speaker onset. The panel also shows speech end → transcript and speech end → first audio.
+- **Question to first audio:** submit → the moment the first sound of the answer is due at the audio output. For the hosted voice that is the first chunk's start on the Web Audio clock plus the output latency; for the browser's voice, the utterance start. Not the speaker itself. The panel also shows the voice's first byte and cost, speech end → transcript and speech end → first audio.
 - "Copy measurements JSON" in the panel exports the numbers.
 
 ## Voice and languages
 
 Pick the answer language with the EN · RU · UA switch. Recognition, the answer and speech follow it; quotes stay in the document's language, because they are copied from it. English is the evaluated language; Russian and Ukrainian have their own tests (L1–L6).
 
-| Language | Recognition locale | Speech (browser voice, macOS example) | Tested |
-|---|---|---|---|
-| English | en-US | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
-| Russian | ru-RU | Milena | eval (L1–L3) + Chrome voice test |
-| Ukrainian | uk-UA | Lesya | eval (L4–L6) + Chrome voice test |
+| Language | Recognition locale | Voice | Fallback voice (macOS example) | Tested |
+|---|---|---|---|---|
+| English | en-US | ElevenLabs Flash v2.5, Matilda | local en-US voices (e.g. "Aaron") | eval + Chrome voice test |
+| Russian | ru-RU | ElevenLabs Flash v2.5, Matilda | Milena | eval (L1–L3) + Chrome voice test |
+| Ukrainian | uk-UA | ElevenLabs Flash v2.5, Matilda | Lesya | eval (L4–L6) + Chrome voice test |
 
-If the browser has no voice for the language, the answer stays on screen and the Measurements panel says so. Chatterbox Multilingual was considered as a higher-quality voice and not integrated: its language list has no Ukrainian, it needs a Python/GPU service that Vercel can't host, and it would add generation time before the first audio. `tts.ts` is the place to add such a provider.
+The voice was picked in a blind listening test on the same sentences in three languages: ElevenLabs Flash v2.5 and v3, two voices each, against the macOS voices. Flash was chosen: it starts in ~0.2 s instead of ~0.75 s and costs half as much. On the free ElevenLabs plan the API offers only ElevenLabs' own voices; voices from the library, including ones verified for Russian and Ukrainian, need a paid plan. Chatterbox Multilingual was considered and not used: no Ukrainian, and it needs a GPU service. If neither voice can speak, the answer stays on screen and the Measurements panel says so.
 
 ## Deploy (Vercel)
 
 ```bash
 npx vercel link
 npx vercel env add ANTHROPIC_API_KEY
+npx vercel env add ELEVENLABS_API_KEY   # optional: the neural voice
 npx vercel --prod
 ```
 
-Vercel detects Vite and serves `api/answer.ts` as a function. Set a spend limit on the API key in the Anthropic Console before sharing the link: the endpoint has only a best-effort per-IP rate limit.
+Vercel detects Vite and serves `api/answer.ts` and `api/tts.ts` as functions. Set a spend limit on the Anthropic key and a credit limit on the ElevenLabs key before sharing the link: the endpoints have only best-effort per-address rate limits.
 
 ## Browser support
 
-Voice input needs the Web Speech API (Chrome or Edge on desktop; HTTPS or localhost). In Chrome, recognition audio is processed by Google's speech service. Other browsers get a visible notice and the text box. Speech output uses the operating system's voices.
+Voice input needs the Web Speech API (Chrome or Edge on desktop; HTTPS or localhost). In Chrome, recognition audio is processed by Google's speech service. Other browsers get a visible notice and the text box. Speech output streams from ElevenLabs through the server and plays with Web Audio in any current browser; the operating system's voices are the fallback.
 
 ## Scope and limits
 

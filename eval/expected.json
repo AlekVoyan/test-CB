@@ -462,6 +462,91 @@
           }
         }
       ]
+    },
+    {
+      "id": "S24",
+      "note": "Think-better tests X1-X5, added before any run of the reasoning mode. basis / assumed / related are reasoning checks, scored apart from facts and citations. A wrong inferred answer is a critical failure. Existing tests A4, R1 and M5 are the guards: they must not change.",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "Can Model B run at 40°C?",
+          "testId": "X1", "type": "inference from a range", "priority": "think",
+          "expected": {
+            "status": "answered",
+            "answer": "No. The operating temperature for both models is 5°C to 35°C, so 40°C is outside it.",
+            "mustInclude": [["no", "not", "cannot", "can't"], ["35"]], "mustNotInclude": ["yes"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }],
+            "allowedExtraSources": [{ "file": "manual-v1.pdf", "page": 3 }],
+            "basis": "inferred"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S25",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "What's the maximum temperature for Model A?",
+          "testId": "X2", "type": "indirect fact", "priority": "think",
+          "expected": {
+            "status": "answered",
+            "answer": "35°C, the top of the operating temperature range (5°C to 35°C).",
+            "mustInclude": [["35"]], "mustNotInclude": [],
+            "sources": [{ "file": "manual-v1.pdf", "page": 2 }], "allowedExtraSources": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "S26",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How long does Model B run on battery?",
+          "testId": "X3", "type": "absent fact, related line", "priority": "think",
+          "expected": {
+            "status": "not_found",
+            "answer": "The manual does not mention battery operation. Related: both models use the same 12 V power adapter.",
+            "mustInclude": [], "mustNotInclude": ["hours", "mAh"],
+            "sources": [], "allowedExtraSources": [],
+            "related": [{ "file": "manual-v1.pdf", "page": 1 }, { "file": "manual-v1.pdf", "page": 3 }]
+          }
+        }
+      ]
+    },
+    {
+      "id": "S27",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How often should I clean the nozzel on Model B?",
+          "testId": "X4", "type": "slip, one target", "priority": "think",
+          "expected": {
+            "status": "answered",
+            "answer": "Assuming you meant the nozzle: clean the dosing nozzle of Model B every 30 days.",
+            "mustInclude": [["30"]], "mustNotInclude": ["15 days"],
+            "sources": [{ "file": "manual-v1.pdf", "page": 3 }], "allowedExtraSources": [],
+            "assumed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "S28",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How often should I clean the nozzel?",
+          "testId": "X5", "type": "slip, model not named (guard)", "priority": "think",
+          "expected": {
+            "status": "needs_clarification",
+            "answer": "Which model do you mean — Model A or Model B?",
+            "mustInclude": [["Model A"], ["Model B"]], "mustNotInclude": [],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
     }
   ]
 }

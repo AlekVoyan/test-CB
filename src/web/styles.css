@@ -561,6 +561,75 @@ body::before {
   opacity: 0.55;
 }
 
+/* think harder: a quiet switch above the text field, not a mode screen */
+.think {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: auto 0 14px;
+  cursor: pointer;
+}
+.think + .typed {
+  margin-top: 0;
+}
+.think:has(.switch:disabled) {
+  cursor: not-allowed;
+}
+.switch {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink-wash);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  cursor: inherit;
+  transition: background-color 180ms ease;
+}
+.switch-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 200ms var(--ease-out);
+}
+.switch[aria-checked="true"] {
+  background: var(--ink);
+}
+.switch[aria-checked="true"] .switch-knob {
+  background: var(--coral);
+  transform: translateX(18px);
+}
+.switch:disabled {
+  opacity: 0.45;
+}
+.think-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.think-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.think-label svg {
+  width: 16px;
+  height: 16px;
+}
+.think-sub {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- documents ---------- */
 
 .drop {
@@ -714,6 +783,29 @@ body::before {
   overflow-wrap: anywhere;
 }
 
+/* an inferred answer names the rule it rests on, directly under it */
+.why {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: 52ch;
+  margin: 16px 0 0;
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+.why-label {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--tile-bg);
+  font: 700 11px/1.5 var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .answer-empty .answer-text {
   margin-bottom: 22px;
 }
@@ -861,6 +953,10 @@ body::before {
 }
 .tone-dark .proof-source {
   color: var(--text-3);
+}
+/* related lines are context, not proof: dark folder, teal tab text */
+.proof-item.is-related .tile-tab {
+  color: var(--teal);
 }
 @media (hover: hover) and (pointer: fine) {
   .proof-item {
@@ -1153,6 +1249,7 @@ body::before {
     transform: scaleY(0.7);
   }
   .lang-indicator,
+  .switch-knob,
   .progress > span,
   .stack-back,
   .stack-back-tab {

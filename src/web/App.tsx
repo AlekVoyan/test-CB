@@ -1,5 +1,6 @@
 import {
   ArrowsClockwiseIcon,
+  BrainIcon,
   CaretLeftIcon,
   CaretRightIcon,
   CheckCircleIcon,
@@ -8,6 +9,7 @@ import {
   FilePdfIcon,
   FilesIcon,
   GaugeIcon,
+  LightbulbIcon,
   MagnifyingGlassIcon,
   MicrophoneIcon,
   QuestionIcon,
@@ -31,7 +33,7 @@ import { IngestError } from "../core/limits";
 import { relatedEvidence, selectEvidence } from "../core/retriever";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Turn } from "../core/types";
 import { verifyCitations } from "../core/validator";
-import { askServer } from "./api";
+import { askServer, fetchServerInfo, type ServerInfo } from "./api";
 import { pdfjs } from "./pdfjs";
 import { speakAnswer, stopSpeaking } from "./tts";
 import { speechRecognitionSupported, startRecognition } from "./voice";
@@ -53,6 +55,9 @@ interface QuestionMetrics {
   source: "voice" | "text";
   language: Language;
   status?: AnswerStatus;
+  basis?: AnswerResult["basis"];
+  /** "Think harder" actually applied by the model. */
+  deep: boolean;
   sttMs?: number;
   retrievalMs: number;
   evidence: { mode: string; units: number; estimatedTokens: number };
@@ -74,9 +79,16 @@ interface AnswerView {
   question: string;
   language: Language;
   result: AnswerResult;
-  related: Citation[];
+  /** Lines shown with a not-found answer: the model's related lines, or the retriever's closest when it chose none. */
+  nearby: { kind: NearbyKind; lines: Citation[] };
   clientErrors: string[];
 }
+
+type NearbyKind = "related" | "closest";
+type ProofKind = "evidence" | NearbyKind;
+const PROOF_PREFIX: Record<ProofKind, string> = { evidence: "", related: "Related, not the answer · ", closest: "Closest · " };
+const PROOF_NAME: Record<ProofKind, string> = { evidence: "Quote", related: "Related line, not the answer", closest: "Closest passage" };
+const PROOF_AREA: Record<ProofKind, string> = { evidence: "Evidence", related: "Related lines, not the answer", closest: "Closest passages" };
 
 interface PageGroup {
   key: string;
@@ -105,6 +117,11 @@ const STATUS_META: Record<AnswerStatus, { label: string; icon: ReactNode }> = {
   needs_clarification: { label: "Needs clarification", icon: <QuestionIcon weight="bold" aria-hidden /> },
   conflict: { label: "Documents disagree", icon: <ScalesIcon weight="bold" aria-hidden /> },
 };
+// An answer that follows from a rule or range rather than from a line that says it.
+const INFERRED_META = { label: "Inferred from the document", icon: <LightbulbIcon weight="bold" aria-hidden /> };
+
+/** What is read aloud: the answer, then for an inference the rule it rests on. */
+const spokenText = (r: AnswerResult) => (r.basis === "inferred" && r.reason ? `${r.answer} ${r.reason}` : r.answer);
 
 // Suggested questions for the synthetic sample manual, in each answer language.
 const EXAMPLES: Record<Language, string[]> = {
@@ -120,6 +137,15 @@ function readStoredLanguage(): Language {
     return value === "en" || value === "ru" || value === "uk" ? value : DEFAULT_LANGUAGE;
   } catch {
     return DEFAULT_LANGUAGE;
+  }
+}
+
+const DEEP_KEY = "think-harder";
+function readStoredDeep(): boolean {
+  try {
+    return localStorage.getItem(DEEP_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -313,18 +339,18 @@ function FolderStack(props: { label: string; backs: BackFolder[]; resetKey: stri
   );
 }
 
-function ProofFolder(props: { group: PageGroup; tone: "sage" | "dark"; closest: boolean; withFile: boolean }) {
+function ProofFolder(props: { group: PageGroup; kind: ProofKind; withFile: boolean }) {
   const { group } = props;
   return (
     <Tile
-      tone={props.tone}
+      tone={props.kind === "evidence" ? "sage" : "dark"}
       area="auto"
-      className="proof-item"
-      label={`${props.closest ? "Closest passage" : "Quote"}, ${group.filename}, page ${group.page}`}
+      className={`proof-item${props.kind === "related" ? " is-related" : ""}`}
+      label={`${PROOF_NAME[props.kind]}, ${group.filename}, page ${group.page}`}
       tab={
         <>
           <QuotesIcon weight="fill" aria-hidden />
-          {props.closest ? "Closest · " : ""}
+          {PROOF_PREFIX[props.kind]}
           {pageLabel(group, props.withFile)}
         </>
       }
@@ -368,6 +394,8 @@ export function App() {
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [history, setHistory] = useState<Turn[]>([]);
   const [language, setLanguage] = useState<Language>(readStoredLanguage);
+  const [deep, setDeep] = useState(readStoredDeep);
+  const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [interim, setInterim] = useState("");
   const [typed, setTyped] = useState("");
@@ -395,14 +423,21 @@ export function App() {
   const activeEntities = history[history.length - 1]?.activeEntities ?? [];
   const loadedPages = readyDocs.reduce((sum, d) => sum + d.pageCount, 0);
   const answer = answers[viewIndex] ?? null;
+  const deepAvailable = serverInfo?.deep === true;
+  const thinkHarder = deep && deepAvailable;
 
   useEffect(() => {
     try {
       localStorage.setItem(LANGUAGE_KEY, language);
+      localStorage.setItem(DEEP_KEY, deep ? "1" : "0");
     } catch {
       // storage blocked: the choice lasts for this tab only
     }
-  }, [language]);
+  }, [language, deep]);
+
+  useEffect(() => {
+    void fetchServerInfo().then(setServerInfo);
+  }, []);
 
   // Decision D4: a different document set starts a fresh conversation.
   const setKey = documentSetKey(readyDocs);
@@ -494,7 +529,7 @@ export function App() {
     const requestAt = performance.now();
     let result: AnswerResult;
     try {
-      result = await askServer({ question, history: turns, evidence: selection.units, language: lang });
+      result = await askServer({ question, history: turns, evidence: selection.units, language: lang, deep: thinkHarder });
     } catch (e) {
       setPending(null);
       setPhase("idle");
@@ -503,14 +538,20 @@ export function App() {
     }
     const requestMs = performance.now() - requestAt;
 
-    // Defense in depth: re-check every quote against the page text held in this browser.
-    const clientErrors = verifyCitations(result.citations, ready);
-    if (clientErrors.length) result = { ...result, status: "not_found", answer: UNVERIFIED_ANSWER, citations: [] };
-    const related = result.status === "not_found" ? relatedEvidence(selection).map(toCitation) : [];
+    // Defense in depth: re-check every quote (cited or related) against the page text held in this browser.
+    const clientErrors = verifyCitations([...result.citations, ...result.related], ready);
+    if (clientErrors.length)
+      result = { ...result, status: "not_found", basis: "stated", answer: UNVERIFIED_ANSWER, reason: "", assumed: "", citations: [], related: [] };
+    const nearby: AnswerView["nearby"] =
+      result.status !== "not_found"
+        ? { kind: "closest", lines: [] }
+        : result.related.length
+          ? { kind: "related", lines: result.related }
+          : { kind: "closest", lines: relatedEvidence(selection).map(toCitation) };
 
     const id = Date.now();
     setPending(null);
-    setAnswers((list) => [{ id, question, language: lang, result, related, clientErrors }, ...list].slice(0, HISTORY_LIMIT));
+    setAnswers((list) => [{ id, question, language: lang, result, nearby, clientErrors }, ...list].slice(0, HISTORY_LIMIT));
     setViewIndex(0);
     setProofFront(0);
     setProofExpanded(false);
@@ -531,6 +572,8 @@ export function App() {
         source,
         language: lang,
         status: result.status,
+        basis: result.basis,
+        deep: result.deep.applied,
         sttMs: voiceTimes?.speechEndAt && voiceTimes.sttFinalAt ? voiceTimes.sttFinalAt - voiceTimes.speechEndAt : undefined,
         retrievalMs,
         evidence: { mode: selection.mode, units: selection.units.length, estimatedTokens: selection.estimatedTokens },
@@ -548,7 +591,7 @@ export function App() {
     ]);
 
     setPhase("speaking");
-    const outcome = speakAnswer(result.answer, lang, {
+    const outcome = speakAnswer(spokenText(result), lang, {
       onStart: () => {
         const t = performance.now(); // tts_start
         setLog((l) =>
@@ -644,7 +687,7 @@ export function App() {
   function replay() {
     if (!answer) return;
     setPhase("speaking");
-    speakAnswer(answer.result.answer, answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
+    speakAnswer(spokenText(answer.result), answer.language, { onEnd: () => setPhase((p) => (p === "speaking" ? "idle" : p)) });
   }
 
   async function copyMetrics() {
@@ -665,7 +708,11 @@ export function App() {
   const micLabel =
     phase === "listening" ? "Listening… tap to stop" : phase === "thinking" ? "Finding the answer" : phase === "speaking" ? "Speaking" : "Tap and ask";
   const last = log[0];
-  const status = answer ? STATUS_META[answer.result.status] : null;
+  const status = answer
+    ? answer.result.status === "answered" && answer.result.basis === "inferred"
+      ? INFERRED_META
+      : STATUS_META[answer.result.status]
+    : null;
   const viewingEarlier = viewIndex > 0;
 
   // Answer history: every answer except the one in front, newest first.
@@ -683,11 +730,11 @@ export function App() {
         ],
   );
 
-  // Evidence for the answer in front, filed per page.
+  // Evidence for the answer in front, filed per page. A not-found answer shows nearby lines instead, never as proof.
   const proofs = answer?.result.citations ?? [];
-  const isClosest = !!answer && proofs.length === 0;
-  const groups = groupByPage(proofs.length ? proofs : (answer?.related ?? []));
-  const proofTone: "sage" | "dark" = isClosest ? "dark" : "sage";
+  const proofKind: ProofKind = proofs.length ? "evidence" : (answer?.nearby.kind ?? "closest");
+  const groups = groupByPage(proofs.length ? proofs : (answer?.nearby.lines ?? []));
+  const proofTone: "sage" | "dark" = proofKind === "evidence" ? "sage" : "dark";
   const multiDoc = new Set(groups.map((g) => g.filename)).size > 1;
   const frontGroupIndex = Math.min(proofFront, Math.max(0, groups.length - 1));
   const proofBacks: BackFolder[] = groups
@@ -755,6 +802,32 @@ export function App() {
               <WarningCircleIcon weight="bold" aria-hidden /> Voice input needs Chrome or Edge. Type your question below.
             </p>
           )}
+
+          <label className="think">
+            <button
+              type="button"
+              role="switch"
+              className="switch"
+              aria-checked={thinkHarder}
+              aria-describedby="think-sub"
+              onClick={() => setDeep((d) => !d)}
+              disabled={!deepAvailable || phase === "thinking"}
+            >
+              <span className="switch-knob" aria-hidden />
+            </button>
+            <span className="think-copy">
+              <span className="think-label">
+                <BrainIcon weight="bold" aria-hidden /> Think harder
+              </span>
+              <span id="think-sub" className="think-sub">
+                {deepAvailable
+                  ? "Reasons before answering · slower"
+                  : serverInfo
+                    ? `Needs Claude · this server runs ${serverInfo.model.split("/").pop()}`
+                    : "Needs Claude on the server"}
+              </span>
+            </span>
+          </label>
 
           <form className="typed" onSubmit={onTyped}>
             <label htmlFor="typed-q" className="sr-only">
@@ -909,7 +982,7 @@ export function App() {
                 {pending ? (
                   <div className="answer-pending">
                     <p className="asked">“{pending}”</p>
-                    <p className="answer-text is-muted">Reading the document…</p>
+                    <p className="answer-text is-muted">{thinkHarder ? "Thinking it through…" : "Reading the document…"}</p>
                   </div>
                 ) : answer ? (
                   <div className="answer-result" key={answer.id}>
@@ -917,6 +990,12 @@ export function App() {
                     <p className="answer-text" lang={answer.language}>
                       {answer.result.answer}
                     </p>
+                    {answer.result.basis === "inferred" && answer.result.reason && (
+                      <p className="why" lang={answer.language}>
+                        <span className="why-label">Why</span>
+                        <span>{answer.result.reason}</span>
+                      </p>
+                    )}
                     <div className="answer-actions">
                       <button type="button" className={`btn${phase === "speaking" ? " is-speaking" : ""}`} onClick={replay}>
                         {phase === "speaking" ? (
@@ -930,6 +1009,11 @@ export function App() {
                         )}
                         {phase === "speaking" ? "Speaking" : "Replay"}
                       </button>
+                      {answer.result.assumed && (
+                        <span className="chip-static" lang={answer.language}>
+                          Interpreted as “{answer.result.assumed}”
+                        </span>
+                      )}
                       {viewingEarlier ? (
                         <>
                           <button type="button" className="btn-ghost" onClick={() => openAnswer(0)}>
@@ -976,7 +1060,7 @@ export function App() {
 
         {/* Proof: one folder per cited page */}
         {answer && groups.length > 0 && (
-          <section className="stack-area proof-area" style={{ gridArea: "proof" }} aria-label={isClosest ? "Closest passages" : "Evidence"} key={answer.id}>
+          <section className="stack-area proof-area" style={{ gridArea: "proof" }} aria-label={PROOF_AREA[proofKind]} key={answer.id}>
             {proofExpanded ? (
               <>
                 <div className="stack-head">
@@ -989,7 +1073,7 @@ export function App() {
                 </div>
                 <div className="proof">
                   {groups.map((g) => (
-                    <ProofFolder key={g.key} group={g} tone={proofTone} closest={isClosest} withFile={multiDoc} />
+                    <ProofFolder key={g.key} group={g} kind={proofKind} withFile={multiDoc} />
                   ))}
                 </div>
               </>
@@ -1006,7 +1090,7 @@ export function App() {
                   ) : undefined
                 }
               >
-                <ProofFolder key={groups[frontGroupIndex]!.key} group={groups[frontGroupIndex]!} tone={proofTone} closest={isClosest} withFile={multiDoc} />
+                <ProofFolder key={groups[frontGroupIndex]!.key} group={groups[frontGroupIndex]!} kind={proofKind} withFile={multiDoc} />
               </FolderStack>
             )}
           </section>
@@ -1068,6 +1152,10 @@ export function App() {
                   <dd className="mono">
                     {last.llmMs.map((x) => fmtMs(x)).join(" + ")} · {last.attempts}
                   </dd>
+                </div>
+                <div>
+                  <dt>Think harder</dt>
+                  <dd>{last.deep ? "on" : "off"}</dd>
                 </div>
                 <div>
                   <dt>Tokens · cost</dt>

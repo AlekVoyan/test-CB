@@ -125,6 +125,27 @@ describe("page layout", () => {
     ]);
   });
 
+  it("reads a scanned magazine page column by column, though its gutter is narrower than two font sizes", async () => {
+    // The geometry of a real scan (Leonora, Weird Tales 1927): 5pt type, a 7pt gutter, the running header crossing it,
+    // and the two columns' baselines a point apart, so every row of the page holds a piece of both.
+    const small = (str: string, x: number, y: number) => ({ str, transform: [5, 0, 0, 5, x, y], width: 91 });
+    const left = ["There was still no breath of spring", "in the air on that night. The snow", "lay in the hollows, unmelted, and", "the road was empty from end to end.", "I did not go to Margaret's house."];
+    const right = ["I had entered the car. I sat", "beside him, and the moon shone", "out brightly on the narrow road.", "I met with no success at all.", "He said nothing as we drove."];
+    const scan = [
+      { str: "LEONORA 95", transform: [5, 0, 0, 5, 101, 321], width: 108 },
+      ...left.map((str, i) => small(str, 21, 308 - i * 7)),
+      ...right.map((str, i) => small(str, 119, 307 - i * 7)),
+    ];
+    expect(await lines(scan)).toEqual([
+      "LEONORA 95",
+      "There was still no breath of spring in the air on that night. The snow lay in the hollows, unmelted, and the road was empty from end to end.",
+      "I did not go to Margaret's house.",
+      "I had entered the car. I sat beside him, and the moon shone out brightly on the narrow road.",
+      "I met with no success at all.",
+      "He said nothing as we drove.",
+    ]);
+  });
+
   it("keeps a one-column page with right-aligned dates as one column, and never wraps a dated line", async () => {
     const resume = [
       item("Experience", 56, 700, 60),

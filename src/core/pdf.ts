@@ -137,9 +137,12 @@ function runsOf(groups: Piece[][], size: number): Run[] {
 
 /**
  * The x of an empty vertical band that splits a region into two text columns, or null.
- * The band holds no text from the top of the region to its bottom and is at least two font sizes wide, and each side
+ * The band holds no text from the top of the region to its bottom and is at least one font size wide, and each side
  * holds at least 15% of the characters and some running text. So a column of right-aligned dates, or the value column
- * of a label–value table ("Figma … Expert"), is never taken for a column of its own.
+ * of a label–value table ("Figma … Expert"), is never taken for a column of its own: those have no running text on
+ * the narrow side. What carries the rule is the band being empty down the whole region — justified or ragged, running
+ * text never leaves a hole of a whole font size on every line at the same x. A magazine scan set at 5pt with a 7pt
+ * gutter needed the looser threshold: two font sizes is a wide gutter only on a full-size page.
  */
 function findGutter(groups: Piece[][], size: number): number | null {
   const runs = runsOf(groups, size);
@@ -153,7 +156,7 @@ function findGutter(groups: Piece[][], size: number): number | null {
   let best: { x: number; width: number } | null = null;
   for (const run of sorted.slice(1)) {
     const width = run.x - reach;
-    if (width >= 2 * size) {
+    if (width >= size) {
       const x = (reach + run.x) / 2;
       const balanced = qualifies(runs.filter((r) => r.right <= x)) && qualifies(runs.filter((r) => r.x >= x));
       if (balanced && (!best || width > best.width)) best = { x, width };

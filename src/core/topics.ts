@@ -5,7 +5,7 @@
 import { type Language } from "./config.js";
 
 const MAX_CHARS = 52;
-const SCRAP = /^[\s…•·—–\-"'«»()]+/u;
+const SCRAP = /^(?:[\s…•·—–\-"'«»()]+|\d+[.)]\s+)+/u;
 const LEADING = /^(?:и |а |но |the |a )/iu;
 
 /** The opening of a line, short enough to read on a chip: whole words, cut at a comma or a full stop. */
@@ -29,10 +29,12 @@ export function topicsFrom(lines: { quote: string }[] | { text: string }[], max 
     const words = phrase.split(/\s+/).filter(Boolean);
     // A phrase that starts mid-sentence reads as a scrap on a chip; so does a figure legend ("10. Решетка 11. Ось")
     // or a run of model codes ("АА, ЗИС-5, ЯГ-4"). The document has better places to point at than those.
-    const numbered = (phrase.match(/\d+\s*\./gu) ?? []).length >= 2;
+    // Counted on the whole line: a figure legend keeps numbering past the point where the phrase was cut.
+    const numbered = (text.match(/\d+\s*\./gu) ?? []).length >= 2;
     const listing = (phrase.match(/,/gu) ?? []).length >= 2;
     const letters = (phrase.match(/\p{L}/gu) ?? []).length / phrase.length;
-    if (words.length < 2 || phrase.length < 10 || !/^[\p{Lu}\d]/u.test(phrase) || numbered || listing || letters < 0.6) continue;
+    const scanNoise = phrase.includes("_");
+    if (words.length < 2 || phrase.length < 10 || !/^[\p{Lu}\d]/u.test(phrase) || numbered || listing || scanNoise || letters < 0.6) continue;
     const key = words.slice(0, 2).join(" ").toLowerCase();
     if (out.some((other) => other.toLowerCase().startsWith(key))) continue;
     out.push(phrase);
@@ -58,3 +60,18 @@ const CLOSEST: Record<Language, string> = {
 
 /** The label above the suggestions, in the same language. */
 export const closestLabel = (language: Language) => CLOSEST[language];
+
+/**
+ * What a document can be asked about, before any question has been asked. Headings carry a document's own idea of
+ * what it covers — short lines that end without a full stop — and when there are not enough of them, the openings of
+ * paragraphs spread through the document stand in. No model call: this is the text that was just indexed.
+ */
+export function documentTopics(units: { text: string }[], max = 3): string[] {
+  // A heading is short, holds more than one word and does not end like a sentence. When a document has none — a plain
+  // letter, a page of prose — nothing is suggested: a sentence pulled out of the middle reads as noise, not a topic.
+  const headings = units.filter((u) => {
+    const t = u.text.trim();
+    return t.length <= 60 && t.split(/\s+/).length >= 2 && !/[.;:,]$/u.test(t);
+  });
+  return topicsFrom(headings, max);
+}

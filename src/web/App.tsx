@@ -34,7 +34,7 @@ import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
 import { heardClarification, lexiconOf, misheardWords } from "../core/heard";
 import { groupPassages, type Passage } from "../core/passages";
-import { askAbout, closestLabel, topicsFrom } from "../core/topics";
+import { askAbout, closestLabel, documentTopics, topicsFrom } from "../core/topics";
 import { relatedEvidence, selectEvidence } from "../core/retriever";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
 import { verifyCitations } from "../core/validator";
@@ -1090,6 +1090,16 @@ export function App() {
     })),
   ];
 
+  // Before the first question: the sample manual has questions written for it; any other document is read for what it
+  // talks about (core/topics.ts). Both are only suggestions — the microphone and the text field take anything.
+  const sampleLoaded = readyDocs.length > 0 && readyDocs.every((d) => d.filename.startsWith("manual-v"));
+  const openings = {
+    sample: sampleLoaded,
+    questions: sampleLoaded
+      ? EXAMPLES[language]
+      : documentTopics(readyDocs.flatMap((d) => d.units)).map((topic) => askAbout(language, topic)),
+  };
+
   // Evidence for the answer in front, one sheet per source paragraph. A not-found answer shows nearby lines, never as proof.
   const proofs = answer?.result.citations ?? [];
   const proofKind: ProofKind = proofs.length ? "evidence" : (answer?.nearby.kind ?? "closest");
@@ -1436,10 +1446,10 @@ export function App() {
                   </div>
                 ) : (
                   <div className="answer-empty">
-                    <p className="answer-text">{readyDocs.length ? "Ask about the manual." : "Load a manual, then ask."}</p>
-                    <p className="asked">Try one of these with the sample manual:</p>
+                    <p className="answer-text">{readyDocs.length ? "Ask about the document." : "Load a manual, then ask."}</p>
+                    <p className="asked">{openings.sample ? "Try one of these with the sample manual:" : "This document talks about:"}</p>
                     <div className="chips">
-                      {EXAMPLES[language].map((q) => (
+                      {openings.questions.map((q) => (
                         <button key={q} type="button" className="chip" onClick={() => askExample(q)} disabled={!readyDocs.length || phase === "thinking"} lang={language}>
                           {q}
                         </button>

@@ -68,7 +68,7 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
 
   const cited: EvidenceUnit[] = [];
   for (const id of ids) {
-    const unit = ctx.evidenceById.get(id);
+    const unit = findEvidence(ctx.evidenceById, id);
     if (unit) cited.push(unit);
     else errors.push(`Unknown evidence id "${id}". Cite only ids that appear in the evidence.`);
   }
@@ -112,7 +112,7 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
   const relatedUnits: EvidenceUnit[] = [];
   if (out.status === "not_found") {
     for (const id of new Set(out.related)) {
-      const unit = ctx.evidenceById.get(id);
+      const unit = findEvidence(ctx.evidenceById, id);
       if (unit) relatedUnits.push(unit);
       else errors.push(`Unknown related id "${id}". Use only ids that appear in the evidence.`);
     }
@@ -144,9 +144,22 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
 }
 
 /** Citations are built from the index, so quotes are verbatim by construction. */
+/**
+ * An id as the model wrote it. Answering in Russian, it spelled ours in Cyrillic — "д4:p7:s47" for "d4:p7:s47" — and
+ * the line it meant was rejected as unknown, twice in a row, so a correct answer was lost. The letters in an id are
+ * only d, p and s, so mapping their Cyrillic counterparts back is unambiguous.
+ */
+const SAME_LETTER: Record<string, string> = { д: "d", р: "p", с: "s" };
+const asWritten = (id: string) => id.trim().toLowerCase().replace(/[дрс]/g, (c) => SAME_LETTER[c] ?? c);
+
+/** The evidence line an id points at, whichever alphabet the model wrote it in. */
+export function findEvidence(evidenceById: Map<string, EvidenceUnit>, id: string): EvidenceUnit | undefined {
+  return evidenceById.get(id) ?? evidenceById.get(asWritten(id));
+}
+
 export function buildCitations(ids: string[], evidenceById: Map<string, EvidenceUnit>): Citation[] {
   return [...new Set(ids)].flatMap((id) => {
-    const u = evidenceById.get(id);
+    const u = findEvidence(evidenceById, id);
     return u ? [{ documentId: u.documentId, filename: u.filename, page: u.page, sentenceId: u.id, quote: u.text }] : [];
   });
 }

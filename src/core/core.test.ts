@@ -430,6 +430,27 @@ function fakeLlm(outputs: Partial<LlmAnswer>[], supportsDeep = false): LlmClient
   return llm;
 }
 
+describe("evidence ids", () => {
+  it("finds a line whose id the model wrote in the answer's alphabet", async () => {
+    // Seen in my own test on a Russian story: "д4:p7:s47" for "d4:p7:s47", rejected twice, the answer lost.
+    const llm = fakeLlm([{ answer: "Model A handles 20 units.", citations: ["д1:р2:с2"] }]);
+    const result = await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm });
+    expect(llm.calls).toBe(1);
+    expect(result.citations[0]?.sentenceId).toBe("d1:p2:s2");
+    expect(result.citations[0]?.quote).toBe("Model A: the maximum load is 20 units.");
+  });
+
+  it("still rejects an id that points at nothing", async () => {
+    const llm = fakeLlm([
+      { answer: "Model A handles 20 units.", citations: ["d9:p9:s9"] },
+      { answer: "Model A handles 20 units.", citations: ["d1:p2:s2"] },
+    ]);
+    const result = await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm });
+    expect(llm.calls).toBe(2);
+    expect(result.validation.retryReasons[0]).toContain("Unknown evidence id");
+  });
+});
+
 describe("answerer", () => {
   it("retries once with the validator's findings", async () => {
     const llm = fakeLlm([

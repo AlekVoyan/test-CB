@@ -266,8 +266,8 @@ describe("retriever", () => {
   });
 });
 
-function unit(id: string, text: string, documentId = "doc1", page = 2): EvidenceUnit {
-  return { id, documentId, filename: `${documentId}.pdf`, page, paragraph: 1, text };
+function unit(id: string, text: string, documentId = "doc1", page = 2, paragraph = 1): EvidenceUnit {
+  return { id, documentId, filename: `${documentId}.pdf`, page, paragraph, text };
 }
 
 const evidence = [

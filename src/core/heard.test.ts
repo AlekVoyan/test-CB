@@ -35,6 +35,14 @@ describe("what the recognizer heard", () => {
     expect(heard[0]!.candidates.length).toBeGreaterThan(1);
   });
 
+  it("catches a word one sound away, when its spelling is close too", () => {
+    // From my own session: recognition heard "онкология" for "аркология", a word of the rules it was asked about.
+    const rules = lexicon("Аркология запускается в космос.", "Водородные насосы ставятся на аркологию.");
+    expect(misheardWords("Что такое это онкология?", rules)).toEqual([{ word: "онкология", candidates: ["аркология"] }]);
+    // sound close, spelling far: not a mishearing
+    expect(misheardWords("Что такое металлургия?", rules)).toEqual([]);
+  });
+
   it("leaves everyday words alone, however short a document's vocabulary is", () => {
     // The eval caught these: "ever" was offered "every" or "never", "does" was offered "days", and the question the
     // model then saw was nonsense.

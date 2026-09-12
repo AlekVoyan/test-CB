@@ -112,9 +112,15 @@ export function misheardWords(question: string, lexicon: Lexicon, options: { max
     const word = raw.toLowerCase();
     if (word.length < MIN_LENGTH || EVERYDAY.has(word) || isIdentifier(word) || lexicon.count.has(word)) return;
     if (ENTITY_WORDS.has(tokens[i - 1]?.toLowerCase() ?? "")) return;
-    // Only words that sound the same count. Spelling distance alone brought in neighbours that sound nothing alike.
+    // Words that sound the same, and words one sound away: recognition turned "аркология" into "онкология", whose
+    // folds differ by a letter. To qualify, such a word must also be spelled within two letters of the candidate —
+    // sound alone is too loose, spelling alone brought in words that sound nothing alike.
     const key = fold(word);
     const near = new Set<string>(lexicon.byFold.get(key) ?? []);
+    for (const [candidate] of lexicon.count) {
+      if (near.has(candidate) || Math.abs(candidate.length - word.length) > 2) continue;
+      if (editDistance(fold(candidate), key) <= 1 && editDistance(candidate, word) <= 2) near.add(candidate);
+    }
     // An ending is not a slip. One word growing out of the other is a form of it, whatever it sounds like ("exceed"
     // against "exceeded", "filters" against "filter"); a difference confined to the last letters that also sounds
     // different is an ending too ("страницу" against "страница"). What is left — a difference inside the word, or one

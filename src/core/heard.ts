@@ -119,7 +119,11 @@ export function misheardWords(question: string, lexicon: Lexicon, options: { max
     const near = new Set<string>(lexicon.byFold.get(key) ?? []);
     for (const [candidate] of lexicon.count) {
       if (near.has(candidate) || Math.abs(candidate.length - word.length) > 2) continue;
-      if (editDistance(fold(candidate), key) <= 1 && editDistance(candidate, word) <= 2) near.add(candidate);
+      // A mishearing keeps the sound a word starts with: "аркология" comes back as "онкология", both of which fold
+      // to a word beginning with "а". "появляется" and "является" are also one fold apart and are not the same word,
+      // and their first sounds say so.
+      const sound = fold(candidate);
+      if (sound[0] === key[0] && editDistance(sound, key) <= 1 && editDistance(candidate, word) <= 2) near.add(candidate);
     }
     // An ending is not a slip. One word growing out of the other is a form of it, whatever it sounds like ("exceed"
     // against "exceeded", "filters" against "filter"); a difference confined to the last letters that also sounds

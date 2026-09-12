@@ -41,6 +41,8 @@ describe("what the recognizer heard", () => {
     expect(misheardWords("Что такое это онкология?", rules)).toEqual([{ word: "онкология", candidates: ["аркология"] }]);
     // sound close, spelling far: not a mishearing
     expect(misheardWords("Что такое металлургия?", rules)).toEqual([]);
+    // one fold apart but starting on a different sound: two different words, seen in my own session
+    expect(misheardWords("Ну откуда газ появляется?", lexicon("Генераторный газ является топливом для двигателя."))).toEqual([]);
   });
 
   it("leaves everyday words alone, however short a document's vocabulary is", () => {

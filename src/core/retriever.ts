@@ -69,9 +69,32 @@ export interface EvidenceSelection {
 
 export interface SelectOptions {
   mode?: RetrievalMode;
+  /** The second pass that lends the best lines' words back to the query. On by default; off to measure it. */
+  feedback?: boolean;
   budgetTokens?: number;
   topK?: number;
   history?: Turn[];
+}
+
+/**
+ * Words to add to a query that found little on its own. A loose question ("what is it good for", "where does the gas
+ * come from") shares almost no words with the text that answers it; the lines it did reach do share words with that
+ * text. So the best few lines lend their rarest words back to the query — pseudo-relevance feedback, the classic
+ * trick — and the second pass reaches the paragraph the first one missed. No model call: this is arithmetic on the
+ * index. Words already in the query, and words common across the corpus, are no help and are left out.
+ */
+function feedbackTerms(ranked: { unit: EvidenceUnit; score: number }[], asked: Set<string>, all: string[][], count: number): string[] {
+  const df = new Map<string, number>();
+  for (const doc of all) for (const term of new Set(doc)) df.set(term, (df.get(term) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  for (const { unit } of ranked.slice(0, 3)) {
+    for (const term of new Set(tokenize(unit.text))) {
+      if (asked.has(term) || term.length < 4) continue;
+      const rarity = Math.log(1 + all.length / ((df.get(term) ?? 0) + 1));
+      seen.set(term, (seen.get(term) ?? 0) + rarity);
+    }
+  }
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, count).map(([term]) => term);
 }
 
 export function selectEvidence(docs: IndexedDocument[], question: string, options: SelectOptions = {}): EvidenceSelection {
@@ -84,15 +107,22 @@ export function selectEvidence(docs: IndexedDocument[], question: string, option
   const all = docs.flatMap((d) => d.units);
   // Follow-ups ("and the other one?") carry few words; borrow the previous resolved question and entities.
   const queryText = [question, last?.resolvedQuery ?? "", ...(last?.activeEntities ?? [])].join(" ");
-  const scores = bm25(tokenize(queryText), all.map((u) => tokenize(u.text)));
-  const ranked = all
-    .map((unit, i) => ({ unit, score: scores[i] ?? 0 }))
-    .sort((a, b) => b.score - a.score);
+  const tokenized = all.map((u) => tokenize(u.text));
+  const query = tokenize(queryText);
+  const rank = (terms: string[]) => {
+    const scores = bm25(terms, tokenized);
+    return all.map((unit, i) => ({ unit, score: scores[i] ?? 0 })).sort((a, b) => b.score - a.score);
+  };
+  let ranked = rank(query);
 
   const fullTokens = estimateTokens(all);
   if (mode === "full" && fullTokens <= budget) {
     return { mode: "full", units: all, ranked, estimatedTokens: fullTokens };
   }
+
+  // Only a selection needs the second pass: when the whole corpus goes to the model, ranking only orders it.
+  const feedback = options.feedback === false ? [] : feedbackTerms(ranked, new Set(query), tokenized, 6);
+  if (feedback.length) ranked = rank([...query, ...feedback]);
 
   // top-k paragraphs by their best unit, plus paragraphs that mention entities from the conversation
   const paragraphKey = (u: EvidenceUnit) => `${u.documentId}#${u.page}#${u.paragraph}`;

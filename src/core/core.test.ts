@@ -465,6 +465,26 @@ function fakeLlm(outputs: Partial<LlmAnswer>[], supportsDeep = false): LlmClient
   return llm;
 }
 
+describe("a second pass at the evidence", () => {
+  const paragraph = (id: string, text: string, n: number) => unit(id, text, "doc1", 1, n);
+  const corpus = [
+    paragraph("d1:p1:s1", "Пиролиз идёт при высокой температуре в закрытой камере.", 1),
+    paragraph("d1:p1:s2", "В установке происходит пиролиз древесины без доступа воздуха.", 2),
+    paragraph("d1:p1:s3", "Кузов автомобиля был деревянным и красился в тёмный цвет.", 3),
+    paragraph("d1:p1:s4", "Колёса меняли каждые двадцать тысяч километров пробега.", 4),
+  ];
+  const docs = [{ documentId: "doc1", docKey: "d1", filename: "a.pdf", pageCount: 1, pages: [], units: corpus, boxes: {}, timings: { extractMs: 0, indexMs: 0 } }] as never;
+
+  it("reaches the line the question shares no words with, through the line it does", () => {
+    const asked = "Что делает установка";
+    const alone = selectEvidence(docs, asked, { mode: "topk", topK: 1, feedback: false });
+    const fed = selectEvidence(docs, asked, { mode: "topk", topK: 1 });
+    // "пиролиз" is in neither the question nor the line it matches by name, and it is what the answer is about.
+    expect(alone.units.map((u) => u.id)).not.toContain("d1:p1:s1");
+    expect(fed.units.map((u) => u.id)).toContain("d1:p1:s1");
+  });
+});
+
 describe("the word the documents do use", () => {
   it("keeps an offer the documents support, on a not-found answer", async () => {
     const nozzle = [...evidence, unit("d1:p3:s7", "Clean the dosing nozzle of Model B every 30 days.", "doc1", 3)];

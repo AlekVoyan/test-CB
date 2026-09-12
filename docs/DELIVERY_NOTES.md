@@ -62,7 +62,7 @@ Questions and expected outcomes: `eval/expected.json`, committed in `f699eb9` be
 
 ## 8. Expected vs actual results
 
-Final run: commit `627aaf7`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per session, no provider errors. The later commits change only two-column extraction, which leaves every fixture byte-identical, and the UI. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`; earlier runs are in git history.
+Reported run: commit `2ad522c`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per session, no provider errors — the last of three full passes over the whole suite on the shipped code, all three within half an hour of each other. The other two are in `eval/results/report-pass-b.md` and in git history, and §9 carries the spread between them, which is wider than I expected. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`.
 
 | ID | Type | Question | Expected (status · fact · source) | Passed |
 |---|---|---|---|---|
@@ -71,16 +71,16 @@ Final run: commit `627aaf7`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per sessi
 | M2 | comparison | How do I set up Model A versus Model B? | answered · both setup sequences · v1 p.1 | 3/3 |
 | M4 | exception | Is Model B ever allowed to exceed its normal limit? | answered · 15 units, ≤ 5 min, below 20°C · v1 p.3 | 3/3 |
 | M5 | absent fact | What is the battery life of Model A? | not_found · 0 citations | 3/3 |
-| M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 3/3) |
+| M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 6/6 runs across the passes) |
 | R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 3/3 |
-| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | 2/3 (run 1: a mis-cited 12, caught by the validator: "couldn't verify") |
+| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | **1/3** — the weakest test in the set, see §13 |
 | R2 | correction | I meant Model B. | answered · 12 units, not "20 units" · v1 p.2 | 3/3 |
 | A1 | conflicting documents | What is the maximum for Model A? (v1 + v2 loaded) | conflict · 20 and 24, both documents cited | 3/3 |
 | A2 | paraphrase | How many units can A handle? | answered · 20 units · v1 p.2 | 3/3 |
 | A3 | distractor | How often should I clean the nozzle on Model B? | answered · 30 days, not 15 · v1 p.3 | 3/3 |
 | A4 | unknown entity | What is the maximum load for Model C? | not_found | 3/3 |
 | A5 | rename (v2 uploaded as manual-v1.pdf) | What is the maximum for Model A? | answered · 24 units | 3/3 |
-| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | **1/3** |
+| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | 3/3 here, 2/3 in the pass before it |
 | A7 | speech-recognition error | What's the max load for model bee? | answered · 12 units · v1 p.2 | 3/3 |
 | A8 | history reset (D4) | And what about the other model? (after v1 → v2) | needs_clarification | 3/3 |
 | A9 | document overview | What is this document about? | answered · Kestrel Dosing System · v1 p.1 | 3/3 |
@@ -89,7 +89,8 @@ Final run: commit `627aaf7`, NVIDIA Nemotron 3 Super, 35 tests, 3 runs per sessi
 | X3 | absent fact, related line | How long does Model B run on battery? | not_found · a related line from p.1 or p.3 (power adapter) | 0/3 (not_found 3/3, never a related line) |
 | X4 | slip, one target | How often should I clean the nozzel on Model B? | answered · 30 days · assumption named · v1 p.3 | 3/3 |
 | X5 | slip, model not named (guard) | How often should I clean the nozzel? | needs_clarification · names Model A and Model B | 3/3 |
-| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 17/18 (L5 run 3: a mis-cited number, "couldn't verify") |
+| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 18/18 |
+| L7 | language switch mid-session | А яке максимальне навантаження моделі B? (after a Russian turn) | answered in Ukrainian · 12 units · v1 p.2 | 3/3 (with its Russian baseline, 6/6) |
 | H1–H5 | holdout document | room size, filter intervals, follow-up, night mode, price | see `eval/expected.json` | 15/15 |
 | I1–I3 | input limits | 3 files, 11 pages, PDF without text | rejected with a message | pass (`npm test`) |
 
@@ -121,18 +122,28 @@ Across all 105 answers the model marked 18 as inferred, and none was wrong. The 
 
 ## 9. Factual accuracy and citation accuracy
 
-Scored separately for every test and run (rules in `eval/expected.json` and ТЗ §8). Final run, commit `627aaf7`:
+Scored separately for every test and run (rules in `eval/expected.json` and ТЗ §8). Reported run, commit `2ad522c`:
 
 | Group | Tests | Scored runs | Factual accuracy | Citation accuracy | Reasoning checks |
 |---|---|---|---|---|---|
-| P0 | 10 | 30 | 96.7% | 96.7% | — |
-| P1 | 9 | 27 | 92.6% | 92.6% | — |
+| P0 | 10 | 30 | 93.3% | 93.3% | — |
+| P1 | 9 | 27 | 100.0% | 100.0% | — |
 | Holdout | 5 | 15 | 100.0% | 100.0% | — |
-| RU/UA | 6 | 18 | 94.4% | 94.4% | — |
+| RU/UA | 8 | 24 | 100.0% | 100.0% | — |
 | Think better | 5 | 15 | 100.0% | 100.0% | 66.7% |
-| All | 35 | 105 | 96.2% | 96.2% | 66.7% |
+| All | 37 | 111 | 98.2% | 98.2% | 66.7% |
 
-**Critical failures** (a plausible answer without support, an answer where the documents have none, or a wrong inferred answer): **0**.
+**Critical failures** (a plausible answer without support, an answer where the documents have none, or a wrong inferred answer): **0**, in this pass and in every other.
+
+**The spread between passes is the honest headline.** Three full passes over the whole suite, all within half an hour, at the same code (the first of them before the fix in `2ad522c`, which only touches the wrong-language path):
+
+| Pass | P0 | P1 | Holdout | RU/UA | All (factual) | Pass rate | ТЗ §7.8 | Critical |
+|---|---|---|---|---|---|---|---|---|
+| 08:09 | 96.7% | 96.3% | 100% | 95.8% | 97.3% | 94.6% | met | 0 |
+| 08:20 | 90.0% | 92.6% | 100% | 95.8% | 94.1% | 91.0% | not met (R1b) | 0 |
+| 08:46 — reported | 93.3% | 100% | 100% | 100% | 98.2% | 95.5% | not met (R1b) | 0 |
+
+Nothing changed between them but the model's own sampling: temperature is 0, the endpoint returned no errors, and the prompts were byte-identical. **The acceptance criterion of ТЗ §7.8 is met in one pass of the three and missed in two, both times on R1b** (§13). I report all three rather than the best one; a single pass of this suite on this endpoint is not a reliable measurement, and the first thing to do with an Anthropic balance is to repeat it on Claude Haiku 4.5, where I expect a narrower spread.
 
 **Changes to scoring with the think-better mode** (code, not `expected.json`):
 - A wrong inferred answer is a critical failure.
@@ -148,7 +159,7 @@ In this run the two scores are equal in every group: each failure is a decline o
 | Ingestion, `manual-v1.pdf` (3 pages), file selected → ready | embedded Chromium, local dev | 274 ms and 447 ms (two loads; pdf.js extraction is almost all of it, indexing 1 ms) |
 | Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
 | Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
-| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 105 questions, final run `627aaf7`, daytime | median 3738 ms, p90 9835 ms, max 27895 ms; first model call median 3561 ms. The same pipeline at night (`6f9f76b`): median 2165 ms |
+| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 111 questions, reported run `2ad522c` | median 2264 ms, p90 5620 ms, max 18090 ms; first model call median 2257 ms. The two passes before it, same code, same half hour: medians 2393 ms and 2674 ms, maxima 54.4 s and 13.6 s. Earlier daytime run `627aaf7`: median 3738 ms, p90 9835 ms |
 | Answer format A/B, same time window | Node, NVIDIA, 12 raw calls per format, interleaved | Status first: median 3.35 s, 133 output tokens. Analysis first: median 3.2 s, 167 output tokens. Three 503s excluded. The format costs ~34 tokens and no measurable time |
 | Question → first audio, inferred answer that needed a retry (X1) | embedded Chromium, typed question, NVIDIA | 5.84 s (two model calls, 2.15 s + 3.61 s); one sample |
 | Question → first audio, not-found answer (battery life) | same | 1.23 s (one model call, 1.12 s); one sample |
@@ -177,12 +188,12 @@ Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free
 | Item | Value | Basis |
 |---|---|---|
 | Ingestion | $0 | parsing and indexing run in the browser, no API call |
-| Tokens per question | 2218 in / 164 out (mean, retries included) | measured, final eval `627aaf7`, 105 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
-| Retries | 6 of 105 questions (5.7%) | measured; their tokens are included above |
+| Tokens per question | 2131 in / 157 out (mean, retries included) | measured, reported eval `2ad522c`, 111 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
+| Retries | 2 of 111 questions (1.8%) | measured; their tokens are included above. The two passes before it: 4.5% and 5/111. A retry is a second call, so it is the cost line that moves most between passes |
 | LLM per question, Nemotron 3 Super | mean $0.00025, max $0.00060 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
 | LLM per question, Claude Haiku 4.5 | ≈ $0.0030 | **estimate**: same token counts × $1 / $5 per MTok; Haiku's tokenizer differs — **TBD measured** |
 | Think harder, Claude Haiku 4.5 | up to ≈ +$0.010 per question | **estimate**: a thinking budget of up to 2,048 output tokens × $5/MTok. The budget is a target; easy questions use less. **TBD measured** |
-| One pass over the P0 tests | $0.00265 (Nemotron) | measured |
+| One pass over the P0 tests | $0.00271 (Nemotron) | measured |
 | Speech recognition, prototype | $0 direct | Web Speech API (browser vendor's service, no SLA) |
 | Speech synthesis (ElevenLabs Flash v2.5) | ≈ $0.0046 per question | measured mean spoken text 92 characters (the answer plus the Why line of inferred answers) × $0.05 per 1,000. In the browser test: 41–140 characters, $0.002–0.007. $0 when the browser's voice speaks |
 | Speech synthesis, on device (Supertonic 3) | $0 per question | runs in the browser; a one-time 399 MB download per browser |
@@ -221,7 +232,12 @@ Known before the eval:
 - The client bundle is ~674 KB, 208 KB gzipped (mostly pdf.js, plus the fonts and icons added in the redesign); not code-split.
 
 Found by the eval (NVIDIA Nemotron 3 Super):
-- **A6 failed 3/3 until the analysis-first change, 1/3 after it** — "Can Model B run at 15 units when it's 25°C?" gets "The uploaded documents do not specify…" instead of "No, the exception applies only below 20°C". A safe failure (declines, invents nothing, 0 citations), not fixed by two general prompt changes. Not tuned further to avoid fitting the prompt to one test. In the final run, the retry hint that quotes the model's own reason back to it did not change its mind either; the answer ends as "I couldn't verify an answer". **TBD:** result on Claude Haiku 4.5.
+- **R1b is the weakest test in the set — it passed 4 of 9 runs across the three passes (1/3 in the reported one), and it is a P0 test.** "What is the limit?" is ambiguous in two ways at once: which model, and which of the manual's several limits. The contract says a clarifying question is about which model or product, and when the model asks that, the reply "Model B." is answered with 12 units. When it instead asks "which limit — load, reservoir capacity or temperature?", the reply names a model and settles nothing, so it asks again and the test fails. The failure is safe — it declines, cites nothing and invents nothing — but it is the criterion of ТЗ §7.8 that is missed. I tried twice to fix it in the prompt and reverted both, which is why the shipped prompt is the one that produced the numbers above:
+  - *A rule that the reply to your own clarifying question must be answered.* R1b did not improve and R1 fell to 1/3: the clarifying question itself became vaguer.
+  - *A rule that a clarifying question names the models as its options, derived from the contract's own definition of the status.* R1b rose to 2/3 and R1 fell to 1/3 — one P0 test traded for another. Both experiments are kept in `eval/results/report-clarification-experiment.md`.
+  I did not touch `expected.json`: the expected answer was recorded before any run, and the model asking a different, also reasonable question does not make the recorded answer wrong. On Claude Haiku 4.5 this is the first test I would re-measure.
+- **The "I couldn't verify an answer in the uploaded documents." fallback is English in all three languages.** It is the sentence shown and spoken when two attempts fail validation, and a Russian or Ukrainian listener gets it in English. One constant per language would fix it; I left the code as it was evaluated rather than change it after the reported run.
+- **A6 failed 3/3 until the analysis-first change, 1/3 after it** — "Can Model B run at 15 units when it's 25°C?" gets "The uploaded documents do not specify…" instead of "No, the exception applies only below 20°C". A safe failure (declines, invents nothing, 0 citations), not fixed by two general prompt changes. Not tuned further to avoid fitting the prompt to one test. In the run `627aaf7` the retry hint that quotes the model's own reason back to it did not change its mind either. It has since settled down without any change aimed at it: 3/3, 2/3 and 3/3 in the three latest passes — another sign that a single pass measures the endpoint's mood as much as the pipeline. **TBD:** result on Claude Haiku 4.5.
 - **X5 1/3 in `6f9f76b`, 3/3 after the analysis-first change** — "How often should I clean the nozzel?" twice got "the documents do not specify how often to clean the nozzle" instead of "which model?". The manual gives an interval for each model, so this is a wrong decline: safe, nothing invented, but wrong.
 - **X3** — Nemotron never offered a related line for the battery question (0/3). In the final run, related lines appeared only for H5 and X5.
 - **Mis-cited numbers** — the model sometimes cites a neighbouring line for a correct number. The validator catches it; since the retry hint (commit `e41c065`) the retry fixes it.

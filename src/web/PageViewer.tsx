@@ -2,7 +2,7 @@
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, XIcon } from "@phosphor-icons/react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { Rect } from "../core/types";
-import { pdfjs } from "./pdfjs";
+import { PDF_ASSETS, pdfjs } from "./pdfjs";
 
 type PdfDocument = Awaited<ReturnType<typeof pdfjs.getDocument>["promise"]>;
 type PdfPage = Awaited<ReturnType<PdfDocument["getPage"]>>;
@@ -225,7 +225,7 @@ export function PageViewer(props: {
   // Open the document once; the page proxy is reused for every zoom level.
   useEffect(() => {
     let cancelled = false;
-    const loading = pdfjs.getDocument({ data: props.bytes.slice() });
+    const loading = pdfjs.getDocument({ data: props.bytes.slice(), ...PDF_ASSETS });
     loading.promise
       .then((doc) => doc.getPage(props.page))
       .then((p) => !cancelled && setPdfPage(p))

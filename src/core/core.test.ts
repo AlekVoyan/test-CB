@@ -465,6 +465,20 @@ describe("answerer", () => {
     expect(result.validation.warnings.join(" ")).toContain("not in Ukrainian");
   });
 
+  it("keeps the wrong-language answer when the call spent on the language brings nothing better", async () => {
+    const russian = "Максимальная нагрузка модели A составляет 20 единиц.";
+    const llm = fakeLlm([
+      { answer: russian, citations: ["d1:p2:s2"] },
+      { answer: "Максимальне навантаження моделі A становить 20 одиниць.", citations: ["d1:p9:s9"] },
+    ]);
+    const result = await answerQuestion({ question: "Яке максимальне навантаження моделі A?", history: [], evidence, llm, language: "uk" });
+    expect(llm.calls).toBe(2);
+    expect(result.answer).toBe(russian);
+    expect(result.answer).not.toBe(UNVERIFIED_ANSWER);
+    expect(result.validation).toMatchObject({ passed: true, attempts: 2 });
+    expect(result.validation.warnings.join(" ")).toContain("not in Ukrainian");
+  });
+
   it("never returns an unverified answer", async () => {
     const llm = fakeLlm([
       { answer: "Model A handles 22 units.", citations: ["d1:p2:s2"] },

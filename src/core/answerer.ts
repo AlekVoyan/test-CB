@@ -71,7 +71,39 @@ export async function answerQuestion(input: {
   let model = "";
   let errors: string[] = [];
   let warnings: string[] = [];
+  /** A validated answer in the wrong language, traded in for one more call: better than nothing if that call fails. */
+  let kept: { out: LlmAnswer; warnings: string[] } | null = null;
   const retryReasons: string[] = [];
+
+  /** Builds the answer the caller gets: the same door for an answer that passed and for a kept one. */
+  const settle = (out: LlmAnswer, said: string[]): AnswerResult => {
+    // Reasoning marks describe answers only; a clarifying question or a not-found answer keeps none.
+    const isAnswer = out.status === "answered" || out.status === "conflict";
+    const inferred = isAnswer && out.basis === "inferred";
+    // A slip the model fixed without saying so is named in the answer, so the user hears what was assumed.
+    const silentFix = isAnswer && !out.assumed.trim() ? findCorrectedSlip(question, out.resolvedQuery, input.evidence) : null;
+    return {
+      status: out.status,
+      basis: inferred ? "inferred" : "stated",
+      answer: silentFix ? `${assumptionPrefix(language, silentFix)} ${out.answer.trim()}` : out.answer.trim(),
+      reason: inferred ? out.reason.trim() : "",
+      // A clarifying question makes no claim, so it shows no quotes.
+      citations: out.status === "needs_clarification" ? [] : buildCitations(out.citations, evidenceById),
+      related:
+        out.status === "not_found"
+          ? buildCitations(out.related, evidenceById)
+              .filter((c) => answerMentions(out.answer, c.quote, question))
+              .slice(0, config.maxRelated)
+          : [],
+      assumed: isAnswer ? out.assumed.trim() || silentFix || "" : "",
+      deep,
+      resolvedQuery: out.resolvedQuery,
+      activeEntities: out.activeEntities,
+      validation: { passed: true, attempts: llmMs.length, errors: [], warnings: said, retryReasons },
+      usage: { inputTokens, outputTokens, model },
+      timings: { llmMs, validationMs, totalMs: performance.now() - started },
+    };
+  };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const completion = await input.llm.complete({ system: SYSTEM_PROMPT, messages, deep: deep.applied });
@@ -93,13 +125,15 @@ export async function answerQuestion(input: {
     }
     validationMs += performance.now() - t0;
 
+
     if (completion.parsed && errors.length === 0) {
       const out = completion.parsed;
-      // A right answer in the wrong language is unusable, so it is worth one more call — but never worth throwing the
-      // answer away: on the last attempt it is kept and the slip is reported.
+      // A right answer in the wrong language is unusable, so it is worth one more call. It is never worth losing,
+      // though: the answer is kept here, and returned if the call spent on the language leaves nothing better.
+      const want = LANGUAGES[language].name;
       const slipped = wrongAnswerLanguage(`${out.answer} ${out.reason}`, language);
       if (slipped && attempt < maxAttempts) {
-        const want = LANGUAGES[language].name;
+        kept = { out, warnings: [...warnings, `The answer is not in ${want}.`] };
         retryReasons.push(`attempt ${attempt} (${out.status}): the answer is not in ${want}`);
         messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
         messages.push({
@@ -108,33 +142,7 @@ export async function answerQuestion(input: {
         });
         continue;
       }
-      if (slipped) warnings.push(`The answer is not in ${LANGUAGES[language].name}.`);
-      // Reasoning marks describe answers only; a clarifying question or a not-found answer keeps none.
-      const isAnswer = out.status === "answered" || out.status === "conflict";
-      const inferred = isAnswer && out.basis === "inferred";
-      // A slip the model fixed without saying so is named in the answer, so the user hears what was assumed.
-      const silentFix = isAnswer && !out.assumed.trim() ? findCorrectedSlip(question, out.resolvedQuery, input.evidence) : null;
-      return {
-        status: out.status,
-        basis: inferred ? "inferred" : "stated",
-        answer: silentFix ? `${assumptionPrefix(language, silentFix)} ${out.answer.trim()}` : out.answer.trim(),
-        reason: inferred ? out.reason.trim() : "",
-        // A clarifying question makes no claim, so it shows no quotes.
-        citations: out.status === "needs_clarification" ? [] : buildCitations(out.citations, evidenceById),
-        related:
-          out.status === "not_found"
-            ? buildCitations(out.related, evidenceById)
-                .filter((c) => answerMentions(out.answer, c.quote, question))
-                .slice(0, config.maxRelated)
-            : [],
-        assumed: isAnswer ? out.assumed.trim() || silentFix || "" : "",
-        deep,
-        resolvedQuery: out.resolvedQuery,
-        activeEntities: out.activeEntities,
-        validation: { passed: true, attempts: attempt, errors: [], warnings, retryReasons },
-        usage: { inputTokens, outputTokens, model },
-        timings: { llmMs, validationMs, totalMs: performance.now() - started },
-      };
+      return settle(out, slipped ? [...warnings, `The answer is not in ${want}.`] : warnings);
     }
 
     // Retry once with the validator's findings.
@@ -146,7 +154,8 @@ export async function answerQuestion(input: {
     });
   }
 
-  // Never return an answer that did not pass validation.
+  // Never return an answer that did not pass validation. An answer that passed but spoke the wrong language did.
+  if (kept) return settle(kept.out, kept.warnings);
   return {
     status: "not_found",
     basis: "stated",

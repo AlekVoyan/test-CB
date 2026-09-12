@@ -576,6 +576,23 @@
           }
         }
       ]
+    },
+    {
+      "id": "S30",
+      "note": "Added with the mishearing check, before its first run. \"stoop\" is in neither manual and sounds like two words that are, so the question is asked back without calling the model at all.",
+      "steps": [
+        { "upload": ["manual-v1.pdf"] },
+        {
+          "ask": "How long should I hold the stoop button?",
+          "testId": "X6", "type": "misheard word, two candidates", "priority": "think",
+          "expected": {
+            "status": "needs_clarification",
+            "answer": "Did you mean \u201cstep\u201d or \u201csetup\u201d?",
+            "mustInclude": [["setup"], ["step"]], "mustNotInclude": ["3 seconds"],
+            "sources": [], "allowedExtraSources": []
+          }
+        }
+      ]
     }
   ]
 }

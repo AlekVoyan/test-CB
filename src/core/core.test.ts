@@ -146,6 +146,19 @@ describe("page layout", () => {
     ]);
   });
 
+  it("keeps a sentence together across an abbreviation, even when a name follows it", async () => {
+    // A Russian magazine column: "в сентябре 1938г." is not the end of anything, and what follows is a surname.
+    const wide = (str: string, y: number) => ({ str, transform: [5, 0, 0, 5, 21, y], width: 91 });
+    const page = [
+      wide("Интересно, что в сентябре 1938г.", 300),
+      wide("А. И. Пельтцер прошёл без остановок", 293),
+      wide("5000 км на автомобиле ГАЗ-М1-Г.", 286),
+      wide("Скорость составила 60,96 км/час.", 279),
+    ];
+    const [first] = await lines(page);
+    expect(first).toBe("Интересно, что в сентябре 1938г. А. И. Пельтцер прошёл без остановок 5000 км на автомобиле ГАЗ-М1-Г.");
+  });
+
   it("keeps a one-column page with right-aligned dates as one column, and never wraps a dated line", async () => {
     const resume = [
       item("Experience", 56, 700, 60),
@@ -452,6 +465,29 @@ function fakeLlm(outputs: Partial<LlmAnswer>[], supportsDeep = false): LlmClient
 }
 
 describe("evidence ids", () => {
+  it("reads an id the model wrote without its document, and a run of lines written as a range", async () => {
+    // Only one document has a line p2:s3, so the missing part is restored.
+    const llm = fakeLlm([{ answer: "Model B handles 12 units.", citations: ["p2:s3"] }]);
+    const one = await answerQuestion({ question: "What is the maximum for Model B?", history: [], evidence, llm });
+    expect(one.citations[0]?.sentenceId).toBe("d1:p2:s3");
+
+    const ranged = fakeLlm([{ answer: "Both limits are stated.", citations: ["d1:p2:s2]-[d1:p2:s3"] }]);
+    const run = await answerQuestion({ question: "What are the limits?", history: [], evidence, llm: ranged });
+    expect(run.citations.map((c) => c.sentenceId)).toEqual(["d1:p2:s2", "d1:p2:s3"]);
+  });
+
+  it("does not guess which document a line belongs to when two of them could have it", async () => {
+    // p2:s2 exists in both documents: restoring the missing part would be a guess, so the id stays unknown.
+    const llm = fakeLlm([
+      { answer: "Model A handles 20 units.", citations: ["p2:s2"] },
+      { answer: "Model A handles 20 units.", citations: ["d1:p2:s2"] },
+    ]);
+    const result = await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm });
+    expect(result.validation.retryReasons[0]).toContain("Unknown evidence id");
+    expect(result.citations[0]?.sentenceId).toBe("d1:p2:s2");
+  });
+
+
   it("finds a line whose id the model wrote in the answer's alphabet", async () => {
     // Seen in my own test on a Russian story: "д4:p7:s47" for "d4:p7:s47", rejected twice, the answer lost.
     const llm = fakeLlm([{ answer: "Model A handles 20 units.", citations: ["д1:р2:с2"] }]);

@@ -68,8 +68,8 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
 
   const cited: EvidenceUnit[] = [];
   for (const id of ids) {
-    const unit = findEvidence(ctx.evidenceById, id);
-    if (unit) cited.push(unit);
+    const units = resolveEvidence(ctx.evidenceById, id);
+    if (units.length) cited.push(...units);
     else errors.push(`Unknown evidence id "${id}". Cite only ids that appear in the evidence.`);
   }
 
@@ -112,8 +112,8 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
   const relatedUnits: EvidenceUnit[] = [];
   if (out.status === "not_found") {
     for (const id of new Set(out.related)) {
-      const unit = findEvidence(ctx.evidenceById, id);
-      if (unit) relatedUnits.push(unit);
+      const units = resolveEvidence(ctx.evidenceById, id);
+      if (units.length) relatedUnits.push(...units);
       else errors.push(`Unknown related id "${id}". Use only ids that appear in the evidence.`);
     }
   }
@@ -129,9 +129,9 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
   for (const n of extractNumbers(`${answer} ${inferred ? out.reason : ""}`)) {
     if (allowed.has(n)) continue;
     // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
-    const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n)).slice(0, 3);
+    const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n));
     const hint = holders.length
-      ? ` Lines that contain ${n}: ${holders.map((u) => `[${u.id}] ${u.text}`).join(" ")} Cite the line that actually supports your statement, or remove the number.`
+      ? ` Lines that contain ${n}: ${holders.slice(0, 3).map((u) => `[${u.id}] ${u.text}`).join(" ")} Cite the line that actually supports your statement, or remove the number.`
       : " No evidence line contains it, so remove it. Do not mention page numbers or line ids.";
     errors.push(`The number ${n} in the answer does not appear in any cited line or in the question.${hint}`);
   }
@@ -157,11 +157,51 @@ export function findEvidence(evidenceById: Map<string, EvidenceUnit>, id: string
   return evidenceById.get(id) ?? evidenceById.get(asWritten(id));
 }
 
-export function buildCitations(ids: string[], evidenceById: Map<string, EvidenceUnit>): Citation[] {
-  return [...new Set(ids)].flatMap((id) => {
-    const u = findEvidence(evidenceById, id);
-    return u ? [{ documentId: u.documentId, filename: u.filename, page: u.page, sentenceId: u.id, quote: u.text }] : [];
+/** An id as written, in either alphabet: the document part is optional, because the model sometimes drops it. */
+const ID_PART = /(?:([dд])\s*(\d+)\s*:)?\s*([pр])\s*(\d+)\s*:\s*([sс])\s*(\d+)/giu;
+
+/**
+ * The lines one citation string points at. The model does not always write an id the way the contract asks: it drops
+ * the document part when only one document is loaded ("p2:s18"), and it writes a run of lines as a range
+ * ("d2:p2:s16]-[d2:p2:s22"). Both name real lines, and both used to cost a retry. A dropped document part is restored
+ * only when exactly one document has that line, so nothing is guessed.
+ */
+export function resolveEvidence(evidenceById: Map<string, EvidenceUnit>, raw: string): EvidenceUnit[] {
+  const direct = findEvidence(evidenceById, raw.trim());
+  if (direct) return [direct];
+  const parts = [...raw.matchAll(ID_PART)].map((m) => ({ doc: m[2], page: Number(m[4]), line: Number(m[6]) }));
+  const find = (doc: string | undefined, page: number, line: number) => {
+    if (doc) return findEvidence(evidenceById, `d${doc}:p${page}:s${line}`);
+    const tail = `:p${page}:s${line}`;
+    const hits = [...evidenceById.values()].filter((u) => u.id.endsWith(tail));
+    return hits.length === 1 ? hits[0] : undefined;
+  };
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  // A range: the same page, written as two ends. Everything between them that exists is cited.
+  if (parts.length === 2 && first && last && first.doc === last.doc && first.page === last.page && last.line > first.line) {
+    const run: EvidenceUnit[] = [];
+    for (let line = first.line; line <= last.line; line++) {
+      const unit = find(first.doc, first.page, line);
+      if (unit) run.push(unit);
+    }
+    if (run.length) return run;
+  }
+  return parts.flatMap((part) => {
+    const unit = find(part.doc, part.page, part.line);
+    return unit ? [unit] : [];
   });
+}
+
+export function buildCitations(ids: string[], evidenceById: Map<string, EvidenceUnit>): Citation[] {
+  const seen = new Set<string>();
+  return [...new Set(ids)].flatMap((id) =>
+    resolveEvidence(evidenceById, id).flatMap((u) => {
+      if (seen.has(u.id)) return [];
+      seen.add(u.id);
+      return [{ documentId: u.documentId, filename: u.filename, page: u.page, sentenceId: u.id, quote: u.text }];
+    }),
+  );
 }
 
 /** Independent check against the full page text held by the client (or the eval). */

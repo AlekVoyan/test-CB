@@ -229,7 +229,12 @@ function pageBlocks(items: TextItemLike[]): PhysicalLine[][] {
  * A line counts as wrapped when it reaches the text block's right edge without closing punctuation and is running
  * text (no wide gap inside, as in a table row or a title with its date), and the next line does not start with a
  * capital letter, which would begin a new list item or sentence.
+ * A full stop that ends an abbreviation does not close a sentence. Russian prose is full of them — "в 1938г.",
+ * "37 л. с.", "53 кг. на 100 км." — and treating each as the end of a line cut statements away from their own
+ * numbers, which then read as unsupported and cost a call to put right.
  */
+const ABBREVIATION = /(?:^|[\s(])(?:\d+\s*)?(?:\p{L}|г|гг|стр|рис|см|табл|ул|руб|кг|км|мин|тыс|млн|др|пр|т\.д|т\.е|no|fig|pp|vs|approx|e\.g|i\.e)\.$/iu;
+const endsSentence = (text: string) => /[.!?:;]["')\]]?$/.test(text) && !ABBREVIATION.test(text);
 function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
   const gaps = lines.slice(1).map((l, i) => lines[i]!.y - l.y).filter((g) => g > 0);
   const typicalGap = median(gaps) || 12;
@@ -239,13 +244,16 @@ function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
     const prev = lines[i - 1];
     const newParagraph = prev !== undefined && prev.y - line.y > typicalGap * 1.4;
     if (newParagraph) paragraph++;
+    // A line that ends on an abbreviation keeps going even when the next one starts with a capital: what follows
+    // "в сентябре 1938г." is usually a name, and cutting there separates the statement from its own date.
+    const prevAbbreviates = prev !== undefined && ABBREVIATION.test(prev.text);
     const prevWrapped =
       prev !== undefined &&
       !newParagraph &&
       !prev.gapped &&
-      !/^\p{Lu}/u.test(line.text) &&
+      (prevAbbreviates || !/^\p{Lu}/u.test(line.text)) &&
       prev.right >= textRight * 0.9 &&
-      !/[.!?:;]["')\]]?$/.test(prev.text);
+      !endsSentence(prev.text);
     const last = out[out.length - 1];
     const part = { text: line.text, box: line.box };
     if (last && prevWrapped) {

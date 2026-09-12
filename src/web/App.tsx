@@ -212,10 +212,11 @@ function voiceLabel(m: QuestionMetrics): string {
 }
 
 // A folder keeps its colour wherever it sits in a stack. Older answers are deeper shades of the answer lime;
-// the sheets of a stack deepen their tone by their place in it. A step is 13% of the way to the olive, which is
-// 0.045 of oklab lightness: neighbouring tabs in the row are one step apart and have to read as two folders.
+// the sheets of a stack deepen their tone by their place in it. A step is a fifth of the way to the olive, 0.069 of
+// oklab lightness, so two folders side by side in the row read apart. It stops after four steps: deeper than that the
+// ink on a tab would fall under 4.5:1, and only four tabs stand in the row at once anyway.
 const answerShade = (age: number) =>
-  age <= 0 ? "var(--lime)" : `color-mix(in oklab, var(--lime) ${100 - Math.min(age, 5) * 13}%, #6d7a34)`;
+  age <= 0 ? "var(--lime)" : `color-mix(in oklab, var(--lime) ${100 - Math.min(age, 4) * 20}%, #6d7a34)`;
 const sheetShade = (index: number, tone: "sage" | "dark") =>
   index <= 0
     ? tone === "sage"

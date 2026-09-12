@@ -64,7 +64,7 @@ Questions and expected outcomes: `eval/expected.json`, committed in `f699eb9` be
 
 ## 8. Expected vs actual results
 
-Reported run: commit `0e90ff8`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per session, no provider errors — the last of four full passes over the whole suite, the first three within half an hour of each other on the code before the mishearing check and this one after it. The others are in `eval/results/report-pass-b.md` and in git history, and §9 carries the spread between them, which is wider than I expected. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`.
+Reported run: commit `f3e1daf`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per session, 3 questions unscored on provider errors — the last full pass that describes the shipped pipeline, and the fifth of six run that day. The others are in `eval/results/report-pass-b.md` and in git history, and §9 carries the spread between them, which is wider than I expected. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`.
 
 | ID | Type | Question | Expected (status · fact · source) | Passed |
 |---|---|---|---|---|
@@ -74,8 +74,8 @@ Reported run: commit `0e90ff8`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per se
 | M4 | exception | Is Model B ever allowed to exceed its normal limit? | answered · 15 units, ≤ 5 min, below 20°C · v1 p.3 | 3/3 |
 | M5 | absent fact | What is the battery life of Model A? | not_found · 0 citations | 3/3 |
 | M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 6/6 runs across the passes) |
-| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 2/3 |
-| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | **1/3** — the weakest test in the set, see §13 |
+| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 1/3 in this pass; 2/3, 3/3 and 2/3 in the others |
+| R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | **0/3** in this pass, 1/3 to 3/3 in the others — the weakest test in the set, see §13 |
 | R2 | correction | I meant Model B. | answered · 12 units, not "20 units" · v1 p.2 | 3/3 |
 | A1 | conflicting documents | What is the maximum for Model A? (v1 + v2 loaded) | conflict · 20 and 24, both documents cited | 3/3 |
 | A2 | paraphrase | How many units can A handle? | answered · 20 units · v1 p.2 | 3/3 |
@@ -128,12 +128,12 @@ Scored separately for every test and run (rules in `eval/expected.json` and ТЗ
 
 | Group | Tests | Scored runs | Factual accuracy | Citation accuracy | Reasoning checks |
 |---|---|---|---|---|---|
-| P0 | 10 | 30 | 91.7% | 93.3% | — |
-| P1 | 9 | 27 | 96.3% | 96.3% | — |
+| P0 | 10 | 30 | 86.7% | 90.0% | — |
+| P1 | 9 | 24 | 91.7% | 91.7% | — |
 | Holdout | 5 | 15 | 100.0% | 100.0% | — |
-| RU/UA | 8 | 24 | 95.8% | 95.8% | — |
+| RU/UA | 8 | 24 | 91.7% | 91.7% | — |
 | Think better | 5 | 15 | 100.0% | 100.0% | 66.7% |
-| All | 37 | 111 | 95.9% | 96.4% | 66.7% |
+| All | 37 | 108 | 92.6% | 93.5% | 66.7% |
 
 **Critical failures** (a plausible answer without support, an answer where the documents have none, or a wrong inferred answer): **0**, in this pass and in every other.
 
@@ -144,9 +144,11 @@ Scored separately for every test and run (rules in `eval/expected.json` and ТЗ
 | 08:09 | 96.7% | 96.3% | 100% | 95.8% | 97.3% | 94.6% | met | 0 |
 | 08:20 | 90.0% | 92.6% | 100% | 95.8% | 94.1% | 91.0% | not met (R1b) | 0 |
 | 08:46 | 93.3% | 100% | 100% | 100% | 98.2% | 95.5% | not met (R1b) | 0 |
-| 11:17 — reported, with the mishearing check | 91.7% | 96.3% | 100% | 95.8% | 95.9% | 92.8% | not met (R1b) | 0 |
+| 11:17, with the mishearing check | 91.7% | 96.3% | 100% | 95.8% | 95.9% | 92.8% | not met (R1b) | 0 |
+| 13:55 — reported, with the id and line-joining fixes | 86.7% | 91.7% | 100% | 91.7% | 92.6% | 88.9% | not met (R1, R1b) | 0 |
+| 14:20, same code, half an hour later | 90.6% | 100% | 100% | 100% | 97.3% | 92.9% | not met (R1, R1b) | 0 |
 
-Nothing changed between the first three but the model's own sampling: temperature is 0, the endpoint returned no errors, and the prompts were byte-identical. The fourth adds the check described in §2 that looks for misheard words before the model is called; it sits inside the spread of the three before it, and the tests it touches (M4, X3, the holdout follow-ups) came back where they were. **The acceptance criterion of ТЗ §7.8 is met in one pass of the three and missed in two, both times on R1b** (§13). I report all three rather than the best one; a single pass of this suite on this endpoint is not a reliable measurement, and the first thing to do with an Anthropic balance is to repeat it on Claude Haiku 4.5, where I expect a narrower spread.
+Nothing changed between the first three but the model's own sampling: temperature is 0, the endpoint returned no errors, and the prompts were byte-identical. The last row is thin rather than good: by the sixth full pass of the day the free endpoint was rate-limiting hard — 41 of 111 questions came back `429 Too Many Requests` and went unscored, and the median call rose from 2.9 s to 6.4 s — so it is listed for honesty and is not the reported run (`eval/results/report-rate-limited.md`). A provider that throttles after a few full passes is itself a measurement, and one more reason the numbers want repeating on Claude Haiku 4.5. The fourth adds the check described in §2 that looks for misheard words before the model is called; it sits inside the spread of the three before it, and the tests it touches (M4, X3, the holdout follow-ups) came back where they were. **The acceptance criterion of ТЗ §7.8 is met in one pass of the three and missed in two, both times on R1b** (§13). I report all three rather than the best one; a single pass of this suite on this endpoint is not a reliable measurement, and the first thing to do with an Anthropic balance is to repeat it on Claude Haiku 4.5, where I expect a narrower spread.
 
 **Changes to scoring with the think-better mode** (code, not `expected.json`):
 - A wrong inferred answer is a critical failure.
@@ -162,7 +164,7 @@ In this run the two scores are equal in every group: each failure is a decline o
 | Ingestion, `manual-v1.pdf` (3 pages), file selected → ready | embedded Chromium, local dev | 274 ms and 447 ms (two loads; pdf.js extraction is almost all of it, indexing 1 ms) |
 | Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
 | Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
-| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 111 questions, reported run `0e90ff8` | median 2893 ms, p90 7603 ms, max 24534 ms; first model call median 2843 ms. The three passes before it: medians 2264, 2393 and 2674 ms, maxima 18.1 s, 54.4 s and 13.6 s. The endpoint's mood moves this more than anything in the code does |
+| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 108 questions, reported run `f3e1daf` | median 2717 ms, p90 9393 ms, max 42060 ms; first model call median 2712 ms. The four passes before it: medians 2264 to 2893 ms, maxima 13.6 s to 54.4 s. Under the rate limiting of the sixth pass the median went to 6364 ms. The endpoint's mood moves this more than anything in the code does |
 | Answer format A/B, same time window | Node, NVIDIA, 12 raw calls per format, interleaved | Status first: median 3.35 s, 133 output tokens. Analysis first: median 3.2 s, 167 output tokens. Three 503s excluded. The format costs ~34 tokens and no measurable time |
 | Question → first audio, inferred answer that needed a retry (X1) | embedded Chromium, typed question, NVIDIA | 5.84 s (two model calls, 2.15 s + 3.61 s); one sample |
 | Question → first audio, not-found answer (battery life) | same | 1.23 s (one model call, 1.12 s); one sample |
@@ -191,8 +193,8 @@ Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free
 | Item | Value | Basis |
 |---|---|---|
 | Ingestion | $0 | parsing and indexing run in the browser, no API call |
-| Tokens per question | 2192 in / 170 out (mean, retries included) | measured, reported eval `0e90ff8`, 111 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
-| Retries | 5 of 111 questions (4.5%) | measured; their tokens are included above. Across the four passes: 1.8% to 4.5%. A retry is a second call, so it is the cost line that moves most between passes |
+| Tokens per question | 2215 in / 183 out (mean, retries included) | measured, reported eval `f3e1daf`, 108 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
+| Retries | 6 of 108 questions (5.6%) | measured; their tokens are included above. Across the passes: 1.8% to 5.6%. A retry is a second call, so it is the cost line that moves most between passes |
 | LLM per question, Nemotron 3 Super | mean $0.00025, max $0.00060 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
 | LLM per question, Claude Haiku 4.5 | ≈ $0.0030 | **estimate**: same token counts × $1 / $5 per MTok; Haiku's tokenizer differs — **TBD measured** |
 | Think harder, Claude Haiku 4.5 | up to ≈ +$0.010 per question | **estimate**: a thinking budget of up to 2,048 output tokens × $5/MTok. The budget is a target; easy questions use less. **TBD measured** |

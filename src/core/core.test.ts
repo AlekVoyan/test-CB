@@ -443,6 +443,28 @@ describe("answerer", () => {
     expect(result.usage.inputTokens).toBe(200);
   });
 
+  it("asks again when the answer slips into another language", async () => {
+    const llm = fakeLlm([
+      { answer: "Максимальная нагрузка модели A составляет 20 единиц.", citations: ["d1:p2:s2"] },
+      { answer: "Максимальне навантаження моделі A становить 20 одиниць.", citations: ["d1:p2:s2"] },
+    ]);
+    const result = await answerQuestion({ question: "Яке максимальне навантаження моделі A?", history: [], evidence, llm, language: "uk" });
+    expect(llm.calls).toBe(2);
+    expect(result.answer).toBe("Максимальне навантаження моделі A становить 20 одиниць.");
+    expect(result.validation).toMatchObject({ passed: true, attempts: 2 });
+    expect(result.validation.retryReasons[0]).toContain("not in Ukrainian");
+  });
+
+  it("keeps an answer that stays in the wrong language, and says so", async () => {
+    const russian = "Максимальная нагрузка модели A составляет 20 единиц.";
+    const llm = fakeLlm([{ answer: russian, citations: ["d1:p2:s2"] }, { answer: russian, citations: ["d1:p2:s2"] }]);
+    const result = await answerQuestion({ question: "Яке максимальне навантаження моделі A?", history: [], evidence, llm, language: "uk" });
+    expect(llm.calls).toBe(2);
+    expect(result.answer).toBe(russian);
+    expect(result.answer).not.toBe(UNVERIFIED_ANSWER);
+    expect(result.validation.warnings.join(" ")).toContain("not in Ukrainian");
+  });
+
   it("never returns an unverified answer", async () => {
     const llm = fakeLlm([
       { answer: "Model A handles 22 units.", citations: ["d1:p2:s2"] },

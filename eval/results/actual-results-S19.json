@@ -1,0 +1,544 @@
+{
+  "generatedAt": "2026-09-12T07:58:57.769Z",
+  "commit": "2c6c971 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S19",
+      "testId": "L1",
+      "type": "direct fact (RU)",
+      "priority": "lang",
+      "question": "Какая максимальная нагрузка у модели A?",
+      "expected": {
+        "status": "answered",
+        "answer": "Максимальная нагрузка модели A — 20 единиц.",
+        "mustInclude": [
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [
+          "24"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка модели A составляет 20 единиц.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Model A: the maximum load is 20 units."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.877375000000029,
+        "llmAttempts": [
+          7165.054417000001
+        ],
+        "validation": 2.2992080000003625,
+        "total": 7191.242292000001
+      },
+      "usage": {
+        "inputTokens": 2122,
+        "outputTokens": 122,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00022917000000000003
+    },
+    {
+      "run": 1,
+      "session": "S19",
+      "testId": "L2",
+      "type": "follow-up (RU)",
+      "priority": "lang",
+      "question": "А у другой модели?",
+      "expected": {
+        "status": "answered",
+        "answer": "У модели B максимальная нагрузка 12 единиц в обычных условиях.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка модели B составляет 12 единиц.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Какая максимальная нагрузка у модели B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.6287499999998545,
+        "llmAttempts": [
+          4469.188291999999
+        ],
+        "validation": 2.141583000000537,
+        "total": 4479.4540830000005
+      },
+      "usage": {
+        "inputTokens": 2149,
+        "outputTokens": 133,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023586500000000003
+    },
+    {
+      "run": 2,
+      "session": "S19",
+      "testId": "L1",
+      "type": "direct fact (RU)",
+      "priority": "lang",
+      "question": "Какая максимальная нагрузка у модели A?",
+      "expected": {
+        "status": "answered",
+        "answer": "Максимальная нагрузка модели A — 20 единиц.",
+        "mustInclude": [
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [
+          "24"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка у модели A составляет 20 единиц.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Model A: the maximum load is 20 units."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Какая максимальная нагрузка у модели A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5009170000012091,
+        "llmAttempts": [
+          1567.9720830000006
+        ],
+        "validation": 0.6491249999999127,
+        "total": 1572.871833000001
+      },
+      "usage": {
+        "inputTokens": 2122,
+        "outputTokens": 113,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00022557000000000002
+    },
+    {
+      "run": 2,
+      "session": "S19",
+      "testId": "L2",
+      "type": "follow-up (RU)",
+      "priority": "lang",
+      "question": "А у другой модели?",
+      "expected": {
+        "status": "answered",
+        "answer": "У модели B максимальная нагрузка 12 единиц в обычных условиях.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка у модели B составляет 12 единиц при нормальных условиях.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Какая максимальная нагрузка у модели B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.4715409999989788,
+        "llmAttempts": [
+          3950.423417
+        ],
+        "validation": 1.7239579999986745,
+        "total": 3960.306957999999
+      },
+      "usage": {
+        "inputTokens": 2150,
+        "outputTokens": 142,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023955000000000002
+    },
+    {
+      "run": 3,
+      "session": "S19",
+      "testId": "L1",
+      "type": "direct fact (RU)",
+      "priority": "lang",
+      "question": "Какая максимальная нагрузка у модели A?",
+      "expected": {
+        "status": "answered",
+        "answer": "Максимальная нагрузка модели A — 20 единиц.",
+        "mustInclude": [
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [
+          "24"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка у модели A составляет 20 единиц.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Model A: the maximum load is 20 units."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Какая максимальная нагрузка у модели A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.2200840000004973,
+        "llmAttempts": [
+          2060.2993749999987
+        ],
+        "validation": 0.3867500000014843,
+        "total": 2064.818209000001
+      },
+      "usage": {
+        "inputTokens": 2122,
+        "outputTokens": 127,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023117000000000005
+    },
+    {
+      "run": 3,
+      "session": "S19",
+      "testId": "L2",
+      "type": "follow-up (RU)",
+      "priority": "lang",
+      "question": "А у другой модели?",
+      "expected": {
+        "status": "answered",
+        "answer": "У модели B максимальная нагрузка 12 единиц в обычных условиях.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Максимальная нагрузка у модели B составляет 12 единиц.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Какая максимальная нагрузка у модели B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.1827919999996084,
+        "llmAttempts": [
+          1419.1632080000018
+        ],
+        "validation": 0.24187499999970896,
+        "total": 1422.4130839999998
+      },
+      "usage": {
+        "inputTokens": 2150,
+        "outputTokens": 144,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00024035000000000001
+    }
+  ],
+  "apiErrors": [],
+  "skipped": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 470.56216599999993,
+      "indexMs": 0.5650420000001759
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 21.510792000000947,
+      "indexMs": 0.5667910000011034
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 25.388833000000886,
+      "indexMs": 0.6295829999980924
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        20.72229199999856,
+        7.884207999999489,
+        6.932250000001659,
+        7.460999999999331,
+        7.324000000000524
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        7.441458000001148,
+        4.869750000001659,
+        6.650250000002416,
+        5.931917000001704,
+        3.97387499999968
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        3.8930829999990237,
+        2.7170420000002196,
+        5.2462499999965075,
+        2.3575419999979204,
+        2.130042000000685
+      ]
+    }
+  ]
+}

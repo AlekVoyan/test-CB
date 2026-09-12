@@ -1,5 +1,7 @@
 import { config, DEFAULT_LANGUAGE, type Language } from "./config.js";
 import type { LlmAnswer } from "./contract.js";
+import { LANGUAGES } from "./config.js";
+import { wrongAnswerLanguage } from "./language.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
 import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt.js";
 import { assumptionPrefix, findCorrectedSlip } from "./slips.js";
@@ -93,6 +95,20 @@ export async function answerQuestion(input: {
 
     if (completion.parsed && errors.length === 0) {
       const out = completion.parsed;
+      // A right answer in the wrong language is unusable, so it is worth one more call — but never worth throwing the
+      // answer away: on the last attempt it is kept and the slip is reported.
+      const slipped = wrongAnswerLanguage(`${out.answer} ${out.reason}`, language);
+      if (slipped && attempt < maxAttempts) {
+        const want = LANGUAGES[language].name;
+        retryReasons.push(`attempt ${attempt} (${out.status}): the answer is not in ${want}`);
+        messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
+        messages.push({
+          role: "user",
+          content: `Your answer is not written in ${want}. Answer the same question again, in ${want} (${LANGUAGES[language].nativeName}), keeping the same status, citations and meaning. Quotes stay in the document's own language.`,
+        });
+        continue;
+      }
+      if (slipped) warnings.push(`The answer is not in ${LANGUAGES[language].name}.`);
       // Reasoning marks describe answers only; a clarifying question or a not-found answer keeps none.
       const isAnswer = out.status === "answered" || out.status === "conflict";
       const inferred = isAnswer && out.basis === "inferred";

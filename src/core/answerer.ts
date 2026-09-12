@@ -41,6 +41,14 @@ function answerMentions(answer: string, line: string, question: string): boolean
   return [...contentWords(line)].some((w) => said.has(w) && !asked.has(w));
 }
 
+/** The documents' own word, or nothing: an offer the documents do not support is not made. */
+function offeredWord(word: string, evidence: EvidenceUnit[]): string {
+  const term = word.trim();
+  if (!term || term.split(/\s+/).length > 4) return "";
+  const needle = term.toLowerCase();
+  return evidence.some((u) => u.text.toLowerCase().includes(needle)) ? term : "";
+}
+
 /** What the user hears (and reads): the answer, then for an inference the rule it rests on. */
 export function spokenAnswer(r: Pick<AnswerResult, "basis" | "answer" | "reason">): string {
   return r.basis === "inferred" && r.reason ? `${r.answer} ${r.reason}` : r.answer;
@@ -96,6 +104,7 @@ export async function answerQuestion(input: {
               .slice(0, config.maxRelated)
           : [],
       assumed: isAnswer ? out.assumed.trim() || silentFix || "" : "",
+      didYouMean: out.status === "not_found" ? offeredWord(out.didYouMean, input.evidence) : "",
       deep,
       resolvedQuery: out.resolvedQuery,
       activeEntities: out.activeEntities,
@@ -160,6 +169,7 @@ export async function answerQuestion(input: {
     status: "not_found",
     basis: "stated",
     answer: UNVERIFIED_ANSWER,
+    didYouMean: "",
     reason: "",
     citations: [],
     related: [],

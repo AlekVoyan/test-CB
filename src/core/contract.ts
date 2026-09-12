@@ -24,6 +24,8 @@ export const LlmAnswerSchema = z.object({
   related: z.array(z.string()),
   /** The corrected term when the question had an obvious slip (typo, misheard word). */
   assumed: z.string(),
+  /** For not_found: the documents' own word for what the question seems to be about. Never an answer. */
+  didYouMean: z.string(),
   activeEntities: z.array(z.string()),
 });
 export type LlmAnswer = z.infer<typeof LlmAnswerSchema>;
@@ -41,9 +43,10 @@ export const LLM_ANSWER_JSON_SCHEMA = {
     citations: { type: "array", items: { type: "string" } },
     related: { type: "array", items: { type: "string" } },
     assumed: { type: "string" },
+    didYouMean: { type: "string" },
     activeEntities: { type: "array", items: { type: "string" } },
   },
-  required: ["resolvedQuery", "analysis", "status", "basis", "answer", "reason", "citations", "related", "assumed", "activeEntities"],
+  required: ["resolvedQuery", "analysis", "status", "basis", "answer", "reason", "citations", "related", "assumed", "didYouMean", "activeEntities"],
   additionalProperties: false,
 };
 

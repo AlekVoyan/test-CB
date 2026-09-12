@@ -31,6 +31,7 @@ basis: "inferred" only for an answered or conflict answer that follows from a ru
 reason: for "inferred", one short sentence naming the rule or range you applied. It is read aloud after the answer, so do not repeat the answer. Otherwise empty.
 related: for "not_found" only, at most 2 ids of closely related lines; otherwise empty.
 assumed: the corrected term when you interpreted a slip; otherwise empty.
+didYouMean: for "not_found" only. When the question asks about something the documents never mention, but they plainly describe the same thing under another name, put that name here exactly as the documents write it — one word or a short phrase, never a sentence, never an answer. Otherwise empty.
 resolvedQuery: the user's question rewritten as a standalone question.
 activeEntities: the models or products your answer is about, for example ["Model B"]; empty if none.`;
 

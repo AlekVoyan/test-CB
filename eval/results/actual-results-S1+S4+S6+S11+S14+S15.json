@@ -1,0 +1,1417 @@
+{
+  "generatedAt": "2026-09-12T13:04:20.905Z",
+  "commit": "4540f82 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S1",
+      "testId": "M1",
+      "type": "direct fact",
+      "priority": "P0",
+      "question": "What is the maximum for Model A?",
+      "expected": {
+        "status": "answered",
+        "answer": "The maximum load for Model A is 20 units.",
+        "mustInclude": [
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [
+          "24"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The maximum load for Model A is 20 units.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Model A: the maximum load is 20 units."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the maximum for Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 3.9157920000000104,
+        "llmAttempts": [
+          2931.4867499999996
+        ],
+        "validation": 3.2565000000004147,
+        "total": 2955.5238759999993
+      },
+      "usage": {
+        "inputTokens": 2182,
+        "outputTokens": 114,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023107
+    },
+    {
+      "run": 1,
+      "session": "S1",
+      "testId": "M3",
+      "type": "follow-up",
+      "priority": "P0",
+      "question": "And what about the other model?",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The maximum load for Model B is 12 units.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the maximum load for Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 3.123540999999932,
+        "llmAttempts": [
+          6065.862875
+        ],
+        "validation": 0.7322910000002594,
+        "total": 6081.620999
+      },
+      "usage": {
+        "inputTokens": 2208,
+        "outputTokens": 134,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00024128
+    },
+    {
+      "run": 1,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.056291999999303,
+        "llmAttempts": [
+          10168.163208
+        ],
+        "validation": 12.418125000000146,
+        "total": 10195.504208999999
+      },
+      "usage": {
+        "inputTokens": 2183,
+        "outputTokens": 135,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023955500000000002
+    },
+    {
+      "run": 1,
+      "session": "S11",
+      "testId": "A4",
+      "type": "unknown entity",
+      "priority": "P1",
+      "question": "What is the maximum load for Model C?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual only covers Model A and Model B.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify a maximum load for Model C.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the maximum load for Model C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.96404099999927,
+        "llmAttempts": [
+          4928.810374999997
+        ],
+        "validation": 1.053874999997788,
+        "total": 4935.8369569999995
+      },
+      "usage": {
+        "inputTokens": 2183,
+        "outputTokens": 142,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000242355
+    },
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H1",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "What room size is the Pro designed for?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "mustInclude": [
+          [
+            "60"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The Nimbus Pro is designed for rooms up to 60 square meters.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What room size is the Nimbus Pro designed for?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.3677499999976135,
+        "llmAttempts": [
+          11851.713416999999
+        ],
+        "validation": 0.21104100000229664,
+        "total": 11856.936625000002
+      },
+      "usage": {
+        "inputTokens": 1683,
+        "outputTokens": 119,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00019065500000000002
+    },
+    {
+      "run": 2,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.6281250000029104,
+        "llmAttempts": [
+          1997.5778750000027
+        ],
+        "validation": 0.2757500000006985,
+        "total": 2001.0941660000099
+      },
+      "usage": {
+        "inputTokens": 2183,
+        "outputTokens": 121,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023395500000000002
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H1",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "What room size is the Pro designed for?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro is designed for rooms up to 60 square meters.",
+        "mustInclude": [
+          [
+            "60"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The Nimbus Pro is designed for rooms up to 60 square meters.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What room size is the Nimbus Pro designed for?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 2.102041999998619,
+        "llmAttempts": [
+          7078.111457999999
+        ],
+        "validation": 0.5862920000072336,
+        "total": 7084.094499999992
+      },
+      "usage": {
+        "inputTokens": 1683,
+        "outputTokens": 125,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000193055
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H2",
+      "type": "holdout direct",
+      "priority": "holdout",
+      "question": "How often should I replace the filter on the Compact?",
+      "expected": {
+        "status": "answered",
+        "answer": "Replace the HEPA filter of Nimbus Compact every 6 months.",
+        "mustInclude": [
+          [
+            "6 months",
+            "six months"
+          ]
+        ],
+        "mustNotInclude": [
+          "12 months"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Replace the HEPA filter of the Nimbus Compact every 6 months.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Replace the HEPA filter of Nimbus Compact every 6 months."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "How often should I replace the filter on the Nimbus Compact?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 2.0697499999951106,
+        "llmAttempts": [
+          2102.8052910000115
+        ],
+        "validation": 1.304375000006985,
+        "total": 2109.021999999997
+      },
+      "usage": {
+        "inputTokens": 1718,
+        "outputTokens": 150,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00020603
+    },
+    {
+      "run": 2,
+      "session": "S14",
+      "testId": "H3",
+      "type": "holdout follow-up",
+      "priority": "holdout",
+      "question": "And the other one?",
+      "expected": {
+        "status": "answered",
+        "answer": "Nimbus Pro: replace the HEPA filter every 12 months.",
+        "mustInclude": [
+          [
+            "12 months",
+            "twelve months"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Replace the HEPA filter of the Nimbus Pro every 12 months.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Replace the HEPA filter of Nimbus Pro every 12 months."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "How often should I replace the filter on the Nimbus Pro?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 1.8164170000090962,
+        "llmAttempts": [
+          4807.945791000006
+        ],
+        "validation": 0.28816700000606943,
+        "total": 4814.792667000016
+      },
+      "usage": {
+        "inputTokens": 1750,
+        "outputTokens": 130,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00020075
+    },
+    {
+      "run": 2,
+      "session": "S15",
+      "testId": "H4",
+      "type": "holdout inference",
+      "priority": "holdout",
+      "question": "Does the Compact have night mode?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. Night mode is available only on Nimbus Pro.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "only"
+          ]
+        ],
+        "mustNotInclude": [
+          "yes"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "No, the Nimbus Compact does not have night mode.",
+        "reason": "Night mode is available only on Nimbus Pro, so it is not available on the Compact.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s6",
+            "quote": "Night mode is available only on Nimbus Pro."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Does the Nimbus Compact have night mode?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 2.2004999999917345,
+        "llmAttempts": [
+          4746.2043330000015
+        ],
+        "validation": 1.3912920000002487,
+        "total": 4752.497999999992
+      },
+      "usage": {
+        "inputTokens": 1681,
+        "outputTokens": 146,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00020128500000000002
+    },
+    {
+      "run": 2,
+      "session": "S15",
+      "testId": "H5",
+      "type": "holdout absent",
+      "priority": "holdout",
+      "question": "How much does the Pro cost?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The guide does not state a price.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the cost of the Nimbus Pro.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 1,
+            "sentenceId": "d1:p1:s5",
+            "quote": "Nimbus Pro is designed for rooms up to 60 square meters."
+          },
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Replace the HEPA filter of Nimbus Pro every 12 months."
+          }
+        ],
+        "resolvedQuery": "How much does the Nimbus Pro cost?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.4717090000049211,
+        "llmAttempts": [
+          13815.272959000009
+        ],
+        "validation": 0.34754200000315905,
+        "total": 13818.270376000015
+      },
+      "usage": {
+        "inputTokens": 1708,
+        "outputTokens": 157,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00020798000000000002
+    },
+    {
+      "run": 3,
+      "session": "S1",
+      "testId": "M1",
+      "type": "direct fact",
+      "priority": "P0",
+      "question": "What is the maximum for Model A?",
+      "expected": {
+        "status": "answered",
+        "answer": "The maximum load for Model A is 20 units.",
+        "mustInclude": [
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [
+          "24"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The maximum load for Model A is 20 units.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s3",
+            "quote": "Model A: the maximum load is 20 units."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the maximum load for Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5945000000065193,
+        "llmAttempts": [
+          14555.187582999992
+        ],
+        "validation": 0.587375000002794,
+        "total": 14560.844041000004
+      },
+      "usage": {
+        "inputTokens": 2182,
+        "outputTokens": 112,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00023027
+    },
+    {
+      "run": 3,
+      "session": "S4",
+      "testId": "M5",
+      "type": "absent fact",
+      "priority": "P0",
+      "question": "What is the battery life of Model A?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual does not specify battery life.",
+        "mustInclude": [],
+        "mustNotInclude": [
+          "hours",
+          "mAh"
+        ],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the battery life of Model A.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the battery life of Model A?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 3.428790999983903,
+        "llmAttempts": [
+          3509.686583999981
+        ],
+        "validation": 2.0200829999812413,
+        "total": 3517.611707999982
+      },
+      "usage": {
+        "inputTokens": 2183,
+        "outputTokens": 120,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000233555
+    },
+    {
+      "run": 3,
+      "session": "S11",
+      "testId": "A4",
+      "type": "unknown entity",
+      "priority": "P1",
+      "question": "What is the maximum load for Model C?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The manual only covers Model A and Model B.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the maximum load for Model C.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the maximum load for Model C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.5852079999749549,
+        "llmAttempts": [
+          1908.209709000017
+        ],
+        "validation": 0.20833299998776056,
+        "total": 1912.9194989999814
+      },
+      "usage": {
+        "inputTokens": 2183,
+        "outputTokens": 137,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000240355
+    },
+    {
+      "run": 3,
+      "session": "S15",
+      "testId": "H4",
+      "type": "holdout inference",
+      "priority": "holdout",
+      "question": "Does the Compact have night mode?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. Night mode is available only on Nimbus Pro.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "only"
+          ]
+        ],
+        "mustNotInclude": [
+          "yes"
+        ],
+        "sources": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "No, the Nimbus Compact does not have night mode.",
+        "reason": "Night mode is available only on Nimbus Pro, so it is not available on the Compact.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "holdout-nimbus.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s6",
+            "quote": "Night mode is available only on Nimbus Pro."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Does the Nimbus Compact have night mode?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 1.7099170000001322,
+        "llmAttempts": [
+          4582.078582999995
+        ],
+        "validation": 0.1542499999923166,
+        "total": 4585.893708999996
+      },
+      "usage": {
+        "inputTokens": 1681,
+        "outputTokens": 149,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00020248500000000002
+    },
+    {
+      "run": 3,
+      "session": "S15",
+      "testId": "H5",
+      "type": "holdout absent",
+      "priority": "holdout",
+      "question": "How much does the Pro cost?",
+      "expected": {
+        "status": "not_found",
+        "answer": "The guide does not state a price.",
+        "mustInclude": [],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "The uploaded documents do not specify the cost of the Nimbus Pro.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How much does the Nimbus Pro cost?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 16,
+        "estimatedTokens": 228
+      },
+      "latencyMs": {
+        "retrieval": 0.441499999986263,
+        "llmAttempts": [
+          9009.400875000021
+        ],
+        "validation": 0.26379199998336844,
+        "total": 9012.698999999993
+      },
+      "usage": {
+        "inputTokens": 1708,
+        "outputTokens": 134,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00019878000000000002
+    }
+  ],
+  "apiErrors": [
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1",
+      "question": "What is the limit?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H2",
+      "question": "How often should I replace the filter on the Compact?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 1,
+      "session": "S15",
+      "testId": "H4",
+      "question": "Does the Compact have night mode?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 2,
+      "session": "S1",
+      "testId": "M1",
+      "question": "What is the maximum for Model A?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1",
+      "question": "What is the limit?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 2,
+      "session": "S11",
+      "testId": "A4",
+      "question": "What is the maximum load for Model C?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 3,
+      "session": "S1",
+      "testId": "M3",
+      "question": "And what about the other model?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1",
+      "question": "What is the limit?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H1",
+      "question": "What room size is the Pro designed for?",
+      "error": "NVIDIA API 429: {\"status\":429,\"title\":\"Too Many Requests\"}"
+    }
+  ],
+  "skipped": [
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1b",
+      "after": "R1"
+    },
+    {
+      "run": 1,
+      "session": "S14",
+      "testId": "H3",
+      "after": "H2"
+    },
+    {
+      "run": 1,
+      "session": "S15",
+      "testId": "H5",
+      "after": "H4"
+    },
+    {
+      "run": 2,
+      "session": "S1",
+      "testId": "M3",
+      "after": "M1"
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1b",
+      "after": "R1"
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1b",
+      "after": "R1"
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H2",
+      "after": "H1"
+    },
+    {
+      "run": 3,
+      "session": "S14",
+      "testId": "H3",
+      "after": "H1"
+    }
+  ],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 674.550125,
+      "indexMs": 0.7372920000000249
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 33.37016700000095,
+      "indexMs": 0.2617079999999987
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 21.199291999997513,
+      "indexMs": 2.8848330000000715
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 43.89849999999933,
+      "indexMs": 2.0357919999987644
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 13.127124999999069,
+      "indexMs": 0.12483299999439623
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 13.920959000002767,
+      "indexMs": 0.18291700000554556
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 14.329540999999153,
+      "indexMs": 1.1115830000053393
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 28.013749999998254,
+      "indexMs": 0.3851660000073025
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 12.458624999999302,
+      "indexMs": 0.18483399999968242
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 27.260834000000614,
+      "indexMs": 0.21462500000779983
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 9.775374999997439,
+      "indexMs": 0.3129169999883743
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 15.524040999996942,
+      "indexMs": 0.13550000000395812
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 19.371374999987893,
+      "indexMs": 0.17716600000858307
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 20.6304999999993,
+      "indexMs": 0.18937499998719431
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 15.097708999994211,
+      "indexMs": 1.0492080000112765
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 21.62400000001071,
+      "indexMs": 0.18599999998696148
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 8.530457999993814,
+      "indexMs": 0.15287499999976717
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "extractMs": 9.099874999985332,
+      "indexMs": 0.3133749999979045
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        18.652916999999434,
+        9.11012500000652,
+        5.532582999992883,
+        4.9301249999844,
+        21.721458999993047
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        48.04512500000419,
+        39.391042000002926,
+        8.187540999992052,
+        11.259791999997105,
+        16.652582999988226
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        3.6042080000042915,
+        2.022792000003392,
+        3.3544999999867287,
+        8.04229199999827,
+        7.102041999984067
+      ]
+    }
+  ]
+}

@@ -169,6 +169,7 @@ export function heardClarification(language: Language, heard: Misheard, deep: bo
     citations: [],
     related: [],
     assumed: "",
+    didYouMean: "",
     deep: { requested: deep, applied: false },
     resolvedQuery: "",
     activeEntities: [],

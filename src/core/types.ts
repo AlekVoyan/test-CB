@@ -75,6 +75,8 @@ export interface AnswerResult {
   related: Citation[];
   /** The corrected term when the question had an obvious slip; empty otherwise. */
   assumed: string;
+  /** For not_found: the documents' own word for what was asked about, offered as the next question. */
+  didYouMean: string;
   deep: { requested: boolean; applied: boolean };
   resolvedQuery: string;
   activeEntities: string[];

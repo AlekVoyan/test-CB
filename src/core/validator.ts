@@ -136,6 +136,15 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
     errors.push(`The number ${n} in the answer does not appear in any cited line or in the question.${hint}`);
   }
 
+  // A word offered as "did you mean" has to be the documents' own. One that is not is dropped rather than retried:
+  // it costs a call to fix something that only decorates a refusal.
+  if (out.didYouMean.trim() && out.status !== "not_found") warnings.push('"didYouMean" belongs to a not-found answer.');
+  if (out.didYouMean.trim() && out.status === "not_found") {
+    const haystack = [...ctx.evidenceById.values()].map((u) => u.text.toLowerCase());
+    if (!haystack.some((text) => text.includes(out.didYouMean.trim().toLowerCase())))
+      warnings.push(`"didYouMean" names “${out.didYouMean.trim()}”, which no evidence line contains.`);
+  }
+
   const words = answer.split(/\s+/).filter(Boolean).length;
   if (words > ctx.maxWords) warnings.push(`Answer has ${words} words (limit ${ctx.maxWords}).`);
   if (ids.length > ctx.maxCitations) warnings.push(`Answer cites ${ids.length} lines (limit ${ctx.maxCitations}).`);

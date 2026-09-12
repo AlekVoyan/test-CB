@@ -285,6 +285,7 @@ const BLANK: LlmAnswer = {
   citations: [],
   related: [],
   assumed: "",
+  didYouMean: "",
   resolvedQuery: "q",
   activeEntities: [],
 };
@@ -463,6 +464,23 @@ function fakeLlm(outputs: Partial<LlmAnswer>[], supportsDeep = false): LlmClient
   };
   return llm;
 }
+
+describe("the word the documents do use", () => {
+  it("keeps an offer the documents support, on a not-found answer", async () => {
+    const nozzle = [...evidence, unit("d1:p3:s7", "Clean the dosing nozzle of Model B every 30 days.", "doc1", 3)];
+    const llm = fakeLlm([{ status: "not_found", answer: "The documents do not mention a nozzel.", didYouMean: "nozzle" }]);
+    const result = await answerQuestion({ question: "What is the nozzel made of?", history: [], evidence: nozzle, llm });
+    expect(result.didYouMean).toBe("nozzle");
+  });
+
+  it("drops one they do not, and one on an answer that found something", async () => {
+    const invented = fakeLlm([{ status: "not_found", answer: "The documents do not mention it.", didYouMean: "carburettor" }]);
+    expect((await answerQuestion({ question: "What about the carburettor?", history: [], evidence, llm: invented })).didYouMean).toBe("");
+
+    const answered = fakeLlm([{ answer: "Model A handles 20 units.", citations: ["d1:p2:s2"], didYouMean: "nozzle" }]);
+    expect((await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm: answered })).didYouMean).toBe("");
+  });
+});
 
 describe("evidence ids", () => {
   it("reads an id the model wrote without its document, and a run of lines written as a range", async () => {

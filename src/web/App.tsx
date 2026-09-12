@@ -895,7 +895,9 @@ export function App() {
           : { kind: "closest", lines: relatedEvidence(selection).map(toCitation) };
     // The suggestions read further down the ranked list than the two lines shown as proof: a heading or a first
     // sentence makes a better thing to offer than the line that merely scored highest.
-    const topics = result.status === "not_found" ? topicsFrom([...result.related, ...relatedEvidence(selection, 8).map(toCitation)]) : [];
+    const closest = result.status === "not_found" ? topicsFrom([...result.related, ...relatedEvidence(selection, 8).map(toCitation)]) : [];
+    // The model's own offer — the documents' word for what was asked about — leads the suggestions when it made one.
+    const topics = result.didYouMean ? [result.didYouMean, ...closest.filter((t) => !t.includes(result.didYouMean))].slice(0, 3) : closest;
 
     const id = Date.now();
     setPending(null);

@@ -34,6 +34,7 @@ import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
 import { heardClarification, lexiconOf, misheardWords } from "../core/heard";
 import { groupPassages, type Passage } from "../core/passages";
+import { askAbout, closestLabel, topicsFrom } from "../core/topics";
 import { relatedEvidence, selectEvidence } from "../core/retriever";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
 import { verifyCitations } from "../core/validator";
@@ -109,6 +110,8 @@ interface AnswerView {
   result: AnswerResult;
   /** Lines shown with a not-found answer: the model's related lines, or the retriever's closest when it chose none. */
   nearby: { kind: NearbyKind; lines: Citation[] };
+  /** Things the document does talk about, offered when it does not answer the question. */
+  topics: string[];
   clientErrors: string[];
   /** The server's ticket to have the answer spoken by the hosted voice; Replay uses it too. */
   speech?: SpeechTicket;
@@ -890,10 +893,13 @@ export function App() {
         : result.related.length
           ? { kind: "related", lines: result.related }
           : { kind: "closest", lines: relatedEvidence(selection).map(toCitation) };
+    // The suggestions read further down the ranked list than the two lines shown as proof: a heading or a first
+    // sentence makes a better thing to offer than the line that merely scored highest.
+    const topics = result.status === "not_found" ? topicsFrom([...result.related, ...relatedEvidence(selection, 8).map(toCitation)]) : [];
 
     const id = Date.now();
     setPending(null);
-    setAnswers((list) => [{ id, question, language: lang, result, nearby, clientErrors, speech }, ...list].slice(0, HISTORY_LIMIT));
+    setAnswers((list) => [{ id, question, language: lang, result, nearby, topics, clientErrors, speech }, ...list].slice(0, HISTORY_LIMIT));
     setViewIndex(0);
     setProofFront(0);
     setProofExpanded(false);
@@ -1364,6 +1370,31 @@ export function App() {
                         <span className="why-label">Why</span>
                         <span>{answer.result.reason}</span>
                       </p>
+                    )}
+                    {/* Nothing answered the question, but something came close: the document's own words, to ask next. */}
+                    {answer.result.status === "not_found" && answer.topics.length > 0 && (
+                      <div className="nearby">
+                        <p className="nearby-label" lang={answer.language}>
+                          {closestLabel(answer.language)}
+                        </p>
+                        <div className="chips">
+                          {answer.topics.map((topic) => (
+                            <button
+                              key={topic}
+                              type="button"
+                              className="chip"
+                              lang={answer.language}
+                              disabled={phase === "thinking" || viewingEarlier}
+                              onClick={() => {
+                                primeAudio();
+                                void ask(askAbout(answer.language, topic), "text");
+                              }}
+                            >
+                              {topic}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     <div className="answer-actions">
                       <button type="button" className={`btn${phase === "speaking" ? " is-speaking" : ""}`} onClick={replay}>

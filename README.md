@@ -81,6 +81,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/core/validator.ts` | Answer rules, citation building, quote re-check |
 | `src/core/passages.ts` | Files cited lines under the paragraph they come from (one sheet per paragraph, with the lines around it) |
 | `src/core/slips.ts` | Names a slip the model fixed without saying so ("nozzel" → "nozzle"), found by comparing the question with the model's own restatement |
+| `src/core/topics.ts` | What the document does talk about: the opening words of the lines that came closest, offered as questions to ask next when nothing answered |
 | `src/core/heard.ts` | What the recognizer misheard: the documents' own lexicon, a phonetic fold, and the question asked back when more than one of their words fits. Runs before the model, in the browser |
 | `src/core/contract.ts` | JSON schema of the model's answer and of the API request |
 | `src/llm/anthropic.ts` | Anthropic SDK adapter (structured outputs; Think harder = extended thinking) |

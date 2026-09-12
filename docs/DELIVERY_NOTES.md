@@ -29,6 +29,7 @@ A browser prototype: upload up to two text-based PDFs (≤ 10 pages total), ask 
 | The model reads before it decides | Its answer now begins with the restated question and a private `analysis` (which lines bear on the question and what they say), and only then the status. When status came first, a model without reasoning committed to "not in the document" and then wrote a reason that contradicted it. | About 40–60 more output tokens per answer. |
 | Columns read in reading order | A CV with a sidebar came out with lines of both columns glued together, which spoiled both the answers and the quotes. An empty vertical band with running text on both sides marks a gutter, and each column is read top to bottom. A section can have columns of its own, like the CV's "Languages" and "Focus Areas". A label–value table is never split, and a line that starts with a capital letter is never taken as the continuation of a wrapped line. The band has to be one font size wide, not two: a magazine scan set at 5pt has a 7pt gutter, and two font sizes is a wide gutter only on a full-size page. What carries the rule is that the band is empty down the whole region — running text never leaves a hole of a font size on every line at the same x. | Heuristics tuned on one real CV, a scanned magazine page and synthetic pages, each with a test. One-column documents extract byte-identically. |
 | Quotes filed by source paragraph, the real page on demand | A one-page document put every quote into one folder: a broad question about my CV cited 26 lines in a single block. Each cited paragraph is now a sheet titled by its first line, with the cited lines in focus and the lines around them fading out. "Open in page" renders the actual PDF page with pdf.js, with the paragraph lit and the cited lines framed. Line positions come from the text layer at ingestion and stay in the browser. | No citation limit, by choice: the model may still cite many lines. A long paragraph shows only the lines next to cited ones. Zoom goes to 300%: a pinch or Ctrl/⌘-scroll scales the image at once, and the page is rendered sharp when the gesture rests. |
+| The question is checked against the documents' own words before the model is called | Recognition mishears: my own Russian test turned "сильная сторона" (strong side) into "сильная страна" (strong country), and the product answered a question nobody asked. A word the documents do not have is now folded phonetically — voiced and voiceless pairs collapse, unstressed vowels collapse, English digraphs reduce — and looked up among the words they do have. One word fits: it is used, and the answer opens by naming the assumption. More than one fits: the question is asked back ("Did you mean “step” or “setup”?") **without calling the model** — nothing to pay, nothing to wait for, and no answer to a question nobody asked. The name of a thing the documents enumerate is never swapped: asked about "Model C", a manual covering A and B still says it has no answer (A4), which is the whole point of the guard. | It runs on the index in the browser, so the eval harness had to make the same check to be able to test it (X6). A fold is crude: it can offer a word that only sounds right, which is why more than one candidate asks rather than guesses. Recognition alternatives (Chrome can return several hypotheses) would catch what a per-word check cannot; that is measured in §16, not built. |
 | A silent slip fix is named by code | Nemotron corrected "nozzel" in its restated question but never told the user. `slips.ts` names the correction when the corrected word is in the documents, the original is not, and the two differ by a letter or two. | Catches only slips the model itself corrected, and only spelling-level ones. |
 
 ## 3. Reused components and own work
@@ -62,7 +63,7 @@ Questions and expected outcomes: `eval/expected.json`, committed in `f699eb9` be
 
 ## 8. Expected vs actual results
 
-Reported run: commit `2ad522c`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per session, no provider errors — the last of three full passes over the whole suite on the shipped code, all three within half an hour of each other. The other two are in `eval/results/report-pass-b.md` and in git history, and §9 carries the spread between them, which is wider than I expected. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`.
+Reported run: commit `0e90ff8`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per session, no provider errors — the last of four full passes over the whole suite, the first three within half an hour of each other on the code before the mishearing check and this one after it. The others are in `eval/results/report-pass-b.md` and in git history, and §9 carries the spread between them, which is wider than I expected. Verbatim answers and quotes for every run are in `eval/results/report.md`, raw records in `eval/results/actual-results.json`.
 
 | ID | Type | Question | Expected (status · fact · source) | Passed |
 |---|---|---|---|---|
@@ -72,7 +73,7 @@ Reported run: commit `2ad522c`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per se
 | M4 | exception | Is Model B ever allowed to exceed its normal limit? | answered · 15 units, ≤ 5 min, below 20°C · v1 p.3 | 3/3 |
 | M5 | absent fact | What is the battery life of Model A? | not_found · 0 citations | 3/3 |
 | M6 | replacement (v1 → v2) | What is the maximum for Model A? | answered · 24 units, not 20 · v2 p.2 | 3/3 (answer changed from the v1 baseline in 6/6 runs across the passes) |
-| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 3/3 |
+| R1 | ambiguity | What is the limit? | needs_clarification · names Model A and Model B | 2/3 |
 | R1b | spoken clarification | Model B. | answered · 12 units · v1 p.2 | **1/3** — the weakest test in the set, see §13 |
 | R2 | correction | I meant Model B. | answered · 12 units, not "20 units" · v1 p.2 | 3/3 |
 | A1 | conflicting documents | What is the maximum for Model A? (v1 + v2 loaded) | conflict · 20 and 24, both documents cited | 3/3 |
@@ -80,7 +81,7 @@ Reported run: commit `2ad522c`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per se
 | A3 | distractor | How often should I clean the nozzle on Model B? | answered · 30 days, not 15 · v1 p.3 | 3/3 |
 | A4 | unknown entity | What is the maximum load for Model C? | not_found | 3/3 |
 | A5 | rename (v2 uploaded as manual-v1.pdf) | What is the maximum for Model A? | answered · 24 units | 3/3 |
-| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | 3/3 here, 2/3 in the pass before it |
+| A6 | exception reasoning | Can Model B run at 15 units when it's 25°C? | answered · No (exception only below 20°C) · v1 p.3 | 2/3; across the four passes 1/3, 2/3, 3/3, 2/3 |
 | A7 | speech-recognition error | What's the max load for model bee? | answered · 12 units · v1 p.2 | 3/3 |
 | A8 | history reset (D4) | And what about the other model? (after v1 → v2) | needs_clarification | 3/3 |
 | A9 | document overview | What is this document about? | answered · Kestrel Dosing System · v1 p.1 | 3/3 |
@@ -89,7 +90,7 @@ Reported run: commit `2ad522c`, NVIDIA Nemotron 3 Super, 37 tests, 3 runs per se
 | X3 | absent fact, related line | How long does Model B run on battery? | not_found · a related line from p.1 or p.3 (power adapter) | 0/3 (not_found 3/3, never a related line) |
 | X4 | slip, one target | How often should I clean the nozzel on Model B? | answered · 30 days · assumption named · v1 p.3 | 3/3 |
 | X5 | slip, model not named (guard) | How often should I clean the nozzel? | needs_clarification · names Model A and Model B | 3/3 |
-| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 18/18 |
+| L1–L6 | Russian and Ukrainian | facts, follow-up, exception, absent facts | answer in the selected language, quotes in English | 17/18 (L5, the Ukrainian exception question, swings between 3/3 and 1/3) |
 | L7 | language switch mid-session | А яке максимальне навантаження моделі B? (after a Russian turn) | answered in Ukrainian · 12 units · v1 p.2 | 3/3 (with its Russian baseline, 6/6) |
 | H1–H5 | holdout document | room size, filter intervals, follow-up, night mode, price | see `eval/expected.json` | 15/15 |
 | I1–I3 | input limits | 3 files, 11 pages, PDF without text | rejected with a message | pass (`npm test`) |
@@ -118,7 +119,7 @@ Across all 105 answers the model marked 18 as inferred, and none was wrong. The 
 
 **Russian and Ukrainian (L1–L6, commit `fc99ba3`, 3 runs):** 18/18 passed — answers in the selected language, quotes in English, not-found recognised in both languages. Full run on the same commit: P0 100%, P1 88.9% (A6), holdout 80% (**H3 regressed to 0/3**, see §13), RU/UA 100%, 0 critical failures.
 
-`expected.json` was not changed after the first run except for added tests, each in its own commit (L1–L6 and X1–X5 before their first run, and this one): **A9, "What is this document about?"** (session S18). Asking my own 7-page PDF "about what is document" by voice returned `not_found`: the prompt handled specific facts but not questions about the document as a whole. The prompt now answers those from the title, headings and introduction, and A9 checks it on the fixture manual.
+`expected.json` was not changed after the first run except for added tests, each in its own commit — and one removed, X6, described in §13 (L1–L6 and X1–X5 before their first run, and this one): **A9, "What is this document about?"** (session S18). Asking my own 7-page PDF "about what is document" by voice returned `not_found`: the prompt handled specific facts but not questions about the document as a whole. The prompt now answers those from the title, headings and introduction, and A9 checks it on the fixture manual.
 
 ## 9. Factual accuracy and citation accuracy
 
@@ -126,12 +127,12 @@ Scored separately for every test and run (rules in `eval/expected.json` and ТЗ
 
 | Group | Tests | Scored runs | Factual accuracy | Citation accuracy | Reasoning checks |
 |---|---|---|---|---|---|
-| P0 | 10 | 30 | 93.3% | 93.3% | — |
-| P1 | 9 | 27 | 100.0% | 100.0% | — |
+| P0 | 10 | 30 | 91.7% | 93.3% | — |
+| P1 | 9 | 27 | 96.3% | 96.3% | — |
 | Holdout | 5 | 15 | 100.0% | 100.0% | — |
-| RU/UA | 8 | 24 | 100.0% | 100.0% | — |
+| RU/UA | 8 | 24 | 95.8% | 95.8% | — |
 | Think better | 5 | 15 | 100.0% | 100.0% | 66.7% |
-| All | 37 | 111 | 98.2% | 98.2% | 66.7% |
+| All | 37 | 111 | 95.9% | 96.4% | 66.7% |
 
 **Critical failures** (a plausible answer without support, an answer where the documents have none, or a wrong inferred answer): **0**, in this pass and in every other.
 
@@ -141,9 +142,10 @@ Scored separately for every test and run (rules in `eval/expected.json` and ТЗ
 |---|---|---|---|---|---|---|---|---|
 | 08:09 | 96.7% | 96.3% | 100% | 95.8% | 97.3% | 94.6% | met | 0 |
 | 08:20 | 90.0% | 92.6% | 100% | 95.8% | 94.1% | 91.0% | not met (R1b) | 0 |
-| 08:46 — reported | 93.3% | 100% | 100% | 100% | 98.2% | 95.5% | not met (R1b) | 0 |
+| 08:46 | 93.3% | 100% | 100% | 100% | 98.2% | 95.5% | not met (R1b) | 0 |
+| 11:17 — reported, with the mishearing check | 91.7% | 96.3% | 100% | 95.8% | 95.9% | 92.8% | not met (R1b) | 0 |
 
-Nothing changed between them but the model's own sampling: temperature is 0, the endpoint returned no errors, and the prompts were byte-identical. **The acceptance criterion of ТЗ §7.8 is met in one pass of the three and missed in two, both times on R1b** (§13). I report all three rather than the best one; a single pass of this suite on this endpoint is not a reliable measurement, and the first thing to do with an Anthropic balance is to repeat it on Claude Haiku 4.5, where I expect a narrower spread.
+Nothing changed between the first three but the model's own sampling: temperature is 0, the endpoint returned no errors, and the prompts were byte-identical. The fourth adds the check described in §2 that looks for misheard words before the model is called; it sits inside the spread of the three before it, and the tests it touches (M4, X3, the holdout follow-ups) came back where they were. **The acceptance criterion of ТЗ §7.8 is met in one pass of the three and missed in two, both times on R1b** (§13). I report all three rather than the best one; a single pass of this suite on this endpoint is not a reliable measurement, and the first thing to do with an Anthropic balance is to repeat it on Claude Haiku 4.5, where I expect a narrower spread.
 
 **Changes to scoring with the think-better mode** (code, not `expected.json`):
 - A wrong inferred answer is a critical failure.
@@ -159,7 +161,7 @@ In this run the two scores are equal in every group: each failure is a decline o
 | Ingestion, `manual-v1.pdf` (3 pages), file selected → ready | embedded Chromium, local dev | 274 ms and 447 ms (two loads; pdf.js extraction is almost all of it, indexing 1 ms) |
 | Ingestion, same file | Node, 5 runs | median 6 ms, max 12 ms (warm process) |
 | Question → first audio (submit → `speechSynthesis` utterance start, a proxy, not speaker onset) | embedded Chromium, typed question, NVIDIA | 3309 ms (retrieval 1 ms, server round trip 3301 ms, LLM 3272 ms); one sample |
-| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 111 questions, reported run `2ad522c` | median 2264 ms, p90 5620 ms, max 18090 ms; first model call median 2257 ms. The two passes before it, same code, same half hour: medians 2393 ms and 2674 ms, maxima 54.4 s and 13.6 s. Earlier daytime run `627aaf7`: median 3738 ms, p90 9835 ms |
+| Question total, text pipeline (retrieval + LLM incl. retries + validation) | Node, 111 questions, reported run `0e90ff8` | median 2893 ms, p90 7603 ms, max 24534 ms; first model call median 2843 ms. The three passes before it: medians 2264, 2393 and 2674 ms, maxima 18.1 s, 54.4 s and 13.6 s. The endpoint's mood moves this more than anything in the code does |
 | Answer format A/B, same time window | Node, NVIDIA, 12 raw calls per format, interleaved | Status first: median 3.35 s, 133 output tokens. Analysis first: median 3.2 s, 167 output tokens. Three 503s excluded. The format costs ~34 tokens and no measurable time |
 | Question → first audio, inferred answer that needed a retry (X1) | embedded Chromium, typed question, NVIDIA | 5.84 s (two model calls, 2.15 s + 3.61 s); one sample |
 | Question → first audio, not-found answer (battery life) | same | 1.23 s (one model call, 1.12 s); one sample |
@@ -188,12 +190,12 @@ Assumptions and sources: `docs/pricing.md` (list prices checked 2026-09-10; free
 | Item | Value | Basis |
 |---|---|---|
 | Ingestion | $0 | parsing and indexing run in the browser, no API call |
-| Tokens per question | 2131 in / 157 out (mean, retries included) | measured, reported eval `2ad522c`, 111 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
-| Retries | 2 of 111 questions (1.8%) | measured; their tokens are included above. The two passes before it: 4.5% and 5/111. A retry is a second call, so it is the cost line that moves most between passes |
+| Tokens per question | 2192 in / 170 out (mean, retries included) | measured, reported eval `0e90ff8`, 111 questions. Before the think-better mode: 1452 / 87 (the prompt is longer now, and each answer carries a private analysis) |
+| Retries | 5 of 111 questions (4.5%) | measured; their tokens are included above. Across the four passes: 1.8% to 4.5%. A retry is a second call, so it is the cost line that moves most between passes |
 | LLM per question, Nemotron 3 Super | mean $0.00025, max $0.00060 | measured tokens × OpenRouter paid price ($0.085 / $0.40 per MTok) |
 | LLM per question, Claude Haiku 4.5 | ≈ $0.0030 | **estimate**: same token counts × $1 / $5 per MTok; Haiku's tokenizer differs — **TBD measured** |
 | Think harder, Claude Haiku 4.5 | up to ≈ +$0.010 per question | **estimate**: a thinking budget of up to 2,048 output tokens × $5/MTok. The budget is a target; easy questions use less. **TBD measured** |
-| One pass over the P0 tests | $0.00271 (Nemotron) | measured |
+| One pass over the P0 tests | $0.00250 (Nemotron) | measured |
 | Speech recognition, prototype | $0 direct | Web Speech API (browser vendor's service, no SLA) |
 | Speech synthesis (ElevenLabs Flash v2.5) | ≈ $0.0046 per question | measured mean spoken text 92 characters (the answer plus the Why line of inferred answers) × $0.05 per 1,000. In the browser test: 41–140 characters, $0.002–0.007. $0 when the browser's voice speaks |
 | Speech synthesis, on device (Supertonic 3) | $0 per question | runs in the browser; a one-time 399 MB download per browser |
@@ -270,6 +272,9 @@ Found while building the on-device voice:
 - **My tile shadows slowed the voice down.** Tiles used a drop-shadow filter, so the shadow followed the tab. A filter is recomputed every frame while anything inside the tile moves: the answer filing in, the speaking bars. In the app that took the GPU from the voice, and its first piece took 1.5–2.1 s instead of 0.7 s. With the animations off it took 1.0 s, and without the filters 0.7 s. Tile shadows are now box-shadows: the surface's shadow, then the tab with its own, then the surface, which covers the tab's shadow at its foot. The silhouette keeps one seamless shadow, and nothing is recomputed while the answer moves. Two intermediate fixes failed. Clipping the tab's shadow at its foot left a hard edge. Moving the filter to a layer under the content was still recomputed, because the content moved over it. The first piece takes 0.74–0.79 s.
 - **A two-column scan read across the columns (fixed).** On a scanned magazine page every line of the answer's evidence glued the left column to the right — "the night of the nest full moon, the pected me to ride" — and in the page viewer the frames were drawn as full-width bars over both columns. The gutter detection was there and correct, but its threshold was not: it wanted a band two font sizes wide, and this page is set at 5pt with a 7pt gutter, so nothing split. (The page also has a running header that crosses the gutter, which is why the whole-page pass finds nothing and the work falls to the sections below it.) One font size is enough, because the rule that carries the weight is that the band is empty down the whole region. The same page now reads column by column, the quotes read as sentences, and the frames sit inside one column. The CV's label–value table still stays whole — its test was already there — and the fixtures extract byte-identically. A test with this scan's geometry is in `core.test.ts`.
 - **A scanned book rendered as a blank page (fixed).** In my own test on an 8-page scan from the Internet Archive, every answer was right and every quote exact, but "Open in page" showed a white sheet with the cited lines framed on nothing. The text in such a file is an invisible OCR layer over an image of the page, and that image is JBIG2 or JPEG 2000 — formats pdf.js decodes with WebAssembly modules it fetches by URL rather than bundles. We served none of them, so the decoder failed silently (`Jbig2Error: JBig2 failed to initialize`) and the page painted white. The decoders, the character maps for CJK text, the standard fonts and the colour profiles are now served in development and shipped in the build under `/pdfjs` (`vite.config.ts`), and the same book renders. They add about 3.9 MB to the deployment and are fetched only when a document needs them. The answer pipeline is untouched: extraction never needed them.
+- **Answering a question nobody asked (fixed, and the first fix was worse than the problem).** In the Russian voice test on my CV, recognition heard "самая сильная страна" (strongest country) for "самая сильная сторона" (strongest side). The product declined, which was safe, but the real fix is to notice that "страна" is in no document while "сторона" is, and that the two sound alike. That check now runs before the model: one candidate is used and named in the answer, two or more are asked back with no model call at all.
+  The first version of it considered any word of four letters or more. A three-page manual holds a few hundred words, so most of any language is "not in the documents": the eval came back with "ever" offered "every" or "never" (M4 turned into a clarification, 3/3), "does" offered "days", and "often" answered as "hold" — and because the corrected question is what goes into the conversation, the holdout follow-up after it answered the question before last. Three critical failures, from a check built to prevent exactly that. It now takes only words of six letters or more, skips a list of everyday words, requires the candidate to sound the same rather than merely look similar, and treats a word that grows out of another ("exceed" against "exceeded") as a form of it. The eval that followed came back clean, inside the spread of the passes before it.
+  Its guard is A4 — "Model C" must never become "Model B" — and the tests cover the fold, the guard, endings that are not slips, the everyday words the eval caught, and the wording in three languages (`core/heard.ts`, `core/heard.test.ts`). Test **X6** was added for the two-candidate case and then removed in its own commit (`0e90ff8`): after the tightening, the fixture's vocabulary holds no pair of words that sound alike and can be reached by a word long enough to qualify, and adding one to the fixture would change answers recorded before any run.
 - **My own test on a 10-page short story, asked by voice in Russian (2026-09-12).** A document at the top of the size limit, and prose rather than a manual — the hardest input the scope allows. Seven questions: a clean one reached first audio in 3.0–3.5 s (model 1.3–1.8 s, on-device voice ~1.0 s, 2.9–3.1 s for the first answer after the voice loads), but three of the seven needed a second model call and the worst took 15.2 s. The three causes, in the order they cost time:
   - *An answer cut off by the output limit.* On "who is Eleonora" the model wrote 1,166 output tokens of private analysis and ran past `max_tokens`; the attempt was unparseable and 9.7 s were spent on nothing. **Not fixed** — a shorter analysis on narrative text, or a higher limit, both want an eval pass behind them.
   - *An id written in the answer's alphabet.* Twice in a row the model cited `д4:p7:s47` — our own id with Russian letters — the line was rejected as unknown, and a correct answer ended as "I couldn't verify an answer". **Fixed**: an id now resolves whichever alphabet it is written in (`findEvidence` in `core/validator.ts`, tested). The fix is additive — it can only let a previously rejected id resolve — and it postdates the reported eval run, which used no such ids.
@@ -302,12 +307,13 @@ The core scenario was finished and evaluated inside the eight hours; everything 
 ## 16. What I would improve next
 
 1. **Faster first audio:** stream the model's output and start speaking the first sentence once it validates, instead of waiting for the whole answer.
-2. **Production speech:** a streaming recognizer for all browsers (for example ElevenLabs Scribe v2 or Soniox, both with Russian and Ukrainian) with temporary keys issued by the server, the browser's recognizer as the fallback; and a voice verified for Russian and Ukrainian (a paid ElevenLabs plan).
-3. **Reasoning over stated rules (A6, X1):** run Haiku with and without Think harder first. If it still declines, add a small rule-evaluation step for "is it allowed" and range questions rather than more prompt text. The retry hint that quotes the model's own reason back to it already turns some of Nemotron's declines into answers, at the cost of a second call.
-4. **Answer quality checks beyond facts:** a cheap fluency check (one garbled answer passed), and an LLM-judge pass in the eval for partial answers.
-5. **The page viewer:** let the reader page through the document from the cited page.
-6. **Bigger documents:** switch to top-k automatically (already implemented) and add embeddings once a corpus no longer fits the prompt; OCR for scans.
-7. **Keep documents across reloads** (IndexedDB) and a real per-user rate limit (a KV store) for a public demo.
+2. **Use the recognizer's own alternatives.** Chrome can return several hypotheses per utterance (`maxAlternatives`); we take the first. Scoring each against the document's words would catch mishearings that a per-word check cannot — whole phrases, and words that are real but wrong. Worth measuring first: on Russian, Chrome often returns a single hypothesis, and then the idea is worth nothing.
+3. **Production speech:** a streaming recognizer for all browsers (for example ElevenLabs Scribe v2 or Soniox, both with Russian and Ukrainian) with temporary keys issued by the server, the browser's recognizer as the fallback; and a voice verified for Russian and Ukrainian (a paid ElevenLabs plan).
+4. **Reasoning over stated rules (A6, X1):** run Haiku with and without Think harder first. If it still declines, add a small rule-evaluation step for "is it allowed" and range questions rather than more prompt text. The retry hint that quotes the model's own reason back to it already turns some of Nemotron's declines into answers, at the cost of a second call.
+5. **Answer quality checks beyond facts:** a cheap fluency check (one garbled answer passed), and an LLM-judge pass in the eval for partial answers.
+6. **The page viewer:** let the reader page through the document from the cited page.
+7. **Bigger documents:** switch to top-k automatically (already implemented) and add embeddings once a corpus no longer fits the prompt; OCR for scans.
+8. **Keep documents across reloads** (IndexedDB) and a real per-user rate limit (a KV store) for a public demo.
 
 ## 17. Links
 

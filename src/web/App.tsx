@@ -26,11 +26,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CS
 import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
 import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
 import { spokenAnswer, UNVERIFIED_ANSWER } from "../core/answerer";
+import { assumptionPrefix } from "../core/slips";
 import { config, DEFAULT_LANGUAGE, LANGUAGES, type Language } from "../core/config";
 import { appendTurn, documentSetKey } from "../core/conversation";
 import { llmCostUsd, ttsCostUsd } from "../core/cost";
 import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
+import { heardClarification, lexiconOf, misheardWords } from "../core/heard";
 import { groupPassages, type Passage } from "../core/passages";
 import { relatedEvidence, selectEvidence } from "../core/retriever";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
@@ -848,19 +850,33 @@ export function App() {
 
     const submitAt = performance.now();
     const turns = historyRef.current;
-    const selection = selectEvidence(ready, question, { history: turns });
+    // Recognition mishears words. One of the documents' own words fits what was heard: take it, and say so in the
+    // answer. More than one fits: there is nothing to ask the model yet, so ask the listener which word they meant —
+    // no call, no cost, and no answer to a question nobody asked.
+    const heard = misheardWords(question, lexiconOf(ready.flatMap((d) => d.units)));
+    const unsettled = heard.find((h) => h.candidates.length > 1);
+    const fix = !unsettled && heard.length === 1 && heard[0]!.candidates.length === 1 ? heard[0]! : null;
+    const asked = fix ? question.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : question;
+    const selection = selectEvidence(ready, asked, { history: turns });
     const retrievalMs = performance.now() - submitAt;
 
     const requestAt = performance.now();
     let result: AnswerResult;
     let speech: SpeechTicket | undefined;
-    try {
-      ({ speech, ...result } = await askServer({ question, history: turns, evidence: selection.units, language: lang, deep: thinkHarder }));
-    } catch (e) {
-      setPending(null);
-      setPhase("idle");
-      setError(e instanceof Error ? e.message : String(e));
-      return;
+    if (unsettled) {
+      result = heardClarification(lang, unsettled, thinkHarder);
+    } else {
+      try {
+        ({ speech, ...result } = await askServer({ question: asked, history: turns, evidence: selection.units, language: lang, deep: thinkHarder }));
+      } catch (e) {
+        setPending(null);
+        setPhase("idle");
+        setError(e instanceof Error ? e.message : String(e));
+        return;
+      }
+      // The model usually names the assumption itself; when it does not, the lexicon's word is named here instead.
+      if (fix && !result.assumed)
+        result = { ...result, assumed: fix.candidates[0]!, answer: `${assumptionPrefix(lang, fix.candidates[0]!)} ${result.answer}` };
     }
     const requestMs = performance.now() - requestAt;
 
@@ -883,8 +899,8 @@ export function App() {
     setProofExpanded(false);
     setHistory((h) =>
       appendTurn(h, {
-        question,
-        resolvedQuery: result.resolvedQuery,
+        question: asked,
+        resolvedQuery: result.resolvedQuery || asked,
         status: result.status,
         answer: result.answer,
         activeEntities: result.activeEntities,
@@ -912,7 +928,7 @@ export function App() {
         inputTokens: result.usage.inputTokens,
         outputTokens: result.usage.outputTokens,
         attempts: result.validation.attempts,
-        costUsd: llmCostUsd(result.usage),
+        costUsd: result.timings.llmMs.length ? llmCostUsd(result.usage) : 0,
         clientCheck: clientErrors.length ? `failed: ${clientErrors.join("; ")}` : "every quote found on its page",
       },
       ...l,

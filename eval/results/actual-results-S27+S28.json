@@ -1,0 +1,523 @@
+{
+  "generatedAt": "2026-09-12T10:57:15.376Z",
+  "commit": "8bfcb44 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S27",
+      "testId": "X4",
+      "type": "slip, one target",
+      "priority": "think",
+      "question": "How often should I clean the nozzel on Model B?",
+      "expected": {
+        "status": "answered",
+        "answer": "Assuming you meant the nozzle: clean the dosing nozzle of Model B every 30 days.",
+        "mustInclude": [
+          [
+            "30"
+          ]
+        ],
+        "mustNotInclude": [
+          "15 days"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [],
+        "assumed": true
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Assuming you meant “nozzle”: Clean the dosing nozzle of Model B every 30 days.",
+        "reason": "",
+        "assumed": "nozzle",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s7",
+            "quote": "Clean the dosing nozzle of Model B every 30 days."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle on Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 7.226000000000113,
+        "llmAttempts": [
+          4705.85175
+        ],
+        "validation": 1.0968330000005153,
+        "total": 4726.643459000001
+      },
+      "usage": {
+        "inputTokens": 2123,
+        "outputTokens": 123,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000229655
+    },
+    {
+      "run": 1,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model of the Kestrel Dosing System are you using: Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 4.502292000000125,
+        "llmAttempts": [
+          1982.680707999999
+        ],
+        "validation": 2.2265000000006694,
+        "total": 1994.5707920000004
+      },
+      "usage": {
+        "inputTokens": 2120,
+        "outputTokens": 169,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.0002478
+    },
+    {
+      "run": 2,
+      "session": "S27",
+      "testId": "X4",
+      "type": "slip, one target",
+      "priority": "think",
+      "question": "How often should I clean the nozzel on Model B?",
+      "expected": {
+        "status": "answered",
+        "answer": "Assuming you meant the nozzle: clean the dosing nozzle of Model B every 30 days.",
+        "mustInclude": [
+          [
+            "30"
+          ]
+        ],
+        "mustNotInclude": [
+          "15 days"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [],
+        "assumed": true
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Assuming you meant “nozzle”: Clean the dosing nozzle of Model B every 30 days.",
+        "reason": "",
+        "assumed": "nozzle",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s7",
+            "quote": "Clean the dosing nozzle of Model B every 30 days."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle on Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 4.590707999999722,
+        "llmAttempts": [
+          5718.939458000001
+        ],
+        "validation": 0.6320410000007541,
+        "total": 5729.299500000001
+      },
+      "usage": {
+        "inputTokens": 2123,
+        "outputTokens": 123,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000229655
+    },
+    {
+      "run": 2,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model of the Kestrel Dosing System are you using: Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 3.801041000000623,
+        "llmAttempts": [
+          3415.4204999999984
+        ],
+        "validation": 0.2617920000011509,
+        "total": 3423.330041000003
+      },
+      "usage": {
+        "inputTokens": 2120,
+        "outputTokens": 185,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.0002542
+    },
+    {
+      "run": 3,
+      "session": "S27",
+      "testId": "X4",
+      "type": "slip, one target",
+      "priority": "think",
+      "question": "How often should I clean the nozzel on Model B?",
+      "expected": {
+        "status": "answered",
+        "answer": "Assuming you meant the nozzle: clean the dosing nozzle of Model B every 30 days.",
+        "mustInclude": [
+          [
+            "30"
+          ]
+        ],
+        "mustNotInclude": [
+          "15 days"
+        ],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [],
+        "assumed": true
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "Assuming you meant “nozzle”: Clean the dosing nozzle of Model B every 30 days.",
+        "reason": "",
+        "assumed": "nozzle",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s7",
+            "quote": "Clean the dosing nozzle of Model B every 30 days."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle on Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": 1,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.7161249999990105,
+        "llmAttempts": [
+          1362.6547919999975
+        ],
+        "validation": 0.31049999999959255,
+        "total": 1369.164417
+      },
+      "usage": {
+        "inputTokens": 2123,
+        "outputTokens": 123,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000229655
+    },
+    {
+      "run": 3,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Please specify whether you have Model A or Model B of the Kestrel Dosing System.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 19.319166999997833,
+        "llmAttempts": [
+          6047.240999999998
+        ],
+        "validation": 0.2589170000028389,
+        "total": 6070.703499999996
+      },
+      "usage": {
+        "inputTokens": 2120,
+        "outputTokens": 168,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.0002474
+    }
+  ],
+  "apiErrors": [],
+  "skipped": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 506.52037500000006,
+      "indexMs": 3.282958000000008
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 12.571667000000161,
+      "indexMs": 0.21820900000057009
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 25.764124999999694,
+      "indexMs": 0.7687079999996058
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 28.949208,
+      "indexMs": 0.21883400000115216
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 15.663959000001341,
+      "indexMs": 0.3165420000004815
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 38.34637500000099,
+      "indexMs": 3.2905420000024606
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        20.000583000000915,
+        7.404791999997542,
+        14.588208000001032,
+        8.104040999998688,
+        6.871957999999722
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        4.333125000001019,
+        8.308000000000902,
+        5.8397079999995185,
+        5.532834000001458,
+        4.836458000001585
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        3.053542000001471,
+        3.5444580000003043,
+        2.2102080000004207,
+        3.058082999999897,
+        3.539999999997235
+      ]
+    }
+  ]
+}

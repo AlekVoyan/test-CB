@@ -12,7 +12,9 @@ import { appendTurn } from "../src/core/conversation.js";
 import { llmCostUsd, priceFor } from "../src/core/cost.js";
 import { ingestPdf } from "../src/core/ingest.js";
 import { normalizeText } from "../src/core/normalize.js";
+import { heardClarification, lexiconOf, misheardWords } from "../src/core/heard.js";
 import { selectEvidence } from "../src/core/retriever.js";
+import { assumptionPrefix } from "../src/core/slips.js";
 import type { AnswerResult, AnswerStatus, Citation, IndexedDocument, Turn } from "../src/core/types.js";
 import { verifyCitations } from "../src/core/validator.js";
 import { createLlmFromEnv } from "../src/llm/index.js";
@@ -232,11 +234,21 @@ for (let run = 1; run <= runs; run++) {
           continue;
         }
         const t0 = performance.now();
-        const selection = selectEvidence(docs, step.ask, { mode, history });
+        // The same check the app makes before it calls anything: a word the documents do not have, that sounds like
+        // words they do. More than one fits — ask which was meant, without a model call.
+        const heard = misheardWords(step.ask, lexiconOf(docs.flatMap((d) => d.units)));
+        const unsettled = heard.find((h) => h.candidates.length > 1);
+        const fix = !unsettled && heard.length === 1 && heard[0]!.candidates.length === 1 ? heard[0]! : null;
+        const asked = fix ? step.ask.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : step.ask;
+        const selection = selectEvidence(docs, asked, { mode, history });
         const retrievalMs = performance.now() - t0;
         let result: AnswerResult;
         try {
-          result = await answerQuestion({ question: step.ask, history, evidence: selection.units, llm, language: step.language, deep });
+          result = unsettled
+            ? heardClarification(step.language ?? "en", unsettled, deep)
+            : await answerQuestion({ question: asked, history, evidence: selection.units, llm, language: step.language, deep });
+          if (fix && !result.assumed && !unsettled)
+            result = { ...result, assumed: fix.candidates[0]!, answer: `${assumptionPrefix(step.language ?? "en", fix.candidates[0]!)} ${result.answer}` };
         } catch (error) {
           // Provider outage (after the adapter's own retries): record it, don't score it, keep going.
           const message = error instanceof Error ? error.message : String(error);

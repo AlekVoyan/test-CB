@@ -2,6 +2,8 @@
 
 Upload an equipment manual (PDF), ask a question out loud, and get a short spoken answer with the exact quotation and page it came from. Answers come only from the uploaded documents, replacing a document changes the answer, and when the documents don't contain the answer the app says so.
 
+**Live demo:** https://askyourdocuments.vercel.app/ — it answers with NVIDIA Nemotron 3 Super (`LLM_PROVIDER=nvidia`) and speaks with ElevenLabs Flash v2.5. Claude Haiku 4.5 is the target model and one environment variable away; see the delivery notes §4 and §14.
+
 ## Quick start
 
 Prerequisites: Node 20+ and Chrome or Edge (for voice input).

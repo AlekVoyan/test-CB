@@ -1,5 +1,20 @@
 /* Ask your documents — filmic near-black ground, pastel folder tiles, bento grid. */
 
+/* How far a folder's edge has risen above the front one: 3px for every folder in front of it. Registered as a
+   length so the tab's height and corners, which follow it, interpolate when a folder changes depth. */
+@property --squash {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* How far a folder rises under the pointer. Registered for the same reason: tab and edge move as one shape. */
+@property --lift {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 :root {
   --ground: #161714;
   --ground-lift: #1c1d19;
@@ -1271,6 +1286,7 @@ body::before {
    front folder, 8px narrower a side and 3px higher for every folder in front of it, so only a sliver of edge shows. */
 .fold {
   --pad-l: var(--tab-r);
+  --squash: calc(var(--depth) * 3px);
   position: absolute;
   inset: 0;
   /* nearer folders lie on top of farther ones */
@@ -1278,9 +1294,12 @@ body::before {
   color: var(--fg, var(--ink));
   /* a hairline round tab and edge together, so each folder reads against the one behind it */
   filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.5));
+  /* The two lengths are what moves; height, corners and edge are computed from them, so they cannot drift apart. */
   transition:
     opacity 200ms ease,
-    filter 150ms ease;
+    filter 150ms ease,
+    --squash 280ms var(--ease-out),
+    --lift 160ms var(--ease-out);
   animation: fade 220ms ease backwards;
 }
 .fold[data-hidden] {
@@ -1299,9 +1318,11 @@ body::before {
   border-radius: 22px;
   background: var(--bg);
   transform-origin: 50% 0;
-  transform: translateY(calc(var(--depth) * -3px - var(--lift, 0px))) scaleX(var(--sx, 1));
+  /* the edge reads the same two lengths as its tab, so no seam can open between them while they move */
+  translate: 0 calc(-1 * (var(--squash, 0px) + var(--lift, 0px)));
+  scale: var(--sx, 1) 1;
   transition:
-    transform 280ms var(--ease-out),
+    scale 280ms var(--ease-out),
     opacity 200ms ease,
     background-color 280ms ease;
 }
@@ -1322,10 +1343,13 @@ body::before {
   display: flex;
   align-items: center;
   width: calc(var(--lane-w) - var(--pad-l) - var(--tab-r));
-  height: var(--tab-h);
+  /* No fixed height: the tab reaches from the row's line down to its own folder's edge, and its corner is half of
+     that, so the convex corner and the concave fillet always meet in one S-curve, however far back the folder is. */
+  --rr: calc((var(--tab-h) - var(--squash, 0px)) / 2);
+  height: calc(var(--tab-h) - var(--squash, 0px));
   padding: 2px 14px 0;
   border: 0;
-  border-radius: var(--tab-r) var(--tab-r) 0 0;
+  border-radius: var(--rr) var(--rr) 0 0;
   background: var(--bg);
   color: inherit;
   /* room above and below the line for й, ї, у and д */
@@ -1337,6 +1361,8 @@ body::before {
   pointer-events: auto;
   /* `translate`, not `transform`, so the press scale does not scale the distance along the row */
   translate: calc(var(--slot) * var(--lane-w) + var(--pad-l)) 0;
+  /* under the pointer the folder rises whole, tab and edge together, so the curve keeps its shape as it moves */
+  transform: translateY(calc(-1 * var(--lift, 0px)));
   transform-origin: 50% 100%;
   transition:
     translate 280ms var(--ease-out),
@@ -1354,14 +1380,12 @@ body::before {
 .fold-tab:disabled {
   cursor: default;
 }
-/* centred on the part of the tab that shows above the folder's edge */
+/* centred in the tab, which is exactly the part that shows above the folder's edge */
 .fold-label {
   display: flex;
   align-items: center;
   gap: 7px;
   min-width: 0;
-  transform: translateY(calc(var(--depth) * -1.5px - var(--lift, 0px) / 2));
-  transition: transform 280ms var(--ease-out);
 }
 .fold-label svg {
   flex: none;
@@ -1375,18 +1399,16 @@ body::before {
   position: absolute;
   /* one pixel into the folder's edge, so no seam can open between them */
   bottom: -1px;
-  width: var(--tab-r);
-  height: calc(var(--tab-r) + 1px);
-  transform: translateY(calc(var(--depth) * -3px - var(--lift, 0px)));
-  transition: transform 280ms var(--ease-out);
+  width: var(--rr);
+  height: calc(var(--rr) + 1px);
 }
 .fold-tab::before {
   right: 100%;
-  background: radial-gradient(circle at 0 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
+  background: radial-gradient(circle at 0 0, transparent calc(var(--rr) - 0.5px), var(--bg) var(--rr));
 }
 .fold-tab::after {
   left: 100%;
-  background: radial-gradient(circle at 100% 0, transparent calc(var(--tab-r) - 0.5px), var(--bg) var(--tab-r));
+  background: radial-gradient(circle at 100% 0, transparent calc(var(--rr) - 0.5px), var(--bg) var(--rr));
 }
 .fold[data-first] .fold-tab::before {
   content: none;
@@ -1732,6 +1754,9 @@ body::before {
     transition-duration: 0ms;
   }
   /* filed folders change depth in place; the flood is skipped in script */
+  .fold {
+    transition-property: opacity, filter;
+  }
   .fold-body,
   .fold-tab,
   .fold-label,

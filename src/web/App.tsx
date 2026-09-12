@@ -211,20 +211,15 @@ function voiceLabel(m: QuestionMetrics): string {
   return fallback ? `${who} (instead: ${fallback})` : who;
 }
 
-// A folder keeps its colour wherever it sits in a stack. Older answers are deeper shades of the answer lime;
-// the sheets of a stack deepen their tone by their place in it. A step is a fifth of the way to the olive, 0.069 of
-// oklab lightness, so two folders side by side in the row read apart. It stops after four steps: deeper than that the
-// ink on a tab would fall under 4.5:1, and only four tabs stand in the row at once anyway.
-const answerShade = (age: number) =>
-  age <= 0 ? "var(--lime)" : `color-mix(in oklab, var(--lime) ${100 - Math.min(age, 4) * 20}%, #6d7a34)`;
-const sheetShade = (index: number, tone: "sage" | "dark") =>
-  index <= 0
-    ? tone === "sage"
-      ? "var(--sage)"
-      : "var(--surface)"
-    : tone === "sage"
-      ? `color-mix(in oklab, var(--sage) ${100 - Math.min(index, 5) * 9}%, #3d5836)`
-      : `color-mix(in oklab, var(--surface-2) ${100 - Math.min(index - 1, 4) * 14}%, #0f100e)`;
+// The colour belongs to the plane, not to the folder: the front plane carries the full tone and each plane behind it
+// is one step deeper, so bringing a folder forward brightens it and darkens the one it replaces. A step is a quarter
+// of the way to the deep tone for the answer lime (0.086 of oklab lightness) and about the same for the quote sheets;
+// the row holds four planes, and the deepest of them still carries its text at 5.6:1.
+const plane = (front: string, deep: string, step: number, depth: number) =>
+  depth <= 0 ? front : `color-mix(in oklab, ${front} ${Math.max(0, 100 - Math.min(depth, 4) * step)}%, ${deep})`;
+const answerShade = (depth: number) => plane("var(--lime)", "#6d7a34", 25, depth);
+const sheetShade = (depth: number, tone: "sage" | "dark") =>
+  tone === "sage" ? plane("var(--sage)", "#3d5836", 18, depth) : plane("var(--surface-2)", "#0f100e", 30, depth);
 
 const passageLabel = (p: Passage, withFile: boolean) => `${withFile ? `${p.filename} · ` : ""}p.${p.page} · ${p.title}`;
 
@@ -296,8 +291,6 @@ interface StackFolder {
   title: string;
   /** Accessible name of the tab that brings the folder forward. */
   aria: string;
-  /** The folder's own colour, kept wherever it sits. */
-  bg: string;
   /** Tab text colour on a dark folder. */
   fg?: string;
 }
@@ -309,13 +302,16 @@ const FOLD_INSET = 8;
 
 /**
  * Folders filed in a fixed order, each tab in its own place in one row. Bringing a folder forward moves it in depth
- * only: nothing moves sideways, and its colour floods the front from its tab. Filed folders are narrower and show a
- * sliver of edge above the one in front; every tab starts on the front tab's top line.
+ * only: nothing moves sideways, and the plane it arrives on is lighter, so it brightens from under its tab across the
+ * front. Filed folders are narrower and show a sliver of edge above the one in front; every tab starts on the front
+ * tab's top line.
  * The wheel over the tabs scrolls the row without changing the open folder; scrolled past, its tab holds at that edge.
  */
 function FolderStack(props: {
   label: string;
   folders: StackFolder[];
+  /** The tone of a plane: 0 is the front one. Every folder takes the colour of the plane it stands on. */
+  shade: (depth: number) => string;
   front: number;
   /** Absent while the stack is busy: the tabs stay in view but do nothing. */
   onOpen?: (index: number) => void;
@@ -391,13 +387,13 @@ function FolderStack(props: {
   }, [laned]);
 
   // The front tile is one element whatever folder it shows, so its moves are played here rather than by CSS.
-  const committed = useRef({ key: undefined as string | undefined, bg: "", slot: -1, lanes: 0, left: 0, width: 0, depths: new Map<string, number>() });
+  const committed = useRef({ key: undefined as string | undefined, slot: -1, lanes: 0, left: 0, width: 0, depths: new Map<string, number>() });
   const running = useRef<Animation[]>([]);
   useLayoutEffect(() => {
     const was = committed.current;
     const now = folders[front];
     const moved = was.key !== now?.key || was.slot !== frontSlot || was.lanes !== lanes;
-    committed.current = { ...was, key: now?.key, bg: now?.bg ?? "", slot: frontSlot, lanes, depths: new Map(layout.map((l) => [l.f.key, l.depth])) };
+    committed.current = { ...was, key: now?.key, slot: frontSlot, lanes, depths: new Map(layout.map((l) => [l.f.key, l.depth])) };
     if (!moved) return;
     const tile = stackRef.current?.querySelector<HTMLElement>(":scope > .tile");
     const skin = tile?.querySelector<HTMLElement>(":scope > .tile-skin");
@@ -428,14 +424,16 @@ function FolderStack(props: {
       if (was.width) play(tab, [{ left: `${was.left}px`, width: `${was.width}px` }, { left: `${left}px`, width: `${tabWidth}px` }]);
       return;
     }
-    // Another folder in front: its colour floods the front from its tab — a disc scaled out from under the tab.
+    // Another folder in front: it arrives from the plane it stood on, and the front plane's lighter tone spreads from
+    // under its tab — a disc scaled out from there.
     // (A clip-path circle would be simpler, but Chrome's compositor misplaces a px centre while it runs.)
+    const depth = Math.min(was.depths.get(now.key) ?? 0, lanes);
     const wave = tile.querySelector<HTMLElement>(":scope > .tile-flood > i");
-    if (wave && was.bg && was.bg !== now.bg) {
+    if (wave && depth > 0) {
       const x = left + tabWidth / 2;
       const reach = Math.ceil(Math.hypot(Math.max(x, tile.offsetWidth - x), tile.offsetHeight));
       Object.assign(wave.style, { left: `${x - reach}px`, top: `${-reach}px`, width: `${2 * reach}px`, height: `${2 * reach}px` });
-      skin.style.setProperty("--skin-bg", was.bg);
+      skin.style.setProperty("--skin-bg", props.shade(depth));
       // Held at the end, then dropped in the same frame as the old colour, so the tile never flashes back.
       const wash = el(wave, [{ transform: "scale(0)", opacity: 1 }, { transform: "scale(1)", opacity: 1 }], "forwards");
       const settle = () => {
@@ -445,7 +443,6 @@ function FolderStack(props: {
       wash.onfinish = settle;
     }
     // …and a filed one grows its tab down to the front edge (in the first place, out to the left edge as well).
-    const depth = Math.min(was.depths.get(now.key) ?? 0, lanes);
     if (!depth) return;
     if (tab.firstElementChild) play(tab.firstElementChild, [{ transform: `translateY(${(-depth * FOLD_RISE) / 2}px)` }, { transform: "none" }]);
     if (frontSlot === 0) {
@@ -512,7 +509,7 @@ function FolderStack(props: {
                       "--slot": slot,
                       "--depth": depth,
                       "--sx": 1 - (2 * FOLD_INSET * depth) / Math.max(width, 1),
-                      "--bg": f.bg,
+                      "--bg": props.shade(depth),
                       "--fg": f.fg,
                     } as CSSProperties
                   }
@@ -1062,16 +1059,14 @@ export function App() {
     </>
   );
   const answerFolders: StackFolder[] = [
-    ...(pending ? [{ key: "pending", tab: pendingTab, title: pending, aria: `Finding the answer: ${pending}`, bg: answerShade(0) }] : []),
+    ...(pending ? [{ key: "pending", tab: pendingTab, title: pending, aria: `Finding the answer: ${pending}` }] : []),
     ...answers.map((a, i) => ({
       key: String(a.id),
       tab: answerTab(a),
       title: a.question,
       aria: `${i === 0 ? "Latest answer" : "Earlier answer"}: ${a.question}`,
-      bg: answerShade(pending ? i + 1 : i),
     })),
   ];
-  const frontAge = pending ? 0 : viewIndex;
 
   // Evidence for the answer in front, one sheet per source paragraph. A not-found answer shows nearby lines, never as proof.
   const proofs = answer?.result.citations ?? [];
@@ -1080,7 +1075,7 @@ export function App() {
   const proofTone: "sage" | "dark" = proofKind === "evidence" ? "sage" : "dark";
   const multiDoc = new Set(passages.map((p) => p.documentId)).size > 1;
   const frontIndex = Math.min(proofFront, Math.max(0, passages.length - 1));
-  const proofFolders: StackFolder[] = passages.map((p, i) => ({
+  const proofFolders: StackFolder[] = passages.map((p) => ({
     key: p.key,
     tab: (
       <>
@@ -1090,7 +1085,6 @@ export function App() {
     ),
     title: passageLabel(p, true),
     aria: `Show ${passageLabel(p, true)}`,
-    bg: sheetShade(i, proofTone),
     fg: proofKind === "evidence" ? undefined : proofKind === "related" ? "var(--teal)" : "var(--text-2)",
   }));
   const opener = (p: Passage) =>
@@ -1317,6 +1311,7 @@ export function App() {
           <FolderStack
             label="Answers"
             folders={answerFolders}
+            shade={answerShade}
             front={pending ? 0 : viewIndex}
             onOpen={pending ? undefined : openAnswer}
             prevLabel="Newer answer"
@@ -1328,12 +1323,6 @@ export function App() {
               label="Answer"
               className="tile-answer"
               flood
-              style={
-                {
-                  "--tile-bg": answerShade(frontAge),
-                  ...(frontAge >= 2 ? { "--ink-2": "rgb(20 21 18 / 0.84)" } : {}),
-                } as CSSProperties
-              }
               tab={pending ? pendingTab : answer ? answerTab(answer) : <>No question yet</>}
             >
               <div aria-live="polite">
@@ -1443,6 +1432,7 @@ export function App() {
               <FolderStack
                 label="Passages"
                 folders={proofFolders}
+                shade={(depth) => sheetShade(depth, proofTone)}
                 front={frontIndex}
                 onOpen={setProofFront}
                 prevLabel="Previous passage"
@@ -1467,7 +1457,7 @@ export function App() {
                   kind={proofKind}
                   withFile={multiDoc}
                   onOpen={opener(passages[frontIndex]!)}
-                  stacked={{ bg: sheetShade(frontIndex, proofTone) }}
+                  stacked={{ bg: sheetShade(0, proofTone) }}
                 />
               </FolderStack>
             )}

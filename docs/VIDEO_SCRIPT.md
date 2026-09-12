@@ -25,6 +25,13 @@ about speed. Nothing in the film implies a number that was not measured.
 | 9 | 2:22–2:44 | The measurements panel unfolds: ingestion, question → first audio, recognition, model, validation, tokens, cost. The Copy JSON button. Cut to a terminal: `npm test` → 73 passed, then the head of `report.md` with P0 / P1 / holdout and zero critical failures | "Every question is measured and scored. Factual accuracy and citation accuracy are counted separately, zero critical failures, and a holdout document that nothing was tuned on." | Playwright, scene 07 + terminal capture |
 | 10 | 2:44–2:55 | 375 px: the same answer in the phone layout, the quote sheet rising from the bottom. Out to the end card: demo link and repository | "It works from a phone too. The demo and the code are linked below." | Playwright, mobile pass |
 
+## Where the film is built
+
+`../askdocs-film`, outside this repository on purpose: a submission should not carry a video editor's
+`node_modules`. `capture/record.mjs` drives the running app and records one file per scene, `capture/to-mp4.mjs`
+converts them and lays out a contact sheet per scene, `src/cut.ts` is the cut list and `src/Film.tsx` the film.
+`npm run capture` re-shoots, `npm run render` re-renders.
+
 ## Pipeline
 
 | Layer | Tool |

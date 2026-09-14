@@ -1,0 +1,718 @@
+{
+  "generatedAt": "2026-09-14T22:47:06.573Z",
+  "commit": "9fea9f0 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 13.865166000000045,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 13.865166000000045
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    },
+    {
+      "run": 1,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The limit for Model B is 12 units under normal conditions.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the limit — Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.6875830000001315,
+        "llmAttempts": [
+          4567.22225
+        ],
+        "validation": 2.722415999999612,
+        "total": 4581.942041
+      },
+      "usage": {
+        "inputTokens": 2205,
+        "outputTokens": 167,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000254225
+    },
+    {
+      "run": 1,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.151332999999795,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 2.151332999999795
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.8649580000001151,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 1.8649580000001151
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    },
+    {
+      "run": 2,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The limit for Model B is 12 units under normal conditions.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the limit — Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 0.881083000000217,
+        "llmAttempts": [
+          3997.556958
+        ],
+        "validation": 1.2156249999989086,
+        "total": 4001.8735829999996
+      },
+      "usage": {
+        "inputTokens": 2205,
+        "outputTokens": 171,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000255825
+    },
+    {
+      "run": 2,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.82433299999866,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 1.82433299999866
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1",
+      "type": "ambiguity",
+      "priority": "P0",
+      "question": "What is the limit?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "What is the limit?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.1759579999998095,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 1.1759579999998095
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    },
+    {
+      "run": 3,
+      "session": "S6",
+      "testId": "R1b",
+      "type": "clarification answer",
+      "priority": "P0",
+      "question": "Model B.",
+      "expected": {
+        "status": "answered",
+        "answer": "Model B's maximum load is 12 units under normal conditions.",
+        "mustInclude": [
+          [
+            "12"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "stated",
+        "answer": "The limit for Model B is 12 units under normal conditions.",
+        "reason": "",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "What is the limit — Model B?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.3774169999996957,
+        "llmAttempts": [
+          7209.83275
+        ],
+        "validation": 0.3118749999994179,
+        "total": 7215.787542
+      },
+      "usage": {
+        "inputTokens": 2205,
+        "outputTokens": 188,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000262625
+    },
+    {
+      "run": 3,
+      "session": "S28",
+      "testId": "X5",
+      "type": "slip, model not named (guard)",
+      "priority": "think",
+      "question": "How often should I clean the nozzel?",
+      "expected": {
+        "status": "needs_clarification",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "mustInclude": [
+          [
+            "Model A"
+          ],
+          [
+            "Model B"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [],
+        "allowedExtraSources": []
+      },
+      "actual": {
+        "status": "needs_clarification",
+        "basis": "stated",
+        "answer": "Which model do you mean — Model A or Model B?",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "How often should I clean the nozzle?",
+        "validation": {
+          "passed": true,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "attempts": 0
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.951042000000598,
+        "llmAttempts": [],
+        "validation": 0,
+        "total": 2.951042000000598
+      },
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "model": ""
+      },
+      "costUsd": 0
+    }
+  ],
+  "apiErrors": [],
+  "skipped": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 398.01866699999994,
+      "indexMs": 0.6587079999999332
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 17.00683299999946,
+      "indexMs": 0.28233300000010786
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 22.019500000000335,
+      "indexMs": 0.2299589999993259
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 17.362624999999753,
+      "indexMs": 0.33729200000016135
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 11.27691600000071,
+      "indexMs": 0.31470900000022084
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 20.92462499999965,
+      "indexMs": 2.9428750000006403
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        13.076791999999841,
+        9.190792000001238,
+        8.881249999998545,
+        7.111917000001995,
+        5.506792000000132
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        4.443833999997878,
+        4.483584000001429,
+        4.359874999998283,
+        3.7868750000016007,
+        3.431958000001032
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        2.6743339999993623,
+        2.478207999996812,
+        1.6767079999990528,
+        2.1049999999995634,
+        1.739292000002024
+      ]
+    }
+  ]
+}

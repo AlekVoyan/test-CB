@@ -307,7 +307,8 @@ for (let run = 1; run <= runs; run++) {
               total: retrievalMs + result.timings.totalMs,
             },
             usage: result.usage,
-            costUsd: llmCostUsd(result.usage),
+            // A question settled in code (asked back, or a misheard word) made no call and cost nothing.
+            costUsd: result.timings.llmMs.length ? llmCostUsd(result.usage) : 0,
             ...(baseline !== undefined ? { changedFromBaseline: baseline !== result.answer } : {}),
           });
           const mark = scores.pass ? "PASS" : scores.critical ? "CRITICAL" : "FAIL";

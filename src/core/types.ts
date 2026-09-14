@@ -80,8 +80,12 @@ export interface AnswerResult {
   deep: { requested: boolean; applied: boolean };
   resolvedQuery: string;
   activeEntities: string[];
-  /** retryReasons: validator findings of every rejected attempt (kept even when a retry succeeds). */
-  validation: { passed: boolean; attempts: number; errors: string[]; warnings: string[]; retryReasons: string[] };
+  /**
+   * retryReasons: validator findings of every rejected attempt (kept even when a retry succeeds).
+   * rejectedAnswers: what each rejected attempt said — its status, answer, reason and cited ids — so a report can show
+   * where a rejected number came from, not only that it was rejected.
+   */
+  validation: { passed: boolean; attempts: number; errors: string[]; warnings: string[]; retryReasons: string[]; rejectedAnswers: string[] };
   usage: Usage & { model: string };
   timings: { llmMs: number[]; validationMs: number; totalMs: number };
 }

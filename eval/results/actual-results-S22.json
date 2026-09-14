@@ -1,0 +1,359 @@
+{
+  "generatedAt": "2026-09-14T23:53:01.317Z",
+  "commit": "1d8b370 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "Не вдалося перевірити відповідь за завантаженими документами.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": false,
+          "attempts": 2,
+          "errors": [
+            "The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number."
+          ],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (answered): The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number.",
+            "attempt 2 (answered): The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number."
+          ],
+          "rejectedAnswers": [
+            "attempt 1 (answered): Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, якщо температура навколишнього середовища нижче 20°C, але не довше 5 хвилин. · reason: За виключенням, зазначеним у розділі 6, Model B може працювати з навантаженням до 15 одиниць при температурі нижче 20°C протягом не більше 5 хвилин. · cites d1:p2:s4, d1:p3:s3",
+            "attempt 2 (answered): Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, якщо температура навколишнього середовища нижче 20°C, але не довше 5 хвилин. · reason: За виключенням, зазначеним у розділі 6, Model B може працювати з навантаженням до 15 одиниць при температурі нижче 20°C протягом не більше 5 хвилин. · cites d1:p2:s4, d1:p3:s3"
+          ]
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "reasoning": null,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status not_found ≠ answered",
+          "missing: так/може, 15, 5, 20"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 5.733208999999988,
+        "llmAttempts": [
+          3124.885833,
+          2150.9633330000006
+        ],
+        "validation": 2.2246670000004087,
+        "total": 5291.872959
+      },
+      "usage": {
+        "inputTokens": 4762,
+        "outputTokens": 538,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00061997
+    },
+    {
+      "run": 2,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "not_found",
+        "basis": "stated",
+        "answer": "Не вдалося перевірити відповідь за завантаженими документами.",
+        "reason": "",
+        "assumed": "",
+        "citations": [],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": false,
+          "attempts": 2,
+          "errors": [
+            "The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number."
+          ],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (answered): The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number.",
+            "attempt 2 (answered): The number 6 in the answer does not appear in any cited line or in the question. Lines that contain 6: [d1:p3:s2] 6. Exceptions [d1:p3:s8] Replace the filter cartridge of either model every 6 months. Cite the line that actually supports your statement, or remove the number."
+          ],
+          "rejectedAnswers": [
+            "attempt 1 (answered): Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, але не більше 5 хвилин при температурі навколишнього середовища нижче 20°C. · reason: За винятком, зазначеним у розділі 6, Model B може працювати з навантаженням до 15 одиниць при умовах нижче 20°C температури. · cites d1:p2:s4, d1:p3:s3",
+            "attempt 2 (answered): Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, але не більше 5 хвилин при температурі навколишнього середовища нижче 20°C. · reason: За винятком, зазначеним у розділі 6, Model B може працювати з навантаженням до 15 одиниць при умовах нижче 20°C температури. · cites d1:p2:s4, d1:p3:s3"
+          ]
+        }
+      },
+      "scores": {
+        "factual": 0,
+        "citation": 0,
+        "reasoning": null,
+        "pass": false,
+        "critical": false,
+        "notes": [
+          "status not_found ≠ answered",
+          "missing: так/може, 15, 5, 20"
+        ]
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.4015830000007554,
+        "llmAttempts": [
+          4582.4559580000005,
+          5505.349459000001
+        ],
+        "validation": 0.8024170000007871,
+        "total": 10092.920041
+      },
+      "usage": {
+        "inputTokens": 4752,
+        "outputTokens": 517,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00061072
+    },
+    {
+      "run": 3,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, але не більше 5 хвилин при температурі нижче 20°C.",
+        "reason": "За виключенням, Model B може працювати до 15 одиниць при температурі нижче 20°C протягом не більше 5 хвилин.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          },
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.4579999999987194,
+        "llmAttempts": [
+          3938.675625
+        ],
+        "validation": 0.37104200000248966,
+        "total": 3950.6352499999994
+      },
+      "usage": {
+        "inputTokens": 2194,
+        "outputTokens": 243,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00028369000000000007
+    }
+  ],
+  "apiErrors": [],
+  "skipped": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 381.7448750000001,
+      "indexMs": 0.6075000000000728
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 19.144459000000097,
+      "indexMs": 0.3462500000005093
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 29.0402920000015,
+      "indexMs": 1.8777500000032887
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        20.406667000002926,
+        11.20708299999751,
+        5.566584000000148,
+        6.820749999998952,
+        7.22320899999977
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        8.455625000002328,
+        5.026957999998558,
+        4.882416999997076,
+        4.192125000001397,
+        4.138875000000553
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        2.3366669999995793,
+        2.195958000000246,
+        2.1541250000009313,
+        1.7781250000007276,
+        2.2831250000017462
+      ]
+    }
+  ]
+}

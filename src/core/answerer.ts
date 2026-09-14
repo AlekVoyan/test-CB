@@ -40,6 +40,15 @@ const UNVERIFIED: Record<Language, string> = {
 export const unverifiedAnswer = (language: Language = DEFAULT_LANGUAGE) => UNVERIFIED[language];
 export const UNVERIFIED_ANSWER = UNVERIFIED.en;
 
+/** What a rejected attempt said. The validator's reason alone does not show where a rejected number came from. */
+function whatItSaid(attempt: number, completion: LlmCompletion): string {
+  const out = completion.parsed;
+  if (!out) return `attempt ${attempt} (unparsed): ${completion.rawText.slice(0, 400)}`;
+  const reason = out.reason.trim() ? ` · reason: ${out.reason.trim()}` : "";
+  const cited = out.citations.length ? ` · cites ${out.citations.join(", ")}` : "";
+  return `attempt ${attempt} (${out.status}): ${out.answer.trim()}${reason}${cited}`;
+}
+
 const contentWords = (text: string) => new Set(text.toLowerCase().match(/\p{L}{4,}|\p{N}+/gu) ?? []);
 
 /** A related line is shown only when the answer talks about it: they share a word or number the question does not. */
@@ -90,6 +99,7 @@ export async function answerQuestion(input: {
   /** A validated answer in the wrong language, traded in for one more call: better than nothing if that call fails. */
   let kept: { out: LlmAnswer; warnings: string[] } | null = null;
   const retryReasons: string[] = [];
+  const rejectedAnswers: string[] = [];
 
   /** Builds the answer the caller gets: the same door for an answer that passed and for a kept one. */
   const settle = (out: LlmAnswer, said: string[]): AnswerResult => {
@@ -116,7 +126,7 @@ export async function answerQuestion(input: {
       deep,
       resolvedQuery: out.resolvedQuery,
       activeEntities: out.activeEntities,
-      validation: { passed: true, attempts: llmMs.length, errors: [], warnings: said, retryReasons },
+      validation: { passed: true, attempts: llmMs.length, errors: [], warnings: said, retryReasons, rejectedAnswers },
       usage: { inputTokens, outputTokens, model },
       timings: { llmMs, validationMs, totalMs: performance.now() - started },
     };
@@ -152,6 +162,7 @@ export async function answerQuestion(input: {
       if (slipped && attempt < maxAttempts) {
         kept = { out, warnings: [...warnings, `The answer is not in ${want}.`] };
         retryReasons.push(`attempt ${attempt} (${out.status}): the answer is not in ${want}`);
+        rejectedAnswers.push(whatItSaid(attempt, completion));
         messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
         messages.push({
           role: "user",
@@ -164,6 +175,7 @@ export async function answerQuestion(input: {
 
     // Retry once with the validator's findings.
     retryReasons.push(...errors.map((e) => `attempt ${attempt} (${completion.parsed?.status ?? "unparsed"}): ${e}`));
+    rejectedAnswers.push(whatItSaid(attempt, completion));
     messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
     messages.push({
       role: "user",
@@ -185,7 +197,7 @@ export async function answerQuestion(input: {
     deep,
     resolvedQuery: input.question,
     activeEntities: [],
-    validation: { passed: false, attempts: maxAttempts, errors, warnings, retryReasons },
+    validation: { passed: false, attempts: maxAttempts, errors, warnings, retryReasons, rejectedAnswers },
     usage: { inputTokens, outputTokens, model },
     timings: { llmMs, validationMs, totalMs: performance.now() - started },
   };

@@ -158,7 +158,7 @@ export function askedBack(answer: string, deep: boolean, resolvedQuery = ""): An
     deep: { requested: deep, applied: false },
     resolvedQuery,
     activeEntities: [],
-    validation: { passed: true, errors: [], warnings: [], retryReasons: [], attempts: 0 },
+    validation: { passed: true, errors: [], warnings: [], retryReasons: [], rejectedAnswers: [], attempts: 0 },
     usage: { inputTokens: 0, outputTokens: 0, model: "" },
     timings: { llmMs: [], validationMs: 0, totalMs: 0 },
   };

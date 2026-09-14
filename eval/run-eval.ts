@@ -456,6 +456,13 @@ for (const r of failures) {
   lines.push(
     `- run ${r.run} ${r.testId}${r.scores.critical ? " **CRITICAL**" : ""}: ${r.actual.status} — "${cell(r.actual.answer)}" (${r.scores.notes.join("; ") || "see scores"}; validation attempts ${r.actual.validation.attempts})`,
   );
+  // What the rejected attempts said, and why each was rejected: a withheld answer is diagnosed from these, not guessed.
+  const reasons = r.actual.validation.retryReasons;
+  for (const said of r.actual.validation.rejectedAnswers ?? []) {
+    const attempt = said.match(/^attempt \d+/)?.[0] ?? "";
+    const why = reasons.filter((reason) => reason.startsWith(`${attempt} `)).map((reason) => reason.replace(/^attempt \d+ \([^)]*\): /, ""));
+    lines.push(`  - rejected ${cell(said)}${why.length ? ` — ${cell(why.join(" "))}` : ""}`);
+  }
 }
 const baselineChecks = records.filter((r) => r.changedFromBaseline !== undefined);
 if (baselineChecks.length) {

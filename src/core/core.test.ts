@@ -557,6 +557,8 @@ describe("answerer", () => {
     expect(result.validation).toMatchObject({ passed: true, attempts: 2 });
     expect(result.citations[0]?.quote).toBe("Model A: the maximum load is 20 units.");
     expect(result.usage.inputTokens).toBe(200);
+    // What the rejected attempt said is kept beside why it was rejected.
+    expect(result.validation.rejectedAnswers).toEqual(["attempt 1 (answered): Model A handles 22 units. · cites d1:p2:s2"]);
   });
 
   it("asks again when the answer slips into another language", async () => {

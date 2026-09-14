@@ -30,7 +30,15 @@ export interface LlmClient {
   complete(request: { system: string; messages: LlmMessage[]; deep?: boolean }): Promise<LlmCompletion>;
 }
 
-export const UNVERIFIED_ANSWER = "I couldn't verify an answer in the uploaded documents.";
+const UNVERIFIED: Record<Language, string> = {
+  en: "I couldn't verify an answer in the uploaded documents.",
+  ru: "Не удалось проверить ответ по загруженным документам.",
+  uk: "Не вдалося перевірити відповідь за завантаженими документами.",
+};
+
+/** What is said when no answer passed validation, in the language that was asked in. */
+export const unverifiedAnswer = (language: Language = DEFAULT_LANGUAGE) => UNVERIFIED[language];
+export const UNVERIFIED_ANSWER = UNVERIFIED.en;
 
 const contentWords = (text: string) => new Set(text.toLowerCase().match(/\p{L}{4,}|\p{N}+/gu) ?? []);
 
@@ -168,7 +176,7 @@ export async function answerQuestion(input: {
   return {
     status: "not_found",
     basis: "stated",
-    answer: UNVERIFIED_ANSWER,
+    answer: unverifiedAnswer(language),
     didYouMean: "",
     reason: "",
     citations: [],

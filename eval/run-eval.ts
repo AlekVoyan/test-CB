@@ -12,6 +12,7 @@ import { appendTurn } from "../src/core/conversation.js";
 import { llmCostUsd, priceFor } from "../src/core/cost.js";
 import { ingestPdf } from "../src/core/ingest.js";
 import { normalizeText } from "../src/core/normalize.js";
+import { askedBack, clarifiedQuestion, whichModel, whichModelQuestion } from "../src/core/clarify.js";
 import { heardClarification, lexiconOf, misheardWords } from "../src/core/heard.js";
 import { selectEvidence } from "../src/core/retriever.js";
 import { assumptionPrefix } from "../src/core/slips.js";
@@ -236,18 +237,26 @@ for (let run = 1; run <= runs; run++) {
         const t0 = performance.now();
         // The same check the app makes before it calls anything: a word the documents do not have, that sounds like
         // words they do. More than one fits — ask which was meant, without a model call.
-        const heard = misheardWords(step.ask, lexiconOf(docs.flatMap((d) => d.units)));
+        const units = docs.flatMap((d) => d.units);
+        const heard = misheardWords(step.ask, lexiconOf(units));
         const unsettled = heard.find((h) => h.candidates.length > 1);
         const fix = !unsettled && heard.length === 1 && heard[0]!.candidates.length === 1 ? heard[0]! : null;
-        const asked = fix ? step.ask.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : step.ask;
+        const heardAs = fix ? step.ask.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : step.ask;
+        // And the app's check for which model: a reply to a clarification is joined to its question, and a question
+        // that names no model where the closest lines differ by model is asked back without a call.
+        const joined = unsettled ? null : clarifiedQuestion(heardAs, history);
+        const asked = joined ?? heardAs;
         const selection = selectEvidence(docs, asked, { mode, history });
+        const models = unsettled || joined ? [] : whichModel(asked, history, units);
         const retrievalMs = performance.now() - t0;
         let result: AnswerResult;
         try {
           result = unsettled
             ? heardClarification(step.language ?? "en", unsettled, deep)
-            : await answerQuestion({ question: asked, history, evidence: selection.units, llm, language: step.language, deep });
-          if (fix && !result.assumed && !unsettled)
+            : models.length
+              ? askedBack(whichModelQuestion(step.language ?? "en", models), deep, asked)
+              : await answerQuestion({ question: asked, history, evidence: selection.units, llm, language: step.language, deep });
+          if (fix && !result.assumed && !unsettled && !models.length)
             result = { ...result, assumed: fix.candidates[0]!, answer: `${assumptionPrefix(step.language ?? "en", fix.candidates[0]!)} ${result.answer}` };
         } catch (error) {
           // Provider outage (after the adapter's own retries): record it, don't score it, keep going.

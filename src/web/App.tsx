@@ -25,7 +25,8 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
 import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
 import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
-import { spokenAnswer, UNVERIFIED_ANSWER } from "../core/answerer";
+import { spokenAnswer, unverifiedAnswer } from "../core/answerer";
+import { askedBack, clarifiedQuestion, whichModel, whichModelQuestion } from "../core/clarify";
 import { assumptionPrefix } from "../core/slips";
 import { config, DEFAULT_LANGUAGE, LANGUAGES, type Language } from "../core/config";
 import { appendTurn, documentSetKey } from "../core/conversation";
@@ -856,11 +857,17 @@ export function App() {
     // Recognition mishears words. One of the documents' own words fits what was heard: take it, and say so in the
     // answer. More than one fits: there is nothing to ask the model yet, so ask the listener which word they meant —
     // no call, no cost, and no answer to a question nobody asked.
-    const heard = misheardWords(question, lexiconOf(ready.flatMap((d) => d.units)));
+    const units = ready.flatMap((d) => d.units);
+    const heard = misheardWords(question, lexiconOf(units));
     const unsettled = heard.find((h) => h.candidates.length > 1);
     const fix = !unsettled && heard.length === 1 && heard[0]!.candidates.length === 1 ? heard[0]! : null;
-    const asked = fix ? question.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : question;
+    const heardAs = fix ? question.replace(new RegExp(fix.word, "iu"), fix.candidates[0]!) : question;
+    // Which model, settled here too. A short reply to a clarifying question ("Model B.") is sent as the question it
+    // answers; a question that names no model, where the closest lines differ by model, is asked back without a call.
+    const joined = unsettled ? null : clarifiedQuestion(heardAs, turns);
+    const asked = joined ?? heardAs;
     const selection = selectEvidence(ready, asked, { history: turns });
+    const models = unsettled || joined ? [] : whichModel(asked, turns, units);
     const retrievalMs = performance.now() - submitAt;
 
     const requestAt = performance.now();
@@ -868,6 +875,8 @@ export function App() {
     let speech: SpeechTicket | undefined;
     if (unsettled) {
       result = heardClarification(lang, unsettled, thinkHarder);
+    } else if (models.length) {
+      result = askedBack(whichModelQuestion(lang, models), thinkHarder, asked);
     } else {
       try {
         ({ speech, ...result } = await askServer({ question: asked, history: turns, evidence: selection.units, language: lang, deep: thinkHarder }));
@@ -886,7 +895,7 @@ export function App() {
     // Defense in depth: re-check every quote (cited or related) against the page text held in this browser.
     const clientErrors = verifyCitations([...result.citations, ...result.related], ready);
     if (clientErrors.length)
-      result = { ...result, status: "not_found", basis: "stated", answer: UNVERIFIED_ANSWER, reason: "", assumed: "", citations: [], related: [] };
+      result = { ...result, status: "not_found", basis: "stated", answer: unverifiedAnswer(lang), reason: "", assumed: "", citations: [], related: [] };
     const nearby: AnswerView["nearby"] =
       result.status !== "not_found"
         ? { kind: "closest", lines: [] }

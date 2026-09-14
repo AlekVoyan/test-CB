@@ -3,6 +3,7 @@
 // worst failure this product can have — it sounds right and is about something else. So a word the documents do not
 // contain is checked against the words they do, and the question either names the assumption or asks which word was
 // meant. This runs on the index in the browser: no model call, no key, nothing to pay for.
+import { askedBack } from "./clarify.js";
 import { type Language } from "./config.js";
 import { editDistance } from "./slips.js";
 import type { AnswerResult, EvidenceUnit } from "./types.js";
@@ -165,20 +166,5 @@ export function didYouMean(language: Language, candidates: string[]): string {
 
 /** The answer when the question itself is not settled yet: asked back without a model call, so it costs nothing. */
 export function heardClarification(language: Language, heard: Misheard, deep: boolean): AnswerResult {
-  return {
-    status: "needs_clarification",
-    basis: "stated",
-    answer: didYouMean(language, heard.candidates),
-    reason: "",
-    citations: [],
-    related: [],
-    assumed: "",
-    didYouMean: "",
-    deep: { requested: deep, applied: false },
-    resolvedQuery: "",
-    activeEntities: [],
-    validation: { passed: true, errors: [], warnings: [], retryReasons: [], attempts: 0 },
-    usage: { inputTokens: 0, outputTokens: 0, model: "" },
-    timings: { llmMs: [], validationMs: 0, totalMs: 0 },
-  };
+  return askedBack(didYouMean(language, heard.candidates), deep);
 }

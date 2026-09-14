@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, it } from "vitest";
-import { answerQuestion, spokenAnswer, UNVERIFIED_ANSWER, type LlmClient, type LlmCompletion } from "./answerer.js";
+import { answerQuestion, spokenAnswer, UNVERIFIED_ANSWER, unverifiedAnswer, type LlmClient, type LlmCompletion } from "./answerer.js";
 import { AnswerRequestSchema, parseLlmAnswer, type LlmAnswer } from "./contract.js";
 import { buildUserPrompt } from "./prompt.js";
 import { appendTurn, documentSetKey } from "./conversation.js";
@@ -603,6 +603,19 @@ describe("answerer", () => {
     const result = await answerQuestion({ question: "What is the maximum for Model A?", history: [], evidence, llm });
     expect(result).toMatchObject({ status: "not_found", answer: UNVERIFIED_ANSWER, citations: [] });
     expect(result.validation.passed).toBe(false);
+  });
+
+  it("says it could not verify an answer in the language that was asked in", async () => {
+    const llm = fakeLlm([
+      { answer: "Модель A выдерживает 22 единицы.", citations: ["d1:p2:s2"] },
+      { answer: "Модель A выдерживает 21 единицу.", citations: ["d1:p2:s2"] },
+    ]);
+    const result = await answerQuestion({ question: "Какая максимальная нагрузка у модели A?", history: [], evidence, llm, language: "ru" });
+    expect(result).toMatchObject({ status: "not_found", answer: unverifiedAnswer("ru"), citations: [] });
+    expect(result.answer).not.toBe(UNVERIFIED_ANSWER);
+    // Each wording still reads as "the documents do not have it", so the scorer and the validator treat it alike.
+    for (const language of ["en", "ru", "uk"] as const)
+      expect(check({ status: "not_found", answer: unverifiedAnswer(language) }).errors).toEqual([]);
   });
 
   it("files the model's related lines with a not-found answer, never as citations", async () => {

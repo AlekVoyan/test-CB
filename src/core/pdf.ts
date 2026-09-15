@@ -238,6 +238,9 @@ function pageBlocks(items: TextItemLike[]): PhysicalLine[][] {
 const ABBREVIATION = /(?:^|[\s(])(?:\d+\s*)?(?:\p{L}|г|гг|стр|рис|см|табл|ул|руб|кг|км|мин|тыс|млн|др|пр|т\.д|т\.е|no|fig|pp|vs|approx|e\.g|i\.e)\.$/iu;
 const endsSentence = (text: string) => /[.!?:;]["')\]]?$/.test(text) && !ABBREVIATION.test(text);
 
+/** A line that ends on the first part of a model code and its hyphen: "ГАЗ-", "НАТИ-", "ГАЗ-М1-". */
+const CODE_BREAK = /(?<![\p{L}\d])\p{Lu}[\p{Lu}\d]{0,5}-$/u;
+
 /** The words that stand inside a line somewhere in the document: whole words, never the halves of a hyphenated one. */
 function wordsInsideLines(lines: PhysicalLine[]): Set<string> {
   const inside = new Set<string>();
@@ -253,6 +256,8 @@ function wordsInsideLines(lines: PhysicalLine[]): Set<string> {
  * Returns the line above as it should read before the join, or null for no join.
  */
 function hyphenJoin(above: string, below: string, inside: Set<string>): string | null {
+  // a model code broken after its hyphen: "грузовиках: ГАЗ-" | "АА, ЗИС-5" is "ГАЗ-АА"
+  if (CODE_BREAK.test(above) && /^[\p{Lu}\d]/u.test(below)) return above;
   const head = above.match(/(\p{L}+)(-?)$/u);
   const tail = below.match(/^\p{Ll}+/u);
   if (!head || !tail) return null;
@@ -274,11 +279,13 @@ function logicalLines(lines: PhysicalLine[], textRight: number, inside: Set<stri
     // A line that ends on an abbreviation keeps going even when the next one starts with a capital: what follows
     // "в сентябре 1938г." is usually a name, and cutting there separates the statement from its own date.
     const prevAbbreviates = prev !== undefined && ABBREVIATION.test(prev.text);
+    // A code cut after its hyphen goes on in the next line even though that line starts with a capital: "ГАЗ-" | "АА".
+    const prevCode = prev !== undefined && CODE_BREAK.test(prev.text);
     const prevWrapped =
       prev !== undefined &&
       !newParagraph &&
       !prev.gapped &&
-      (prevAbbreviates || !/^\p{Lu}/u.test(line.text)) &&
+      (prevAbbreviates || prevCode || !/^\p{Lu}/u.test(line.text)) &&
       prev.right >= textRight * 0.9 &&
       !endsSentence(prev.text);
     const last = out[out.length - 1];

@@ -179,6 +179,15 @@ describe("page layout", () => {
     expect(page.rawText.replace(/\n/g, " ")).toContain(page.lines[0]!.text);
   });
 
+  it("keeps a model code broken after its hyphen in one piece", async () => {
+    // Seen on the magazine article: "ЯГ-4" landed on a line of its own, the model cited the other one, and the
+    // number check rejected a right answer twice.
+    const wide = (str: string, y: number) => ({ str, transform: [5, 0, 0, 5, 21, y], width: 91 });
+    expect(await lines([wide("испытывались на грузовиках: ГАЗ-", 300), wide("АА, ЗИС-5, ЯГ-4. Из-за потери мощности", 293)])).toEqual([
+      "испытывались на грузовиках: ГАЗ-АА, ЗИС-5, ЯГ-4. Из-за потери мощности",
+    ]);
+  });
+
   it("leaves two real words apart at a line break, even when together they make a word", async () => {
     const wide = (str: string, y: number) => ({ str, transform: [5, 0, 0, 5, 21, y], width: 91 });
     expect(await lines([wide("Расход был небольшой, а шум не", 300), wide("большой, не очень большой и ровный.", 293)])).toEqual([

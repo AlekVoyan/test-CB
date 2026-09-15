@@ -82,6 +82,29 @@ export interface ValidationContext {
 export interface ValidationOutcome {
   errors: string[];
   warnings: string[];
+  /** Lines the code cited itself, because a model code the answer names ("ЗИС-13") stands in them verbatim. */
+  citedByCode: string[];
+}
+
+/** Letters and digits joined, with or without hyphens: "ГАЗ-42", "ГАЗ-М1", "ЗИС-5". Not "53 кг", not "4,6". */
+const CODE_TOKEN = /[\p{L}\d]+(?:-[\p{L}\d]+)*/gu;
+const isCode = (token: string) => /\p{L}/u.test(token) && /\d/.test(token) && /-|\p{L}\d|\d\p{L}/u.test(token);
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A sent line where a model code the answer names, carrying the number n, stands as a whole token. A list answer names
+ * more models than the three lines a model may cite ("ГАЗ-А, ГАЗ-М1, …, ГАЗ-42 и ЗИС-13"), and the number check used to
+ * reject it and spend a second call. A code is a name the line either has or does not, so the code can cite that line
+ * itself. A bare number ("42 градуса") proves nothing by standing in some line, and still needs the model to cite it.
+ */
+function lineNamingCode(said: string, n: string, evidenceById: Map<string, EvidenceUnit>): EvidenceUnit | undefined {
+  for (const token of normalizeText(said).match(CODE_TOKEN) ?? []) {
+    if (!isCode(token) || !extractNumbers(token).has(n)) continue;
+    const whole = new RegExp(`(?<![\\p{L}\\d-])${escapeRe(token)}(?![\\p{L}\\d]|-[\\p{L}\\d])`, "iu");
+    const line = [...evidenceById.values()].find((u) => whole.test(normalizeText(u.text)));
+    if (line) return line;
+  }
+  return undefined;
 }
 
 export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): ValidationOutcome {
@@ -153,8 +176,16 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
     ...[...cited, ...relatedUnits].flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
   ]);
   const said = withoutSectionReferences(`${answer} ${inferred ? out.reason : ""}`, headingNumbers(ctx.evidenceById));
+  const citedByCode: string[] = [];
   for (const n of extractNumbers(said)) {
     if (allowed.has(n)) continue;
+    // A number inside a model code the answer names is backed by a sent line with that code: cited here, not retried.
+    const named = isAnswer ? lineNamingCode(said, n, ctx.evidenceById) : undefined;
+    if (named) {
+      if (!citedByCode.includes(named.id)) citedByCode.push(named.id);
+      for (const m of extractNumbers(named.text)) allowed.add(m);
+      continue;
+    }
     // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
     const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n));
     const hint = holders.length
@@ -175,8 +206,9 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
   const words = answer.split(/\s+/).filter(Boolean).length;
   if (words > ctx.maxWords) warnings.push(`Answer has ${words} words (limit ${ctx.maxWords}).`);
   if (ids.length > ctx.maxCitations) warnings.push(`Answer cites ${ids.length} lines (limit ${ctx.maxCitations}).`);
+  if (citedByCode.length) warnings.push(`Cited in code, for the model codes the answer names: ${citedByCode.join(", ")}.`);
 
-  return { errors, warnings };
+  return { errors, warnings, citedByCode };
 }
 
 /** Citations are built from the index, so quotes are verbatim by construction. */

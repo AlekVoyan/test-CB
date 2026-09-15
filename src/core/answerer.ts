@@ -96,6 +96,7 @@ export async function answerQuestion(input: {
   let model = "";
   let errors: string[] = [];
   let warnings: string[] = [];
+  let citedByCode: string[] = [];
   /** A validated answer in the wrong language, traded in for one more call: better than nothing if that call fails. */
   let kept: { out: LlmAnswer; warnings: string[] } | null = null;
   const retryReasons: string[] = [];
@@ -144,7 +145,7 @@ export async function answerQuestion(input: {
 
     const t0 = performance.now();
     if (completion.parsed) {
-      ({ errors, warnings } = validateLlmAnswer(completion.parsed, {
+      ({ errors, warnings, citedByCode } = validateLlmAnswer(completion.parsed, {
         question,
         evidenceById,
         maxWords: config.answerMaxWords,
@@ -152,12 +153,14 @@ export async function answerQuestion(input: {
       }));
     } else {
       errors = [`The response did not match the required JSON format (stop reason: ${completion.stopReason ?? "unknown"}).`];
+      citedByCode = [];
     }
     validationMs += performance.now() - t0;
 
 
     if (completion.parsed && errors.length === 0) {
-      const out = completion.parsed;
+      // Lines the validator found for the model codes the answer names join the model's own citations.
+      const out = citedByCode.length ? { ...completion.parsed, citations: [...completion.parsed.citations, ...citedByCode] } : completion.parsed;
       // A right answer in the wrong language is unusable, so it is worth one more call. It is never worth losing,
       // though: the answer is kept here, and returned if the call spent on the language leaves nothing better.
       const want = LANGUAGES[language].name;

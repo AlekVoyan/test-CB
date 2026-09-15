@@ -434,6 +434,36 @@ describe("slips", () => {
   });
 });
 
+describe("model codes cited by the code", () => {
+  // From the magazine article: the model named seven models, cited three lines, and "42" and "13" cost a second call.
+  const lines = [
+    unit("d1:p2:s26", "Газогенераторные установки испытывались на грузовиках: ГАЗ-АА, ЗИС-5, ЯГ-4.", "doc1", 2),
+    unit("d1:p3:s29", "ГАЗ-42. С 1939 по 1946 г. заводом ГАЗ было изготовлено 33840 машин этой модели.", "doc1", 3),
+    unit("d1:p3:s32", "ЗИС-13 производился с середины 1936г. до середины 1938г.", "doc1", 3),
+    unit("d1:p4:s1", "Двигатель прогревался до 42 градусов.", "doc1", 4),
+  ];
+  const ctx = (question: string) => ({ question, evidenceById: new Map(lines.map((u) => [u.id, u])), maxWords: 45, maxCitations: 3 });
+  const said = (answer: string, citations: string[]) => ({ ...BLANK, answer, citations });
+
+  it("cites the line where a model code the answer names stands, instead of rejecting the answer", () => {
+    const outcome = validateLlmAnswer(said("Подходили ГАЗ-АА, ЗИС-5, ЯГ-4, ГАЗ-42 и ЗИС-13.", ["d1:p2:s26"]), ctx("Какие машины подходили?"));
+    expect(outcome.errors).toEqual([]);
+    expect(outcome.citedByCode).toEqual(["d1:p3:s29", "d1:p3:s32"]);
+  });
+
+  it("still rejects a bare number, and a code no line names", () => {
+    expect(validateLlmAnswer(said("ЗИС-5 прогревался до 42 градусов.", ["d1:p2:s26"]), ctx("До скольки градусов?")).errors.join(" ")).toContain("The number 42");
+    expect(validateLlmAnswer(said("Подходили ЗИС-5 и ГАЗ-43.", ["d1:p2:s26"]), ctx("Какие машины?")).errors.join(" ")).toContain("The number 43");
+  });
+
+  it("answers the list with one call and shows the lines the code cited", async () => {
+    const llm = fakeLlm([{ answer: "Подходили ГАЗ-АА, ЗИС-5, ЯГ-4, ГАЗ-42 и ЗИС-13.", citations: ["d1:p2:s26"] }]);
+    const result = await answerQuestion({ question: "Какие машины подходили?", history: [], evidence: lines, llm, language: "ru" });
+    expect(llm.calls).toBe(1);
+    expect(result.citations.map((c) => c.sentenceId)).toEqual(["d1:p2:s26", "d1:p3:s29", "d1:p3:s32"]);
+  });
+});
+
 describe("page positions", () => {
   it("gives every unit a box on its page, and a wrapped line one box per physical line", async () => {
     const doc = await load("manual-v1.pdf");

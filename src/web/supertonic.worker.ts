@@ -6,6 +6,7 @@
 import * as ort from "onnxruntime-web/webgpu";
 import { config } from "../core/config";
 import type { DeviceReply, DeviceRequest } from "./deviceVoice";
+import { fetchCached } from "./modelFiles";
 import { type Language } from "../core/config";
 import { numbersInWords } from "./speechNumbers";
 import { prepareText, speechPieces, textIds } from "./supertonicText";
@@ -53,37 +54,7 @@ function report(bytes: number): void {
   scope.postMessage({ type: "progress", loaded, total: downloadBytes });
 }
 
-async function download(path: string): Promise<Uint8Array> {
-  const url = `${BASE}/${path}`;
-  const cache = await caches.open(CACHE).catch(() => null);
-  const hit = await cache?.match(url);
-  if (hit) {
-    const bytes = new Uint8Array(await hit.arrayBuffer());
-    report(bytes.length);
-    return bytes;
-  }
-  const response = await fetch(url);
-  if (!response.ok || !response.body) throw new Error(`${path}: HTTP ${response.status}`);
-  const reader = response.body.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value);
-    size += value.length;
-    report(value.length);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    bytes.set(part, offset);
-    offset += part.length;
-  }
-  // Kept for the next visit. A full disk only means the next visit downloads again.
-  await cache?.put(url, new Response(bytes)).catch(() => {});
-  return bytes;
-}
+const download = (path: string) => fetchCached(`${BASE}/${path}`, CACHE, report, path);
 
 const json = <T>(bytes: Uint8Array): T => JSON.parse(new TextDecoder().decode(bytes)) as T;
 const styleTensor = (s: StyleJson) => new ort.Tensor("float32", Float32Array.from(s.data.flat(Infinity) as number[]), s.dims);

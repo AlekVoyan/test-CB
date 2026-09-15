@@ -17,6 +17,30 @@ export const config = {
   topK: 6,
   /** Above this estimated size, "full" falls back to "topk". */
   evidenceTokenBudget: 8000,
+  /**
+   * Search by meaning, for a document set above that budget: multilingual-e5-small (intfloat, MIT; the quantized ONNX
+   * export by Xenova), run in the browser with ONNX Runtime Web. It reaches a passage that answers in other words or in
+   * another language, which search by words cannot. Its files come from Hugging Face the first time a long document is
+   * loaded and stay in the browser's Cache Storage.
+   */
+  semanticSearch: {
+    repo: "Xenova/multilingual-e5-small",
+    revision: "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+    model: "onnx/model_quantized.onnx",
+    /** WebGPU indexed the 8-page article in 50 s against WebAssembly's 37 s: the quantized operators run on the CPU. */
+    backend: "wasm" as "wasm" | "webgpu",
+    /** A paragraph is embedded in windows of consecutive lines up to this many characters, overlapping by half. */
+    windowChars: 600,
+    /** Passages per model run while a document is indexed. */
+    batch: 8,
+    /**
+     * Evidence a hybrid selection sends, in estimated tokens. Paragraphs are taken in rank order while they fit, so a
+     * question costs no more than a lexical selection did on the article that needed this (a mean of ~1,180 there).
+     */
+    evidenceTokens: 1300,
+    /** Size of the model files, for the progress bar. */
+    downloadBytes: 135_391_358,
+  },
 
   // Answering
   historyTurns: 4,

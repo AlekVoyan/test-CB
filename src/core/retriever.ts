@@ -1,5 +1,6 @@
 import { config, type RetrievalMode } from "./config.js";
 import { normalizeText } from "./normalize.js";
+import { fuseRankings, paragraphKey, paragraphSimilarity, type SemanticIndex } from "./semantic.js";
 import type { EvidenceUnit, IndexedDocument, Turn } from "./types.js";
 
 const STOPWORDS = new Set(
@@ -59,7 +60,8 @@ export function estimateTokens(units: EvidenceUnit[]): number {
 }
 
 export interface EvidenceSelection {
-  mode: RetrievalMode;
+  /** "hybrid": top-k by words and by meaning together, held to a token cap. */
+  mode: RetrievalMode | "hybrid";
   /** Units sent to the model, in document order. */
   units: EvidenceUnit[];
   /** All units ranked by BM25 score for the question (highest first). */
@@ -74,6 +76,16 @@ export interface SelectOptions {
   budgetTokens?: number;
   topK?: number;
   history?: Turn[];
+  /** Search by meaning: the vector of retrievalQuery() and the loaded documents' passage vectors. Used above the budget. */
+  semantic?: { query: Float32Array; index: SemanticIndex };
+  /** The token cap of a hybrid selection. */
+  evidenceTokens?: number;
+}
+
+/** What is searched for: the question, and for a follow-up that carries few words, the question it follows. */
+export function retrievalQuery(question: string, history: Turn[] = []): string {
+  const last = history[history.length - 1];
+  return [question, last?.resolvedQuery ?? "", ...(last?.activeEntities ?? [])].join(" ");
 }
 
 /**
@@ -106,7 +118,7 @@ export function selectEvidence(docs: IndexedDocument[], question: string, option
 
   const all = docs.flatMap((d) => d.units);
   // Follow-ups ("and the other one?") carry few words; borrow the previous resolved question and entities.
-  const queryText = [question, last?.resolvedQuery ?? "", ...(last?.activeEntities ?? [])].join(" ");
+  const queryText = retrievalQuery(question, history);
   const tokenized = all.map((u) => tokenize(u.text));
   const query = tokenize(queryText);
   const rank = (terms: string[]) => {
@@ -120,22 +132,64 @@ export function selectEvidence(docs: IndexedDocument[], question: string, option
     return { mode: "full", units: all, ranked, estimatedTokens: fullTokens };
   }
 
-  // Only a selection needs the second pass: when the whole corpus goes to the model, ranking only orders it.
-  const feedback = options.feedback === false ? [] : feedbackTerms(ranked, new Set(query), tokenized, 6);
+  // Only a selection needs the second pass: when the whole corpus goes to the model, ranking only orders it. Words
+  // lent by lines that matched nothing are noise: a question in another language got the running headers. Search by
+  // words alone still needs something to send, so only a hybrid selection skips them.
+  const matched = ranked.some((r) => r.score > 0);
+  const feedback = options.feedback === false || (options.semantic && !matched) ? [] : feedbackTerms(ranked, new Set(query), tokenized, 6);
   if (feedback.length) ranked = rank([...query, ...feedback]);
 
-  // top-k paragraphs by their best unit, plus paragraphs that mention entities from the conversation
-  const paragraphKey = (u: EvidenceUnit) => `${u.documentId}#${u.page}#${u.paragraph}`;
+  // paragraphs that mention entities from the conversation go along with whatever is chosen
+  const entityTokens = new Set((last?.activeEntities ?? []).flatMap((e) => tokenize(e)));
+  const withEntities = (chosen: Set<string>) => {
+    if (entityTokens.size) for (const u of all) if (tokenize(u.text).some((t) => entityTokens.has(t))) chosen.add(paragraphKey(u));
+    return all.filter((u) => chosen.has(paragraphKey(u)));
+  };
+
+  if (options.semantic) {
+    // Paragraphs ranked by words and by meaning, the two rankings fused, then taken in that order while they fit the
+    // token cap: the best one always, at most top-k. A hybrid selection sends no more than a lexical one did.
+    const cap = options.evidenceTokens ?? config.semanticSearch.evidenceTokens;
+    const byWords = new Map<string, number>();
+    for (const { unit, score } of ranked) byWords.set(paragraphKey(unit), Math.max(byWords.get(paragraphKey(unit)) ?? 0, score));
+    // Paragraphs that name what the conversation is about rank as a third list rather than being added past the cap: a
+    // subject like "ГАЗ-АА" tokenizes to "газ", which the magazine article uses in nearly every paragraph, and adding
+    // them all sent 5,400 tokens instead of 1,300.
+    const byEntities = new Map<string, number>();
+    if (entityTokens.size) {
+      for (const u of all) {
+        const hits = tokenize(u.text).filter((t) => entityTokens.has(t)).length;
+        if (hits) byEntities.set(paragraphKey(u), (byEntities.get(paragraphKey(u)) ?? 0) + hits);
+      }
+    }
+    const fused = fuseRankings([byWords, paragraphSimilarity(options.semantic.query, options.semantic.index), byEntities]);
+    const members = new Map<string, EvidenceUnit[]>();
+    for (const u of all) members.set(paragraphKey(u), [...(members.get(paragraphKey(u)) ?? []), u]);
+    const chosen = new Set<string>();
+    let used = 0;
+    for (const [key] of [...fused.entries()].sort((a, b) => b[1] - a[1])) {
+      if (chosen.size >= topK) break;
+      const size = estimateTokens(members.get(key) ?? []);
+      if (chosen.size && used + size > cap) continue;
+      chosen.add(key);
+      used += size;
+    }
+    const units = all.filter((u) => chosen.has(paragraphKey(u)));
+    // The closest passages for a not-found answer follow the fused order too; within a paragraph, the best line by words.
+    const lexical = new Map(ranked.map((r) => [r.unit.id, r.score]));
+    const hybridRanked = all
+      .map((unit) => ({ unit, score: fused.get(paragraphKey(unit)) ?? 0 }))
+      .sort((a, b) => b.score - a.score || (lexical.get(b.unit.id) ?? 0) - (lexical.get(a.unit.id) ?? 0));
+    return { mode: "hybrid", units, ranked: hybridRanked, estimatedTokens: estimateTokens(units) };
+  }
+
+  // top-k paragraphs by their best unit
   const chosen = new Set<string>();
   for (const { unit, score } of ranked) {
     if (chosen.size >= topK || score <= 0) break;
     chosen.add(paragraphKey(unit));
   }
-  const entityTokens = new Set((last?.activeEntities ?? []).flatMap((e) => tokenize(e)));
-  if (entityTokens.size) {
-    for (const u of all) if (tokenize(u.text).some((t) => entityTokens.has(t))) chosen.add(paragraphKey(u));
-  }
-  const units = all.filter((u) => chosen.has(paragraphKey(u)));
+  const units = withEntities(chosen);
   return { mode: "topk", units, ranked, estimatedTokens: estimateTokens(units) };
 }
 

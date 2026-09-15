@@ -22,7 +22,7 @@ import {
   WarningCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties, type DragEvent, type FormEvent, type ReactNode } from "react";
 import sampleV1Url from "../../fixtures/manual-v1.pdf?url";
 import sampleV2Url from "../../fixtures/manual-v2.pdf?url";
 import { spokenAnswer, unverifiedAnswer } from "../core/answerer";
@@ -36,13 +36,15 @@ import { IngestError } from "../core/limits";
 import { heardClarification, lexiconOf, misheardWords } from "../core/heard";
 import { groupPassages, type Passage } from "../core/passages";
 import { askAbout, closestLabel, documentTopics, topicsFrom } from "../core/topics";
-import { relatedEvidence, selectEvidence } from "../core/retriever";
+import { estimateTokens, relatedEvidence, retrievalQuery, selectEvidence } from "../core/retriever";
+import { passagesOf, type SemanticIndex } from "../core/semantic";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
 import { verifyCitations } from "../core/validator";
 import { askServer, fetchServerInfo, type ServerInfo } from "./api";
 import { PageViewer } from "./PageViewer";
 import { pdfjs } from "./pdfjs";
 import { deviceVoiceState, loadDeviceVoice, onDeviceVoice, type DeviceVoiceState } from "./deviceVoice";
+import { embedderState, embedTexts, onEmbedder, type EmbedderState } from "./embedder";
 import { primeAudio, speakAnswer, stopSpeaking, type SpeakInfo, type SpeechTicket, type VoiceMode } from "./tts";
 import { speechRecognitionSupported, startRecognition } from "./voice";
 
@@ -56,6 +58,10 @@ interface DocEntry {
   bytes?: Uint8Array;
   ingestMs?: number;
   error?: string;
+  /** Search by meaning: the document's passage vectors, and how long embedding them took (the model runs alone). */
+  semantic?: SemanticIndex;
+  semanticMs?: number;
+  meaning?: "indexing" | "failed";
 }
 
 interface QuestionMetrics {
@@ -75,7 +81,8 @@ interface QuestionMetrics {
   retryReasons: string[];
   sttMs?: number;
   retrievalMs: number;
-  evidence: { mode: string; units: number; estimatedTokens: number };
+  /** embedMs: turning the question into a vector, for a hybrid selection. */
+  evidence: { mode: string; units: number; estimatedTokens: number; embedMs?: number };
   requestMs: number;
   llmMs: number[];
   validationMs: number;
@@ -223,6 +230,15 @@ const toCitation = (u: EvidenceUnit): Citation => ({
 });
 const fmtMs = (x?: number) => (x === undefined ? "—" : x < 1000 ? `${Math.round(x)} ms` : `${(x / 1000).toFixed(2)} s`);
 const fmtUsd = (x: number) => (Number.isFinite(x) ? `$${x.toFixed(5)}` : "no price set");
+
+/** What a document's row says about search by meaning, which a document set too long to send whole gets. */
+function meaningNote(d: DocEntry, embedder: EmbedderState): string {
+  if (d.semanticMs !== undefined) return ` · meaning indexed in ${fmtMs(d.semanticMs)}`;
+  if (d.meaning === "failed") return " · search by meaning unavailable, searching by words";
+  if (d.meaning !== "indexing") return "";
+  if (embedder.status === "loading") return ` · search model ${Math.floor((100 * embedder.loaded) / embedder.total)}% of ${Math.round(embedder.total / 1e6)} MB, once`;
+  return " · indexing for search by meaning";
+}
 
 /** What the Measurements panel and the JSON record about the voice that spoke. */
 function voiceMetrics(info: SpeakInfo, text: string): QuestionMetrics["tts"] {
@@ -796,6 +812,31 @@ export function App() {
     }
   }, [setKey]);
 
+  // Search by meaning, for a document set too long to send whole: each document's passages are embedded once, in this
+  // browser. The model downloads the first time it is needed and comes from the cache after that.
+  const [embedder, setEmbedder] = useState<EmbedderState>(embedderState);
+  useEffect(() => onEmbedder(setEmbedder), []);
+  const needsMeaning = estimateTokens(readyDocs.flatMap((d) => d.units)) > config.evidenceTokenBudget;
+  const embedding = useRef(new Set<string>());
+  useEffect(() => {
+    if (!needsMeaning) return;
+    for (const entry of docsRef.current) {
+      if (entry.stage !== "ready" || !entry.doc || entry.semantic || embedding.current.has(entry.key)) continue;
+      const { key, doc } = entry;
+      embedding.current.add(key);
+      const mark = (patch: Partial<DocEntry>) => setDocs((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+      mark({ meaning: "indexing" });
+      const passages = passagesOf(doc.units, config.semanticSearch.windowChars);
+      embedTexts(
+        passages.map((p) => p.text),
+        "passage",
+      ).then(
+        ({ vectors, ms }) => mark({ meaning: undefined, semantic: { keys: passages.map((p) => p.key), vectors }, semanticMs: ms }),
+        () => mark({ meaning: "failed" }),
+      );
+    }
+  }, [needsMeaning, setKey]);
+
   async function addFiles(files: File[], replacing?: string) {
     setError(null);
     setNotice(null);
@@ -896,7 +937,21 @@ export function App() {
     // answers; a question that names no model, where the closest lines differ by model, is asked back without a call.
     const joined = unsettled ? null : clarifiedQuestion(heardAs, turns);
     const asked = joined ?? heardAs;
-    const selection = selectEvidence(ready, asked, { history: turns });
+    // Search by meaning joins search by words once every loaded document's passages are embedded. Until then, and for a
+    // document set small enough to send whole, words alone.
+    let semantic: { query: Float32Array; index: SemanticIndex } | undefined;
+    let embedMs: number | undefined;
+    const indexed = docsRef.current.filter((d) => d.stage === "ready" && d.doc);
+    if (estimateTokens(units) > config.evidenceTokenBudget && indexed.every((d) => d.semantic)) {
+      try {
+        const { vectors, ms } = await embedTexts([retrievalQuery(asked, turns)], "query");
+        semantic = { query: vectors[0]!, index: { keys: indexed.flatMap((d) => d.semantic!.keys), vectors: indexed.flatMap((d) => d.semantic!.vectors) } };
+        embedMs = ms;
+      } catch {
+        // the model failed: words alone
+      }
+    }
+    const selection = selectEvidence(ready, asked, { history: turns, semantic });
     const models = unsettled || joined ? [] : whichModel(asked, turns, units);
     const retrievalMs = performance.now() - submitAt;
 
@@ -968,7 +1023,7 @@ export function App() {
         retryReasons: result.validation.retryReasons,
         sttMs: voiceTimes?.speechEndAt && voiceTimes.sttFinalAt ? voiceTimes.sttFinalAt - voiceTimes.speechEndAt : undefined,
         retrievalMs,
-        evidence: { mode: selection.mode, units: selection.units.length, estimatedTokens: selection.estimatedTokens },
+        evidence: { mode: selection.mode, units: selection.units.length, estimatedTokens: selection.estimatedTokens, embedMs },
         requestMs,
         llmMs: result.timings.llmMs,
         validationMs: result.timings.validationMs,
@@ -1085,7 +1140,7 @@ export function App() {
 
   async function copyMetrics() {
     const payload = {
-      ingestion: docs.filter((d) => d.doc).map((d) => ({ file: d.filename, pages: d.doc!.pageCount, totalMs: d.ingestMs, ...d.doc!.timings })),
+      ingestion: docs.filter((d) => d.doc).map((d) => ({ file: d.filename, pages: d.doc!.pageCount, totalMs: d.ingestMs, ...d.doc!.timings, semanticMs: d.semanticMs })),
       questions: log,
       userAgent: navigator.userAgent,
     };
@@ -1352,6 +1407,7 @@ export function App() {
                           {STAGE_LABEL[d.stage]}
                           {d.doc && ` · ${d.doc.pageCount} pages`}
                           {d.ingestMs !== undefined && ` · ready in ${fmtMs(d.ingestMs)}`}
+                          {meaningNote(d, embedder)}
                         </span>
                         <span className="progress" aria-hidden>
                           <span style={{ "--p": STAGE_PROGRESS[d.stage] } as CSSProperties} />
@@ -1603,10 +1659,18 @@ export function App() {
             {docs
               .filter((d) => d.doc)
               .map((d) => (
-                <div key={d.key}>
-                  <dt>Ingestion · {d.filename}</dt>
-                  <dd className="mono">{fmtMs(d.ingestMs)}</dd>
-                </div>
+                <Fragment key={d.key}>
+                  <div>
+                    <dt>Ingestion · {d.filename}</dt>
+                    <dd className="mono">{fmtMs(d.ingestMs)}</dd>
+                  </div>
+                  {d.semanticMs !== undefined && (
+                    <div>
+                      <dt>Search by meaning · {d.filename}</dt>
+                      <dd className="mono">{fmtMs(d.semanticMs)}</dd>
+                    </div>
+                  )}
+                </Fragment>
               ))}
             {last && (
               <>

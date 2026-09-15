@@ -187,7 +187,7 @@ interface Record_ {
     validation: AnswerResult["validation"];
   };
   scores: ReturnType<typeof score>;
-  evidence: { mode: RetrievalMode; units: number; estimatedTokens: number };
+  evidence: { mode: RetrievalMode | "hybrid"; units: number; estimatedTokens: number };
   latencyMs: { retrieval: number; llmAttempts: number[]; validation: number; total: number };
   usage: AnswerResult["usage"];
   costUsd: number;

@@ -6,6 +6,8 @@
 import * as ort from "onnxruntime-web/webgpu";
 import { config } from "../core/config";
 import type { DeviceReply, DeviceRequest } from "./deviceVoice";
+import { type Language } from "../core/config";
+import { numbersInWords } from "./speechNumbers";
 import { prepareText, speechPieces, textIds } from "./supertonicText";
 
 // Its "some nodes were not assigned to the preferred execution provider" notices are expected (shape ops stay on the CPU).
@@ -201,10 +203,11 @@ let cancelledThrough = 0;
 let queue: Promise<void> = Promise.resolve();
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-async function speak(id: number, text: string, language: string): Promise<void> {
+async function speak(id: number, text: string, language: Language): Promise<void> {
   try {
     const m = await loadModel();
-    const pieces = speechPieces(text, firstChars, restChars);
+    // Numbers go in as words in Russian and Ukrainian: the model's handling of digits is shown for English only.
+    const pieces = speechPieces(numbersInWords(text, language), firstChars, restChars);
     if (!pieces.length) {
       scope.postMessage({ type: "chunk", id, samples: new Float32Array(0), sampleRate: m.cfg.ae.sample_rate, ms: 0, pause: 0, last: true });
       return;

@@ -331,6 +331,8 @@ The core scenario was finished and evaluated inside the eight hours; everything 
 
 ## 17. Links
 
-- Repository: https://github.com/AlekVoyan/test-CB (private)
+- Repository: https://github.com/AlekVoyan/test-CB
 - Browser demo: https://askyourdocuments.vercel.app/
-- Video walkthrough: **TBD**
+- Video walkthrough (2:12, with voice-over): https://askyourdocuments.vercel.app/media/test-codebridge-dudek.mp4
+- Report, English (PDF): https://askyourdocuments.vercel.app/media/report-en.pdf
+- Report, Ukrainian (PDF): https://askyourdocuments.vercel.app/media/report-uk.pdf

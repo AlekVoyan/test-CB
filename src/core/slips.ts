@@ -2,7 +2,8 @@
 import type { Language } from "./config.js";
 import type { EvidenceUnit } from "./types.js";
 
-const words = (text: string) => text.toLowerCase().match(/\p{L}+/gu) ?? [];
+// ё and е are one letter here: "твёрдого" restated as "твердого" is not a slip the model fixed.
+const words = (text: string) => text.toLowerCase().replace(/ё/g, "е").match(/\p{L}+/gu) ?? [];
 
 /** Edit distance that counts a swap of two neighbouring letters as one edit ("nozzel" → "nozzle" is 1). */
 export function editDistance(a: string, b: string): number {

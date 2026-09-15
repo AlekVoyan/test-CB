@@ -117,6 +117,9 @@ export function misheardWords(question: string, lexicon: Lexicon, options: { max
     // folds differ by a letter. To qualify, such a word must also be spelled within two letters of the candidate —
     // sound alone is too loose, spelling alone brought in words that sound nothing alike.
     const key = fold(word);
+    // "твёрдого" asked of a document that writes "твердого" is the same word, spelled with or without ё.
+    const plain = (w: string) => w.replace(/ё/g, "е");
+    if ([...(lexicon.byFold.get(key) ?? [])].some((known) => plain(known) === plain(word))) return;
     const near = new Set<string>(lexicon.byFold.get(key) ?? []);
     for (const [candidate] of lexicon.count) {
       if (near.has(candidate) || Math.abs(candidate.length - word.length) > 2) continue;

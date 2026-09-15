@@ -45,6 +45,13 @@ describe("what the recognizer heard", () => {
     expect(misheardWords("Ну откуда газ появляется?", lexicon("Генераторный газ является топливом для двигателя."))).toEqual([]);
   });
 
+  it("does not take ё for a mishearing of е, either way round", () => {
+    // Seen in my own session: "твёрдого" got "Если вы имели в виду «твердого»" in front of the answer.
+    const fuel = lexicon("Процесс газификации твердого топлива неновый.", "Камера сгорания была из дешёвой стали.");
+    expect(misheardWords("Какой вид топлива твёрдого подходит?", fuel).map((m) => m.word)).not.toContain("твёрдого");
+    expect(misheardWords("Камера была из дешевой стали?", fuel).map((m) => m.word)).not.toContain("дешевой");
+  });
+
   it("leaves everyday words alone, however short a document's vocabulary is", () => {
     // The eval caught these: "ever" was offered "every" or "never", "does" was offered "days", and the question the
     // model then saw was nonsense.

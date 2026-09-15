@@ -43,6 +43,68 @@ export function topicsFrom(lines: { quote: string }[] | { text: string }[], max 
   return out;
 }
 
+// Words that make a poor edge or middle for a term, in the three languages.
+const STOP = new Set(
+  (
+    "и а но или в во на с со по для от до из к ко о об у за при под над про через что как это его ее её их этот эта эти этой " +
+    "этого тот та те также был была были было быть не же ли то бы уже только более менее очень таким образом тем однако " +
+    "кроме этом всего время году годы годах рис стр і або з із зі від що як це її цей ця ці також був була були було бути " +
+    "вже лише дуже the a an of and or to in on for with by from at as is are was were be this that these those it its " +
+    "also only more less very every either"
+  ).split(" "),
+);
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * The document's own terms near a question it had no answer to: phrases of two or three words from the closest lines
+ * that the document uses at least twice, so a term and not a scrap of a broken line, and that add a word the question
+ * did not have. A question asked in those words reaches the lines that use them. On a magazine article, "Как работает
+ * газогенераторная установка" got "процесса газификации" and "камеры сгорания", where the openings of the closest
+ * lines gave "Их масса колебалась в пределах 400-600 кг"; ranking phrases by the search model's similarity gave
+ * scraps that repeated the question. Terms are taken as written, not put back into the nominative.
+ */
+export function termsFrom(closest: string[], documentLines: string[], question: string, max = 2): string[] {
+  const stem = (word: string) => word.toLowerCase().slice(0, 5);
+  const asked = new Set((question.match(/\p{L}+/gu) ?? []).map(stem));
+  const text = documentLines.join(" ").replace(/\s+/g, " ").toLowerCase();
+  const uses = (phrase: string) => (text.match(new RegExp(`(?<!\\p{L})${escapeRe(phrase)}(?!\\p{L})`, "gu")) ?? []).length;
+  const found = new Map<string, { inDocument: number; inClosest: number }>();
+  // A line the document repeats word for word is a running header or footer ("Kestrel Dosing System — User Manual v1"
+  // on every page): it uses its words often and is about nothing.
+  const lineCount = new Map<string, number>();
+  for (const line of documentLines) lineCount.set(line.trim().toLowerCase(), (lineCount.get(line.trim().toLowerCase()) ?? 0) + 1);
+  for (const line of closest) {
+    if ((lineCount.get(line.trim().toLowerCase()) ?? 0) >= 2) continue;
+    // A clause ends at punctuation and at a number: "Расход древесных чурок составлял 32 кг" gives no "составлял кг".
+    for (const clause of line.split(/[,.;:!?()«»"“”—–]|\s-\s|\d+/u)) {
+      const words = clause.trim().split(/\s+/).filter((w) => /^\p{L}[\p{L}-]*$/u.test(w));
+      for (let size = 2; size <= 3; size++) {
+        for (let i = 0; i + size <= words.length; i++) {
+          const run = words.slice(i, i + size);
+          // short words, function words and a running header in capitals ("ТЕХНИКА И ТЕХНОЛОГИИ") make no term
+          if (run.some((w) => w.length < 4 || STOP.has(w.toLowerCase()) || /^\p{Lu}{2,}/u.test(w))) continue;
+          if (run.every((w) => asked.has(stem(w)))) continue;
+          // every word capitalized is a name ("Kestrel Dosing System"): asking what the document says about it is no lead
+          if (run.every((w) => /^\p{Lu}/u.test(w))) continue;
+          const phrase = run.join(" ").toLowerCase();
+          const seen = found.get(phrase);
+          if (seen) seen.inClosest++;
+          else found.set(phrase, { inDocument: uses(phrase), inClosest: 1 });
+        }
+      }
+    }
+  }
+  const terms = [...found.entries()].filter(([, t]) => t.inDocument >= 2);
+  return (
+    terms
+      // "расход древесных чурок", used as often as "древесных чурок", says more
+      .filter(([phrase, t]) => !terms.some(([other, o]) => other !== phrase && other.includes(phrase) && o.inDocument >= t.inDocument))
+      .sort((a, b) => b[1].inClosest - a[1].inClosest || b[1].inDocument - a[1].inDocument)
+      .slice(0, max)
+      .map(([phrase]) => phrase)
+  );
+}
+
 const ASK_ABOUT: Record<Language, (topic: string) => string> = {
   en: (topic) => `What does the document say about “${topic}”?`,
   ru: (topic) => `Что в документе сказано про «${topic}»?`,

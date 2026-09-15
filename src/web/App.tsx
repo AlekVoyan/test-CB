@@ -35,7 +35,7 @@ import { ingestPdf, type IngestStage } from "../core/ingest";
 import { IngestError } from "../core/limits";
 import { heardClarification, lexiconOf, misheardWords } from "../core/heard";
 import { groupPassages, type Passage } from "../core/passages";
-import { askAbout, closestLabel, documentTopics, topicsFrom } from "../core/topics";
+import { askAbout, closestLabel, documentTopics, termsFrom, topicsFrom } from "../core/topics";
 import { estimateTokens, relatedEvidence, retrievalQuery, selectEvidence } from "../core/retriever";
 import { passagesOf, type SemanticIndex } from "../core/semantic";
 import type { AnswerResult, AnswerStatus, Citation, EvidenceUnit, IndexedDocument, Rect, Turn } from "../core/types";
@@ -991,7 +991,10 @@ export function App() {
     // sentence makes a better thing to offer than the line that merely scored highest.
     const closest = result.status === "not_found" ? topicsFrom([...result.related, ...relatedEvidence(selection, 8).map(toCitation)]) : [];
     // The model's own offer — the documents' word for what was asked about — leads the suggestions when it made one.
-    const topics = result.didYouMean ? [result.didYouMean, ...closest.filter((t) => !t.includes(result.didYouMean))].slice(0, 3) : closest;
+    // Then the document's own terms near the question: asked in its words, a question reaches the lines that use them.
+    const terms = result.status === "not_found" ? termsFrom([...result.related.map((c) => c.quote), ...relatedEvidence(selection, 12).map((u) => u.text)], units.map((u) => u.text), asked) : [];
+    const suggestions = [...terms, ...closest.filter((t) => !terms.some((term) => t.toLowerCase().includes(term)))];
+    const topics = (result.didYouMean ? [result.didYouMean, ...suggestions.filter((t) => !t.includes(result.didYouMean))] : suggestions).slice(0, 3);
 
     const id = Date.now();
     setPending(null);

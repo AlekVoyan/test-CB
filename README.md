@@ -85,7 +85,7 @@ UI ◄─ quote re-check against page text ◄───────────�
 | `src/core/validator.ts` | Answer rules, citation building, quote re-check |
 | `src/core/passages.ts` | Files cited lines under the paragraph they come from (one sheet per paragraph, with the lines around it) |
 | `src/core/slips.ts` | Names a slip the model fixed without saying so ("nozzel" → "nozzle"), found by comparing the question with the model's own restatement |
-| `src/core/topics.ts` | What the document does talk about: the opening words of the lines that came closest, offered as questions to ask next when nothing answered |
+| `src/core/topics.ts` | What the document does talk about, offered as questions to ask next when nothing answered: first the document's own terms near the question (phrases it uses at least twice, never a name or a running header), then the opening words of the lines that came closest |
 | `src/core/heard.ts` | What the recognizer misheard: the documents' own lexicon, a phonetic fold, and the question asked back when more than one of their words fits. Runs before the model, in the browser |
 | `src/core/clarify.ts` | Which model a question is about: "Which model do you mean?" asked back when the closest lines differ by model, and a short reply ("Model B.") joined to the question it answers. Runs before the model, in the browser |
 | `src/core/contract.ts` | JSON schema of the model's answer and of the API request |

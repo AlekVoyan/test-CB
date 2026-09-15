@@ -159,6 +159,33 @@ describe("page layout", () => {
     expect(first).toBe("Интересно, что в сентябре 1938г. А. И. Пельтцер прошёл без остановок 5000 км на автомобиле ГАЗ-М1-Г.");
   });
 
+  it("joins a word hyphenated across lines, and keeps the page text in step so quotes still match it", async () => {
+    // A Russian magazine column whose PDF lost the hyphens: "газогене" | "раторная" came out as two words.
+    const wide = (str: string, y: number) => ({ str, transform: [5, 0, 0, 5, 21, y], width: 91 });
+    const extracted = await extractPdf(
+      new Uint8Array([1]),
+      onePage([
+        wide("Эта газогенераторная установка стояла на", 300),
+        wide("грузовике, и эта газогене", 293),
+        wide("раторная установка работала на древесно-", 286),
+        wide("чурочном топливе.", 279),
+      ]),
+    );
+    const page = extracted.pages[0]!;
+    // the hyphen the PDF kept stays when the document never writes the word without it
+    expect(page.lines.map((l) => l.text)).toEqual([
+      "Эта газогенераторная установка стояла на грузовике, и эта газогенераторная установка работала на древесно-чурочном топливе.",
+    ]);
+    expect(page.rawText.replace(/\n/g, " ")).toContain(page.lines[0]!.text);
+  });
+
+  it("leaves two real words apart at a line break, even when together they make a word", async () => {
+    const wide = (str: string, y: number) => ({ str, transform: [5, 0, 0, 5, 21, y], width: 91 });
+    expect(await lines([wide("Расход был небольшой, а шум не", 300), wide("большой, не очень большой и ровный.", 293)])).toEqual([
+      "Расход был небольшой, а шум не большой, не очень большой и ровный.",
+    ]);
+  });
+
   it("keeps a one-column page with right-aligned dates as one column, and never wraps a dated line", async () => {
     const resume = [
       item("Experience", 56, 700, 60),
@@ -387,6 +414,10 @@ describe("slips", () => {
   it("ignores paraphrases, inflections and words the documents use", () => {
     expect(findCorrectedSlip("How often do I clean it?", "How often should I clean the dosing nozzle of Model B?", nozzle)).toBeNull();
     expect(findCorrectedSlip("Cleaning the nozzles?", "How often should I clean the nozzle?", nozzle)).toBeNull();
+  });
+  it("does not take ё for a slip of е", () => {
+    const fuel = [unit("d1:p6:s5", "Процесс газификации твердого топлива неновый.", "doc1", 6)];
+    expect(findCorrectedSlip("Какой вид топлива твёрдого подходит?", "Какой вид твердого топлива подходит?", fuel)).toBeNull();
   });
   it("counts a swap of two letters as one edit", () => {
     expect(editDistance("nozzel", "nozzle")).toBe(1);

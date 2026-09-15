@@ -28,11 +28,13 @@ function sentenceBoxes(line: LogicalLine, text: string, sentence: string, from: 
   const end = start + sentence.length;
   let offset = 0;
   const boxes: Rect[] = [];
-  for (const part of line.parts) {
+  line.parts.forEach((part, i) => {
+    // parts are joined with a space, except the second half of a hyphenated word
+    if (i > 0 && !part.glued) offset += 1;
     const length = normalizeText(part.text).length;
     if (offset < end && offset + length > start) boxes.push(part.box);
-    offset += length + 1;
-  }
+    offset += length;
+  });
   return { boxes: boxes.length ? boxes : all, end };
 }
 

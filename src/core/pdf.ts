@@ -35,14 +35,16 @@ interface PhysicalLine {
   gapped: boolean;
   /** Where the line sits on the page, in PDF space. */
   box: Rect;
+  /** Joined to the line above without a space: the second half of a word hyphenated across the break. */
+  glued?: boolean;
 }
 
 export interface LogicalLine {
   text: string;
   /** Paragraph index within the page, 1-based. */
   paragraph: number;
-  /** The physical lines this line was joined from, with their positions. */
-  parts: { text: string; box: Rect }[];
+  /** The physical lines this line was joined from, with their positions; a glued part follows the one before it without a space. */
+  parts: { text: string; box: Rect; glued?: boolean }[];
 }
 
 export interface ExtractedPage {
@@ -235,7 +237,32 @@ function pageBlocks(items: TextItemLike[]): PhysicalLine[][] {
  */
 const ABBREVIATION = /(?:^|[\s(])(?:\d+\s*)?(?:\p{L}|г|гг|стр|рис|см|табл|ул|руб|кг|км|мин|тыс|млн|др|пр|т\.д|т\.е|no|fig|pp|vs|approx|e\.g|i\.e)\.$/iu;
 const endsSentence = (text: string) => /[.!?:;]["')\]]?$/.test(text) && !ABBREVIATION.test(text);
-function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
+
+/** The words that stand inside a line somewhere in the document: whole words, never the halves of a hyphenated one. */
+function wordsInsideLines(lines: PhysicalLine[]): Set<string> {
+  const inside = new Set<string>();
+  for (const line of lines) for (const word of (line.text.toLowerCase().match(/\p{L}+/gu) ?? []).slice(1, -1)) inside.add(word);
+  return inside;
+}
+
+/**
+ * A word hyphenated across a line break. Some PDFs keep no hyphen, so "газогене" | "раторная" read as two words that
+ * neither search nor the model knows. They are joined when the document writes the whole word inside a line elsewhere
+ * and one half never stands there on its own, so two real words ("не" | "большой") stay apart. A hyphen the PDF did
+ * keep is dropped for a word the document writes whole, and kept, without the space, otherwise ("древесно-чурочном").
+ * Returns the line above as it should read before the join, or null for no join.
+ */
+function hyphenJoin(above: string, below: string, inside: Set<string>): string | null {
+  const head = above.match(/(\p{L}+)(-?)$/u);
+  const tail = below.match(/^\p{Ll}+/u);
+  if (!head || !tail) return null;
+  const [, half, hyphen] = head;
+  const whole = `${half}${tail[0]}`.toLowerCase();
+  if (inside.has(whole) && (!inside.has(half!.toLowerCase()) || !inside.has(tail[0]))) return hyphen ? above.slice(0, -1) : above;
+  return hyphen ? above : null;
+}
+
+function logicalLines(lines: PhysicalLine[], textRight: number, inside: Set<string>): LogicalLine[] {
   const gaps = lines.slice(1).map((l, i) => lines[i]!.y - l.y).filter((g) => g > 0);
   const typicalGap = median(gaps) || 12;
   const out: LogicalLine[] = [];
@@ -255,11 +282,20 @@ function logicalLines(lines: PhysicalLine[], textRight: number): LogicalLine[] {
       prev.right >= textRight * 0.9 &&
       !endsSentence(prev.text);
     const last = out[out.length - 1];
-    const part = { text: line.text, box: line.box };
     if (last && prevWrapped) {
-      last.text += ` ${line.text}`;
-      last.parts.push(part);
-    } else out.push({ text: line.text, paragraph, parts: [part] });
+      const above = hyphenJoin(prev!.text, line.text, inside);
+      if (above === null) {
+        last.text += ` ${line.text}`;
+        last.parts.push({ text: line.text, box: line.box });
+      } else {
+        // The line above loses its hyphen here and in the page text alike, so a quote still matches the page.
+        last.text = `${last.text.slice(0, last.text.length - prev!.text.length)}${above}${line.text}`;
+        last.parts[last.parts.length - 1]!.text = above;
+        prev!.text = above;
+        line.glued = true;
+        last.parts.push({ text: line.text, box: line.box, glued: true });
+      }
+    } else out.push({ text: line.text, paragraph, parts: [{ text: line.text, box: line.box }] });
   });
   return out;
 }
@@ -278,20 +314,21 @@ export async function extractPdf(data: Uint8Array, pdfjs: PdfjsLike): Promise<Ex
     // Wrapping is judged against the text block's right edge: the widest line of the document on one-block pages,
     // the block's own edge on a page with columns.
     const textRight = Math.max(0, ...perPage.filter((blocks) => blocks.length === 1).flat(2).map((l) => l.right));
+    const inside = wordsInsideLines(perPage.flat(2));
     return {
       pageCount: doc.numPages,
       pages: perPage.map((blocks, i) => {
         let paragraphs = 0;
         const lines = blocks.flatMap((block) => {
           const right = blocks.length === 1 ? textRight : Math.max(...block.map((l) => l.right));
-          const logical = logicalLines(block, right).map((l) => ({ ...l, paragraph: l.paragraph + paragraphs }));
+          const logical = logicalLines(block, right, inside).map((l) => ({ ...l, paragraph: l.paragraph + paragraphs }));
           paragraphs = logical[logical.length - 1]?.paragraph ?? paragraphs;
           return logical;
         });
         const physical = blocks.flat();
         return {
           page: i + 1,
-          rawText: physical.map((l) => l.text).join("\n"),
+          rawText: physical.map((l, n) => (n === 0 ? "" : l.glued ? "" : "\n") + l.text).join(""),
           lines,
           charCount: physical.reduce((sum, l) => sum + l.text.replace(/\s/g, "").length, 0),
         };

@@ -32,3 +32,15 @@ export function wrongAnswerLanguage(answer: string, language: Language): boolean
   if (cyrillicWords < 5) return cyrillicWords === 0 && words.length >= 5; // an answer in Latin letters is not it either
   return marks(answer, language) === 0 && marks(answer, other) > 0;
 }
+
+/**
+ * True when the reason read after an inferred answer is in the wrong alphabet: Latin letters under a Russian or
+ * Ukrainian answer, Cyrillic under an English one. It is judged on its own, because joined to a long answer an English
+ * sentence at the end carries none of the markers the check above looks for, and the voice reads it out regardless.
+ */
+export function wrongReasonLanguage(reason: string, language: Language): boolean {
+  const words = reason.match(/\p{L}+/gu) ?? [];
+  if (words.length < 3) return false;
+  const cyrillicShare = words.filter((w) => cyrillic.test(w)).length / words.length;
+  return language === "en" ? cyrillicShare >= 0.5 : cyrillicShare < 0.5;
+}

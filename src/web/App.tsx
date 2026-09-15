@@ -69,6 +69,8 @@ interface QuestionMetrics {
   /** "Think harder" actually applied by the model. */
   deep: boolean;
   answer?: string;
+  /** For an inferred answer, the rule read aloud after it. */
+  reason?: string;
   /** Validator findings on rejected attempts: why a question needed a second call. */
   retryReasons: string[];
   sttMs?: number;
@@ -138,15 +140,43 @@ const STAGE_LABEL: Record<DocStage, string> = {
 };
 const STAGE_PROGRESS: Record<DocStage, number> = { reading: 0.2, extracting: 0.55, indexing: 0.85, ready: 1, error: 1 };
 
-const STATUS_META: Record<AnswerStatus, { label: string; icon: ReactNode }> = {
-  answered: { label: "Answered", icon: <CheckCircleIcon weight="bold" aria-hidden /> },
-  not_found: { label: "Not in the document", icon: <MagnifyingGlassIcon weight="bold" aria-hidden /> },
-  needs_clarification: { label: "Needs clarification", icon: <QuestionIcon weight="bold" aria-hidden /> },
-  conflict: { label: "Documents disagree", icon: <ScalesIcon weight="bold" aria-hidden /> },
+// "inferred": an answer that follows from a rule or range rather than from a line that says it.
+type StatusKey = AnswerStatus | "inferred";
+const statusKey = (r: AnswerResult): StatusKey => (r.status === "answered" && r.basis === "inferred" ? "inferred" : r.status);
+const STATUS_ICON: Record<StatusKey, ReactNode> = {
+  answered: <CheckCircleIcon weight="bold" aria-hidden />,
+  not_found: <MagnifyingGlassIcon weight="bold" aria-hidden />,
+  needs_clarification: <QuestionIcon weight="bold" aria-hidden />,
+  conflict: <ScalesIcon weight="bold" aria-hidden />,
+  inferred: <LightbulbIcon weight="bold" aria-hidden />,
 };
-// An answer that follows from a rule or range rather than from a line that says it.
-const INFERRED_META = { label: "Inferred from the document", icon: <LightbulbIcon weight="bold" aria-hidden /> };
-const statusMeta = (r: AnswerResult) => (r.status === "answered" && r.basis === "inferred" ? INFERRED_META : STATUS_META[r.status]);
+// The words on the answer itself are in the answer's language: they are read together with it.
+const ANSWER_LABELS: Record<Language, Record<StatusKey | "why", string>> = {
+  en: {
+    answered: "Answered",
+    not_found: "Not in the document",
+    needs_clarification: "Needs clarification",
+    conflict: "Documents disagree",
+    inferred: "Inferred from the document",
+    why: "Why",
+  },
+  ru: {
+    answered: "Ответ найден",
+    not_found: "Нет в документе",
+    needs_clarification: "Нужно уточнение",
+    conflict: "Документы расходятся",
+    inferred: "Выведено из документа",
+    why: "Почему",
+  },
+  uk: {
+    answered: "Відповідь знайдено",
+    not_found: "Немає в документі",
+    needs_clarification: "Потрібне уточнення",
+    conflict: "Документи розходяться",
+    inferred: "Виведено з документа",
+    why: "Чому",
+  },
+};
 
 // Suggested questions for the synthetic sample manual, in each answer language.
 const EXAMPLES: Record<Language, string[]> = {
@@ -934,6 +964,7 @@ export function App() {
         basis: result.basis,
         deep: result.deep.applied,
         answer: result.answer,
+        reason: result.reason || undefined,
         retryReasons: result.validation.retryReasons,
         sttMs: voiceTimes?.speechEndAt && voiceTimes.sttFinalAt ? voiceTimes.sttFinalAt - voiceTimes.speechEndAt : undefined,
         retrievalMs,
@@ -1085,7 +1116,7 @@ export function App() {
   );
   const answerTab = (a: AnswerView) => (
     <>
-      {statusMeta(a.result).icon}
+      {STATUS_ICON[statusKey(a.result)]}
       <span className="tab-text" lang={a.language}>
         {a.question}
       </span>
@@ -1377,9 +1408,9 @@ export function App() {
                 ) : answer ? (
                   <div className="answer-result" key={answer.id}>
                     <p className="asked">
-                      <span className="asked-status">
-                        {statusMeta(answer.result).icon}
-                        {statusMeta(answer.result).label}
+                      <span className="asked-status" lang={answer.language}>
+                        {STATUS_ICON[statusKey(answer.result)]}
+                        {ANSWER_LABELS[answer.language][statusKey(answer.result)]}
                       </span>
                       <span lang={answer.language}>“{answer.question}”</span>
                     </p>
@@ -1388,7 +1419,7 @@ export function App() {
                     </p>
                     {answer.result.basis === "inferred" && answer.result.reason && (
                       <p className="why" lang={answer.language}>
-                        <span className="why-label">Why</span>
+                        <span className="why-label">{ANSWER_LABELS[answer.language].why}</span>
                         <span>{answer.result.reason}</span>
                       </p>
                     )}

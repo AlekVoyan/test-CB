@@ -616,6 +616,29 @@ describe("answerer", () => {
     expect(result.validation.warnings.join(" ")).toContain("not in Ukrainian");
   });
 
+  it("asks again when an inferred answer's reason is in another language", async () => {
+    const answer = "Да, модель A выдерживает такую нагрузку.";
+    const llm = fakeLlm([
+      { answer, basis: "inferred", reason: "It stays under the stated maximum load.", citations: ["d1:p2:s2"] },
+      { answer, basis: "inferred", reason: "Это меньше указанной максимальной нагрузки.", citations: ["d1:p2:s2"] },
+    ]);
+    const result = await answerQuestion({ question: "Выдержит ли модель A нагрузку 15 единиц?", history: [], evidence, llm, language: "ru" });
+    expect(llm.calls).toBe(2);
+    expect(result.reason).toBe("Это меньше указанной максимальной нагрузки.");
+    expect(result.validation.retryReasons[0]).toContain("the reason is not in Russian");
+  });
+
+  it("leaves out a reason that stays in another language, and keeps the answer", async () => {
+    const answer = "Да, модель A выдерживает такую нагрузку.";
+    const english = { answer, basis: "inferred" as const, reason: "It stays under the stated maximum load.", citations: ["d1:p2:s2"] };
+    const llm = fakeLlm([english, english]);
+    const result = await answerQuestion({ question: "Выдержит ли модель A нагрузку 15 единиц?", history: [], evidence, llm, language: "ru" });
+    expect(llm.calls).toBe(2);
+    expect(result).toMatchObject({ answer, basis: "inferred", reason: "" });
+    expect(spokenAnswer(result)).toBe(answer);
+    expect(result.validation.warnings.join(" ")).toContain("left out");
+  });
+
   it("never returns an unverified answer", async () => {
     const llm = fakeLlm([
       { answer: "Model A handles 22 units.", citations: ["d1:p2:s2"] },

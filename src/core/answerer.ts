@@ -1,7 +1,7 @@
 import { config, DEFAULT_LANGUAGE, type Language } from "./config.js";
 import type { LlmAnswer } from "./contract.js";
 import { LANGUAGES } from "./config.js";
-import { wrongAnswerLanguage } from "./language.js";
+import { wrongAnswerLanguage, wrongReasonLanguage } from "./language.js";
 import { normalizeSpokenQuestion } from "./normalize.js";
 import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt.js";
 import { assumptionPrefix, findCorrectedSlip } from "./slips.js";
@@ -108,11 +108,14 @@ export async function answerQuestion(input: {
     const inferred = isAnswer && out.basis === "inferred";
     // A slip the model fixed without saying so is named in the answer, so the user hears what was assumed.
     const silentFix = isAnswer && !out.assumed.trim() ? findCorrectedSlip(question, out.resolvedQuery, input.evidence) : null;
+    // A reason still in another language after the retry is neither shown nor read out; the answer passed on its own.
+    const reasonDropped = inferred && wrongReasonLanguage(out.reason, language);
+    if (reasonDropped) said = [...said, `The reason is not in ${LANGUAGES[language].name}, so it was left out.`];
     return {
       status: out.status,
       basis: inferred ? "inferred" : "stated",
       answer: silentFix ? `${assumptionPrefix(language, silentFix)} ${out.answer.trim()}` : out.answer.trim(),
-      reason: inferred ? out.reason.trim() : "",
+      reason: inferred && !reasonDropped ? out.reason.trim() : "",
       // A clarifying question makes no claim, so it shows no quotes.
       citations: out.status === "needs_clarification" ? [] : buildCitations(out.citations, evidenceById),
       related:
@@ -158,19 +161,22 @@ export async function answerQuestion(input: {
       // A right answer in the wrong language is unusable, so it is worth one more call. It is never worth losing,
       // though: the answer is kept here, and returned if the call spent on the language leaves nothing better.
       const want = LANGUAGES[language].name;
-      const slipped = wrongAnswerLanguage(`${out.answer} ${out.reason}`, language);
+      // The reason is read aloud after an inferred answer, so it is held to the same language on its own.
+      const spokenReason = (out.status === "answered" || out.status === "conflict") && out.basis === "inferred" ? out.reason : "";
+      const slipped = wrongAnswerLanguage(`${out.answer} ${out.reason}`, language) ? "answer" : wrongReasonLanguage(spokenReason, language) ? "reason" : null;
       if (slipped && attempt < maxAttempts) {
-        kept = { out, warnings: [...warnings, `The answer is not in ${want}.`] };
-        retryReasons.push(`attempt ${attempt} (${out.status}): the answer is not in ${want}`);
+        kept = { out, warnings: [...warnings, `The ${slipped} is not in ${want}.`] };
+        retryReasons.push(`attempt ${attempt} (${out.status}): the ${slipped} is not in ${want}`);
         rejectedAnswers.push(whatItSaid(attempt, completion));
         messages.push({ role: "assistant", content: completion.rawText || "(no output)" });
         messages.push({
           role: "user",
-          content: `Your answer is not written in ${want}. Answer the same question again, in ${want} (${LANGUAGES[language].nativeName}), keeping the same status, citations and meaning. Quotes stay in the document's own language.`,
+          content: `Your ${slipped === "answer" ? "answer is" : '"reason" is'} not written in ${want}. Answer the same question again, with answer and reason in ${want} (${LANGUAGES[language].nativeName}), keeping the same status, citations and meaning. Quotes stay in the document's own language.`,
         });
         continue;
       }
-      return settle(out, slipped ? [...warnings, `The answer is not in ${want}.`] : warnings);
+      // A reason that slipped is left out in settle, which says so.
+      return settle(out, slipped === "answer" ? [...warnings, `The answer is not in ${want}.`] : warnings);
     }
 
     // Retry once with the validator's findings.

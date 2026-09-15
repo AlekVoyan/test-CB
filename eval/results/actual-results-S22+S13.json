@@ -1,0 +1,648 @@
+{
+  "generatedAt": "2026-09-15T00:20:38.892Z",
+  "commit": "e2e3341 + uncommitted changes",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "mode": "full",
+  "deep": false,
+  "runs": 3,
+  "records": [
+    {
+      "run": 1,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "No, Model B cannot run at 15 units at 25°C; the exception allowing up to 15 units only applies when the ambient temperature is below 20°C.",
+        "reason": "The exception for Model B to operate up to 15 units is conditional on ambient temperature being below 20°C, which is not met at 25°C.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 4.4827090000001135,
+        "llmAttempts": [
+          2622.1719160000002
+        ],
+        "validation": 3.530833000000257,
+        "total": 2638.041792
+      },
+      "usage": {
+        "inputTokens": 2191,
+        "outputTokens": 238,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000281435
+    },
+    {
+      "run": 1,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, але не більше 5 хвилин при температурі нижче 20°C.",
+        "reason": "Виключення дозволяє тимчасове збільшення навантаження за певних умов.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          },
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.1149169999998776,
+        "llmAttempts": [
+          2659.8766250000003
+        ],
+        "validation": 3.356459000000541,
+        "total": 2671.066458
+      },
+      "usage": {
+        "inputTokens": 2194,
+        "outputTokens": 228,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00027769000000000003
+    },
+    {
+      "run": 2,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "No, Model B cannot run at 15 units at 25°C; the exception allowing up to 15 units only applies when the ambient temperature is below 20°C.",
+        "reason": "The exception for Model B to operate up to 15 units is limited to ambient temperatures below 20°C, so at 25°C the normal maximum load applies.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 2,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [
+            "attempt 1 (answered): The number 12 in the answer does not appear in any cited line or in the question. Lines that contain 12: [d1:p1:s4] Both models use the same 12 V power adapter, but they have different setup procedures and different load limits. [d1:p2:s4] Model B: the maximum load is 12 units under normal conditions. Cite the line that actually supports your statement, or remove the number."
+          ],
+          "rejectedAnswers": [
+            "attempt 1 (answered): No, Model B cannot run at 15 units at 25°C; the exception allowing up to 15 units only applies when the ambient temperature is below 20°C. · reason: The exception for Model B to operate up to 15 units is limited to ambient temperatures below 20°C, so at 25°C the normal maximum load of 12 units applies. · cites d1:p3:s3"
+          ]
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 3.010417000000416,
+        "llmAttempts": [
+          2626.480708,
+          13810.009583
+        ],
+        "validation": 2.6987929999995686,
+        "total": 16453.109584
+      },
+      "usage": {
+        "inputTokens": 4754,
+        "outputTokens": 482,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.0005968900000000001
+    },
+    {
+      "run": 2,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, але не більше 5 хвилин при температурі нижче 20°C.",
+        "reason": "За виключенням для Model B, дозволено тимчасове перевищення ліміту при певних умовах.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          },
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 5.427999999999884,
+        "llmAttempts": [
+          9671.137166
+        ],
+        "validation": 5.698625000000902,
+        "total": 9687.087625
+      },
+      "usage": {
+        "inputTokens": 2194,
+        "outputTokens": 232,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00027929000000000007
+    },
+    {
+      "run": 3,
+      "session": "S13",
+      "testId": "A6",
+      "type": "exception reasoning",
+      "priority": "P1",
+      "question": "Can Model B run at 15 units when it's 25°C?",
+      "expected": {
+        "status": "answered",
+        "answer": "No. The exception applies only below 20°C; otherwise Model B's maximum is 12 units.",
+        "mustInclude": [
+          [
+            "no",
+            "not",
+            "cannot",
+            "can't"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "No, Model B cannot run at 15 units at 25°C; the exception allowing up to 15 units only applies when ambient temperature is below 20°C.",
+        "reason": "The exception for Model B to operate up to 15 units is conditional on ambient temperature being below 20°C, which is not met at 25°C.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Can Model B run at 15 units when it's 25°C?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 1.907375000002503,
+        "llmAttempts": [
+          3125.5230830000037
+        ],
+        "validation": 0.5738750000018626,
+        "total": 3131.920875
+      },
+      "usage": {
+        "inputTokens": 2191,
+        "outputTokens": 231,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.000278635
+    },
+    {
+      "run": 3,
+      "session": "S22",
+      "testId": "L5",
+      "type": "exception (UA)",
+      "priority": "lang",
+      "question": "Чи може модель B перевищувати свій звичайний ліміт?",
+      "expected": {
+        "status": "answered",
+        "answer": "Так: модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.",
+        "mustInclude": [
+          [
+            "так",
+            "може"
+          ],
+          [
+            "15"
+          ],
+          [
+            "5"
+          ],
+          [
+            "20"
+          ]
+        ],
+        "mustNotInclude": [],
+        "sources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 3
+          }
+        ],
+        "allowedExtraSources": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2
+          }
+        ]
+      },
+      "actual": {
+        "status": "answered",
+        "basis": "inferred",
+        "answer": "Так, модель B може перевищувати свій звичайний ліміт 12 одиниць до 15 одиниць, якщо температура навколишнього середовища нижче 20°C, але не довше 5 хвилин.",
+        "reason": "За виключенням, Model B може працювати до 15 одиниць протягом не більше 5 хвилин при температурі нижче 20°C.",
+        "assumed": "",
+        "citations": [
+          {
+            "file": "manual-v1.pdf",
+            "page": 2,
+            "sentenceId": "d1:p2:s4",
+            "quote": "Model B: the maximum load is 12 units under normal conditions."
+          },
+          {
+            "file": "manual-v1.pdf",
+            "page": 3,
+            "sentenceId": "d1:p3:s3",
+            "quote": "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C."
+          }
+        ],
+        "related": [],
+        "resolvedQuery": "Чи може модель B перевищувати свій звичайний ліміт?",
+        "validation": {
+          "passed": true,
+          "attempts": 1,
+          "errors": [],
+          "warnings": [],
+          "retryReasons": [],
+          "rejectedAnswers": []
+        }
+      },
+      "scores": {
+        "factual": 1,
+        "citation": 1,
+        "reasoning": null,
+        "pass": true,
+        "critical": false,
+        "notes": []
+      },
+      "evidence": {
+        "mode": "full",
+        "units": 41,
+        "estimatedTokens": 607
+      },
+      "latencyMs": {
+        "retrieval": 2.332457999997132,
+        "llmAttempts": [
+          2392.944416999999
+        ],
+        "validation": 0.36216699999931734,
+        "total": 2396.699123999999
+      },
+      "usage": {
+        "inputTokens": 2194,
+        "outputTokens": 250,
+        "model": "nvidia/nemotron-3-super-120b-a12b"
+      },
+      "costUsd": 0.00028649000000000003
+    }
+  ],
+  "apiErrors": [],
+  "skipped": [],
+  "ingestions": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 408.8573329999999,
+      "indexMs": 0.5696669999999813
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 20.729499999999916,
+      "indexMs": 0.2543749999999818
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 22.51524999999947,
+      "indexMs": 1.3039580000004207
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 21.301625000000058,
+      "indexMs": 0.2940829999970447
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 17.247749999998632,
+      "indexMs": 0.4200410000012198
+    },
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "extractMs": 13.044999999998254,
+      "indexMs": 0.3822920000020531
+    }
+  ],
+  "ingestBench": [
+    {
+      "file": "manual-v1.pdf",
+      "pages": 3,
+      "ms": [
+        8.96387500000128,
+        6.056917000001704,
+        6.931250000001455,
+        6.442625000003318,
+        4.710750000005646
+      ]
+    },
+    {
+      "file": "manual-v2.pdf",
+      "pages": 3,
+      "ms": [
+        4.561125000000175,
+        4.627707999999984,
+        3.932291000004625,
+        3.788958000004641,
+        3.7119999999995343
+      ]
+    },
+    {
+      "file": "holdout-nimbus.pdf",
+      "pages": 2,
+      "ms": [
+        2.190583000003244,
+        2.4193339999983436,
+        2.0552089999982854,
+        1.7600000000020373,
+        2.1542090000002645
+      ]
+    }
+  ]
+}

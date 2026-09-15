@@ -46,6 +46,32 @@ function saysNotFound(answer: string): boolean {
   return (NEGATION_RE.test(answer) && ABOUT_DOCS_RE.test(answer)) || (NEGATION_CYR_RE.test(answer) && ABOUT_DOCS_CYR_RE.test(answer));
 }
 
+// A numbered heading of the documents: "6. Exceptions", "4.2 Cleaning". Short, and not ending like a sentence.
+const HEADING_NUMBER = /^(\d+(?:\.\d+)*)\.?\s+\p{L}/u;
+// A reference to a section by its number, in the three languages: "section 6", "в разделе 6", "у розділі 6", "п. 4".
+const SECTION_REFERENCE = /(?<!\p{L})(sections?|chapters?|раздел\p{L}*|глав\p{L}*|пункт\p{L}*|розділ\p{L}*|п\.|§)\s*№?\s*(\d+(?:\.\d+)*)/giu;
+
+function headingNumbers(evidenceById: Map<string, EvidenceUnit>): Set<string> {
+  const numbers = new Set<string>();
+  for (const unit of evidenceById.values()) {
+    const text = unit.text.trim();
+    const m = HEADING_NUMBER.exec(text);
+    if (m && text.length <= 80 && !/[.;:!?]$/u.test(text)) numbers.add(m[1]!);
+  }
+  return numbers;
+}
+
+/**
+ * The text with its references to the documents' own numbered sections taken out. "За винятком, зазначеним у розділі
+ * 6" says where a fact is, not a fact: answering L5 correctly, the model wrote that in its reason, the number rule
+ * rejected the answer twice, and the listener heard "couldn't verify". Only a section the documents really have is
+ * taken out — "section 9" in a manual without one is still an unsupported number — and only the reference itself, so
+ * "6 minutes" next to "section 6" is still checked.
+ */
+function withoutSectionReferences(text: string, headings: Set<string>): string {
+  return text.replace(SECTION_REFERENCE, (whole, word: string, number: string) => (headings.has(number) ? word : whole));
+}
+
 export interface ValidationContext {
   question: string;
   evidenceById: Map<string, EvidenceUnit>;
@@ -126,7 +152,8 @@ export function validateLlmAnswer(out: LlmAnswer, ctx: ValidationContext): Valid
     ...extractNumbers(ctx.question),
     ...[...cited, ...relatedUnits].flatMap((u) => [...extractNumbers(u.text), ...extractNumbers(u.filename)]),
   ]);
-  for (const n of extractNumbers(`${answer} ${inferred ? out.reason : ""}`)) {
+  const said = withoutSectionReferences(`${answer} ${inferred ? out.reason : ""}`, headingNumbers(ctx.evidenceById));
+  for (const n of extractNumbers(said)) {
     if (allowed.has(n)) continue;
     // Point the retry at the lines that do contain the number, so a mis-cited fact can be fixed.
     const holders = [...ctx.evidenceById.values()].filter((u) => extractNumbers(u.text).has(n));

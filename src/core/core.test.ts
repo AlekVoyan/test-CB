@@ -305,6 +305,25 @@ describe("validator", () => {
     // a mis-cited number: the retry hint names the line that holds it
     expect(check({ answer: "Model B handles 12 units.", citations: ["d1:p2:s2"] }).errors.join()).toMatch(/Lines that contain 12: \[d1:p2:s3\]/);
   });
+  it("reads a reference to one of the documents' numbered sections as a place, not a fact", () => {
+    const sections = new Map<string, EvidenceUnit>([
+      ...evidenceById,
+      ["d1:p3:s2", unit("d1:p3:s2", "6. Exceptions", "doc1", 3)],
+      ["d1:p3:s3", unit("d1:p3:s3", "Exception: Model B may operate up to 15 units for no more than 5 minutes when ambient temperature is below 20°C.", "doc1", 3)],
+    ]);
+    const run = (out: Partial<LlmAnswer>) =>
+      validateLlmAnswer({ ...BLANK, ...out }, { question: "Чи може модель B перевищувати свій звичайний ліміт?", evidenceById: sections, maxWords: 45, maxCitations: 3 });
+    const answer = "Так, модель B може працювати до 15 одиниць не довше 5 хвилин, якщо температура нижче 20°C.";
+    // The reported run's L5: a right answer whose reason named the section it came from.
+    expect(run({ answer, basis: "inferred", reason: "За винятком, зазначеним у розділі 6, до 15 одиниць нижче 20°C.", citations: ["d1:p3:s3"] }).errors).toEqual([]);
+    expect(run({ answer: "Да, согласно разделу 6: до 15 единиц не дольше 5 минут ниже 20°C.", citations: ["d1:p3:s3"] }).errors).toEqual([]);
+    expect(run({ answer: "Yes, see section 6: up to 15 units for 5 minutes below 20°C.", citations: ["d1:p3:s3"] }).errors).toEqual([]);
+    // A section the documents do not have is still an unsupported number.
+    expect(run({ answer: "Yes, see section 9: up to 15 units for 5 minutes below 20°C.", citations: ["d1:p3:s3"] }).errors.join()).toMatch(/number 9/);
+    // So is a fact that happens to share the section's number.
+    expect(run({ answer: "Yes, see section 6: up to 15 units for 6 minutes below 20°C.", citations: ["d1:p3:s3"] }).errors.join()).toMatch(/number 6/);
+  });
+
   it("allows numbers from the question and ignores 'the other one'", () => {
     expect(check({ answer: "No, not at 25 units.", citations: ["d1:p2:s2"] }, "Can Model A run at 25 units?").errors).toEqual([]);
     expect(check({ answer: "The other one handles 12 units.", citations: ["d1:p2:s3"] }).errors).toEqual([]);
